@@ -12,6 +12,13 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://agencyos:agencyos@localhost:5432/agencyos"
 
+    @property
+    def async_database_url(self) -> str:
+        url = self.DATABASE_URL
+        if url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return url
+
     # Redis
     REDIS_URL: str = "redis://localhost:6379"
 

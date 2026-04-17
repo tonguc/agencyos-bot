@@ -31,14 +31,14 @@ app = FastAPI(
     title="AgencyOS API",
     version="0.1.0",
     lifespan=lifespan,
-    docs_url="/docs" if settings.is_dev else None,
-    redoc_url="/redoc" if settings.is_dev else None,
-    openapi_url="/openapi.json" if settings.is_dev else None,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
