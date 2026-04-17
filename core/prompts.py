@@ -1,33 +1,29 @@
 """Merkezi Claude prompt şablonları. Tüm LLM çağrıları buradan import eder."""
 
 
-AUDIT_PROMPT = """Sen {display_name} sektorunde kidemli bir buyume danismanisin. Gorev: teknik rapor DEGIL, isletme sahibinin canini yakan bulgular bulmak.
+AUDIT_PROMPT = """Sen gelir odakli bir buyume operatoru olarak calisiyorsun. Gorev: {display_name} sektorundeki bu isletmeyi analiz et ve dogrudan satis kapatabilen bir zeka raporu uret. Teknik rapor degil, isletme sahibinin canini yakan SOMUT bulgular.
 
 ===========================
-SIKI KURALLAR (UYMAZSAN YANIT REDDEDILIR)
+SIKI KURALLAR
 ===========================
 
-1) KILLER_INSIGHT ZORUNLU KURALLARI:
-   - bulgu: spesifik bir arizadan bahsetmeli (neyin bozuk/eksik)
-   - etki: musteri/hasta/is kaybinin SAYISAL ifadesi (%X, N kisi/ay, N TL)
-   - rakam: yalniz rakam + birim (ornek: "%70", "15 hasta/ay", "3-5 is/hafta")
-   - bulgu + etki birlestiginde "Sorun -> Kayip -> Cozum" akisini saglamali
+YASAK KELIMELER → bu kelimeleri kullanirsan yanit reddedilir:
+{yasak_kelimeler}
+Ayrica su jenerik kaliplar da yasak: "zayif gorunuyor", "gelistirilebilir", "iyilestirme firsati", "elenebilirsiniz", "kaydirabilir", "potansiyel var".
 
-2) YASAK KELIMELER (kullanmak yanit iptali):
-   {yasak_kelimeler}
-   Jenerik ifadelerden kacin: "zayif gorunuyor", "geliştirilebilir", "iyilestirme firsati", "elenebilirsiniz", "kaydirabilir".
+RAKAM ZORUNLULUGU:
+- killer_insight.bulgu + etki + rakam: somut sayi icermeli (%X, N kisi/ay, N TL tahmini)
+- en_acitan_nokta: mutlaka bir rakam icermeli
+- kisisel_insight: isletme sahibinin "bunu nasil fark etti?" dedirtmeli, 1-2 cumle max
 
-3) EN_ACITAN_NOKTA:
-   - TEK CUMLE
-   - Bir rakam icermek ZORUNDA
-   - Isletme sahibinin "sikt-, gercekten kayip yasiyorum" dedirtmeli
-
-4) UX_HATALAR ve SEO_ACIKLAR:
-   - En az 1 UX ve 1 SEO bulgusu
-   - Her biri: sorun (somut), etki (sayisal), cozum (1 cumlelik quick win)
+DERINLIK KURALLARI:
+- ux_hatalar: en az 2, max 4 madde. siddet alani: "yuksek"/"orta"/"dusuk"
+- seo_aciklar: en az 2 madde
+- donusum_engelleri: en az 1 madde (CTA eksikligi, guven sinyali yoklugu vs.)
+- hizli_kazanimlar: 2-3 madde, max 1 haftada uygulanabilir quick win
 
 ===========================
-SEKTORE OZGU ORNEKLER (TARZ KOPYALANACAK, ICERIK DEGIL)
+SEKTORE OZGU TARZ ORNEKLERI (ICERIK DEGIL, TARZ KOPYALANACAK)
 ===========================
 {killer_ornekleri}
 
@@ -45,23 +41,46 @@ Meta: {meta}
 H1: {h1}
 
 ===========================
-CIKTI FORMATI
+CIKTI FORMATI — KESINLIKLE UYULACAK
 ===========================
 ILK KARAKTER `{{` OLMALI. SON KARAKTER `}}` OLMALI.
-Preamble, aciklama, markdown, kod blogu YASAK.
-Sadece valid JSON don, baska hicbir sey yazma.
+Preamble, aciklama, markdown, kod blogu KESINLIKLE YASAK.
+Sadece valid JSON don.
 
-Sema (alan isimleri aynen kullanilacak):
 {{
-  "killer_insight": {{"bulgu": "tek cumle, rakamli", "etki": "tek cumle, rakamli", "rakam": "%X veya N birim"}},
-  "ux_hatalar": [{{"sorun": "...", "etki": "...", "cozum": "..."}}],
-  "seo_aciklar": [{{"sorun": "...", "etki": "...", "cozum": "..."}}],
-  "reklam_firsati": {{"kanal": "Google Ads", "aciklama": "...", "rakip_durum": "yok|var|aktif"}},
-  "genel_skor": 45,
-  "en_acitan_nokta": "tek cumle, rakam icermeli"
+  "ilk_izlenim": {{
+    "ne_yapiyor": "3 saniyede anlasilan is tanimi",
+    "deger_onerisi": "net|belirsiz|yok",
+    "guven_seviyesi": "dusuk|orta|yuksek",
+    "ilk_surtunum": "ziyaretcinin karsilastigi ilk engel, tek cumle"
+  }},
+  "killer_insight": {{
+    "bulgu": "tek cumle, spesifik ariza",
+    "etki": "tek cumle, sayisal kayip ifadesi",
+    "rakam": "%X veya N birim"
+  }},
+  "ux_hatalar": [
+    {{"sorun": "...", "etki": "...", "siddet": "yuksek|orta|dusuk", "cozum": "1 cumlelik quick win"}}
+  ],
+  "seo_aciklar": [
+    {{"sorun": "...", "etki": "...", "cozum": "..."}}
+  ],
+  "donusum_engelleri": [
+    {{"engel": "...", "kayip": "tahmini kayip ifadesi"}}
+  ],
+  "hizli_kazanimlar": ["max 1 haftada yapilabilir fix #1", "fix #2", "fix #3"],
+  "reklam_firsati": {{
+    "kanal": "Google Ads|Meta Ads|Google LSA",
+    "aciklama": "...",
+    "rakip_durum": "yok|var|aktif"
+  }},
+  "skorlar": {{"ux": 0, "seo": 0, "donusum": 0}},
+  "urgency": "dusuk|orta|yuksek",
+  "lead_kalitesi": "soguk|ilik|sicak",
+  "genel_skor": 0,
+  "en_acitan_nokta": "tek cumle, rakam icermeli",
+  "kisisel_insight": "1-2 cumle, isletme sahibinin fark etmedigi somut gozlem"
 }}
-
-ux_hatalar ve seo_aciklar EN AZ 1 madde icermeli.
 """
 
 
@@ -88,32 +107,33 @@ TON: {ton}
 KESIN YASAK ACILIS: {giris_yasak}
 TERCIH EDILEN ACILIS: {giris_onerilen}
 HOOK TIPI: {hook_tip}
+LEAD KALITESI: {lead_kalitesi}
+URGENCY: {urgency}
 
 LEAD: {isim}
 HOOK CUMLESI: {hook_cumlesi}
-KILLER INSIGHT: {killer_bulgu}
-KILLER RAKAMI: {killer_rakam}
+KILLER INSIGHT: {killer_bulgu}  [{killer_rakam}]
 EN ACITAN NOKTA: {en_acitan}
+KISISEL GOZLEM: {kisisel_insight}
+ILCE/SEHIR: {adres}
 
 KURALLAR:
 - V1=MERAKLI: soru ile baslar, rakam icerir. Maks 6 satir.
 - V2=DOGRUDAN: hook cumlesi ile baslar, 1 veri parcasi. Maks 6 satir.
 - V3=NAZIK: ortak zemin + sorun + teklif. Maks 6 satir.
-- V4=PROOF_BASED: benzer klinik/uzman gozleminden baslar
-  ("Son donemde birkac klinik sitesine bakarken..." gibi).
-  "Sizde de benzer bir durum olabilir" tarzi yumusak gecis yap.
-  Audit'ten gelen 1 somut bulgu kullan (killer insight veya rakam).
+- V4=PROOF_BASED: benzer uzman gozleminden baslar
+  ("Son donemde birkac {sektor} sitesine bakarken..." gibi).
+  kisisel_gozlem'i dogal bir sekilde ic.
+  killer_insight'tan 1 somut bulgu kullan.
   Behance portfoyunu MUTLAKA ekle: behance.net/tonguc
-  CTA: "Isterseniz 2-3 somut madde paylasayim"
-       veya "Kisa bir mini analiz gondereyim".
+  CTA: "Isterseniz 2-3 somut madde paylasayim" veya "Kisa bir mini analiz gondereyim".
   Maks 5 satir.
-  V4 ICIN EK YASAK: "yardimci olabiliriz", "hizmet sunuyoruz",
-                    "cozum uretiyoruz", "ajansimiz".
+  V4 ICIN EK YASAK: "yardimci olabiliriz", "hizmet sunuyoruz", "cozum uretiyoruz", "ajansimiz".
 
 ORTAK KURALLAR:
 - Her versiyonda killer insight bir kez gecmeli
 - V1/V2/V3: 15 dk gorusme VEYA somut acik uclu soru ile bitmeli
-- Hicbir versiyon "zayif gorunuyor" / "elenebilirsiniz" gibi jenerik kaliplarla bitmemeli
+- Hicbir versiyon jenerik kaliplarla bitmemeli
 
 CIKTI:
 ILK KARAKTER `{{`, SON KARAKTER `}}`. Preamble/markdown YASAK.
@@ -188,11 +208,16 @@ def build_outreach_prompt(lead: dict, audit: dict, hook: dict, playbook: dict, v
         giris_yasak=out["giris_yasak"],
         giris_onerilen=out["giris_onerilen"],
         hook_tip=hook["tip"],
+        lead_kalitesi=audit.get("lead_kalitesi", "ilik"),
+        urgency=audit.get("urgency", "orta"),
         isim=lead.get("isim") or "",
+        adres=lead.get("adres") or "",
+        sektor=playbook.get("sektor", ""),
         hook_cumlesi=hook["hook"],
         killer_bulgu=killer.get("bulgu", ""),
         killer_rakam=killer.get("rakam", ""),
         en_acitan=audit.get("en_acitan_nokta", ""),
+        kisisel_insight=audit.get("kisisel_insight", ""),
         varsayilan_onerilen=varsayilan_onerilen,
     )
 

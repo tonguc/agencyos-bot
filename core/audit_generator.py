@@ -13,12 +13,19 @@ logger = logging.getLogger(__name__)
 PAGESPEED_URL = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed"
 
 FALLBACK_AUDIT = {
+    "ilk_izlenim": {"ne_yapiyor": "", "deger_onerisi": "belirsiz", "guven_seviyesi": "dusuk", "ilk_surtunum": ""},
     "killer_insight": {"bulgu": "Analiz yapilamadi", "etki": "", "rakam": ""},
     "ux_hatalar": [],
     "seo_aciklar": [],
+    "donusum_engelleri": [],
+    "hizli_kazanimlar": [],
     "reklam_firsati": {"kanal": "", "aciklama": "", "rakip_durum": "yok"},
+    "skorlar": {"ux": 0, "seo": 0, "donusum": 0},
+    "urgency": "dusuk",
+    "lead_kalitesi": "soguk",
     "genel_skor": 0,
     "en_acitan_nokta": "",
+    "kisisel_insight": "",
 }
 
 _DIGIT_RE = re.compile(r"\d")
@@ -111,11 +118,23 @@ def _validate_audit(audit: dict, playbook: dict) -> tuple[bool, list[str]]:
         warnings.append("ux_hatalar bos")
     if not audit.get("seo_aciklar"):
         warnings.append("seo_aciklar bos")
+    if not audit.get("kisisel_insight"):
+        warnings.append("kisisel_insight bos")
+
+    skorlar = audit.get("skorlar") or {}
+    if not isinstance(skorlar, dict) or not any(skorlar.get(k, 0) > 0 for k in ("ux", "seo", "donusum")):
+        warnings.append("skorlar eksik veya sifir")
+
+    if audit.get("lead_kalitesi") not in ("soguk", "ilik", "sicak"):
+        warnings.append("lead_kalitesi gecersiz deger")
+    if audit.get("urgency") not in ("dusuk", "orta", "yuksek"):
+        warnings.append("urgency gecersiz deger")
 
     yasak = [y.lower() for y in playbook.get("audit_dil_kurallari", {}).get("yasak", [])]
     if yasak:
         blob = " ".join([
             bulgu, killer.get("etki", "") or "", en_acitan,
+            audit.get("kisisel_insight", "") or "",
             *(h.get("sorun", "") for h in (audit.get("ux_hatalar") or [])),
             *(s.get("sorun", "") for s in (audit.get("seo_aciklar") or [])),
         ]).lower()
@@ -131,7 +150,7 @@ async def generate_audit(lead: dict, playbook: dict) -> dict:
         site = await fetch_site_data(lead.get("website") or "")
         prompt = build_audit_prompt(lead, playbook, site)
 
-        response = await claude_api_call(prompt, max_tokens=1800, temperature=0)
+        response = await claude_api_call(prompt, max_tokens=2800, temperature=0)
         result = safe_json_parse(response, fallback=dict(FALLBACK_AUDIT))
 
         for k, v in FALLBACK_AUDIT.items():

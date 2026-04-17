@@ -21,8 +21,12 @@ def format_icp_summary(result: dict) -> str:
 
 def format_audit(lead: dict, audit: dict, hook: dict) -> str:
     killer = audit.get("killer_insight") or {}
-    ux = (audit.get("ux_hatalar") or [{}])[0]
-    seo = (audit.get("seo_aciklar") or [{}])[0]
+    ilk = audit.get("ilk_izlenim") or {}
+    skorlar = audit.get("skorlar") or {}
+    ux_list = audit.get("ux_hatalar") or [{}]
+    seo_list = audit.get("seo_aciklar") or [{}]
+    donusum = audit.get("donusum_engelleri") or []
+    kazanimlar = audit.get("hizli_kazanimlar") or []
     page_id = lead.get("page_id") or ""
     warnings = audit.get("_validation_warnings") or []
 
@@ -35,29 +39,73 @@ def format_audit(lead: dict, audit: dict, hook: dict) -> str:
     if rakam:
         killer_line += f"  [{rakam}]"
 
+    urgency_emoji = {"yuksek": "🔴", "orta": "🟡", "dusuk": "🟢"}.get(audit.get("urgency", ""), "⚪")
+    kalite_emoji = {"sicak": "🔥", "ilik": "☀", "soguk": "❄"}.get(audit.get("lead_kalitesi", ""), "")
+
     lines = [
         f"AUDIT — {lead.get('isim', '-')}",
         "━━━━━━━━━━━━━━━━━━━━",
+    ]
+
+    if ilk.get("ne_yapiyor"):
+        guven = ilk.get("guven_seviyesi", "-")
+        deger = ilk.get("deger_onerisi", "-")
+        lines += [
+            f"ILK IZLENIM: {ilk['ne_yapiyor']}",
+            f"Deger onerisi: {deger}  |  Guven: {guven}",
+        ]
+        if ilk.get("ilk_surtunum"):
+            lines.append(f"Ilk surtunum: {ilk['ilk_surtunum']}")
+        lines.append("")
+
+    lines += [
         "KILLER INSIGHT:",
         f"• {killer_line}",
         "",
         f"HOOK ({hook.get('tip', '-')}):",
         f"• {hook.get('hook', '-')}",
         "",
-        "UX:",
-        f"• {ux.get('sorun', '-')}"
-        + (f" → {ux.get('etki')}" if ux.get('etki') else "")
-        + (f" | {ux.get('cozum')}" if ux.get('cozum') else ""),
-        "SEO:",
-        f"• {seo.get('sorun', '-')}"
-        + (f" → {seo.get('etki')}" if seo.get('etki') else "")
-        + (f" | {seo.get('cozum')}" if seo.get('cozum') else ""),
-        "",
-        f"En acitan nokta: {audit.get('en_acitan_nokta', '-')}",
-        f"Genel skor: {audit.get('genel_skor', 0)}/100",
+        "UX SORUNLARI:",
     ]
+    for ux in ux_list[:3]:
+        siddet = f"[{ux.get('siddet', '')}] " if ux.get("siddet") else ""
+        line = f"• {siddet}{ux.get('sorun', '-')}"
+        if ux.get("etki"):
+            line += f" → {ux['etki']}"
+        if ux.get("cozum"):
+            line += f"\n  Fix: {ux['cozum']}"
+        lines.append(line)
+
+    lines += ["", "SEO ACIKLARI:"]
+    for seo in seo_list[:2]:
+        line = f"• {seo.get('sorun', '-')}"
+        if seo.get("etki"):
+            line += f" → {seo['etki']}"
+        if seo.get("cozum"):
+            line += f"\n  Fix: {seo['cozum']}"
+        lines.append(line)
+
+    if donusum:
+        lines += ["", "DONUSUM ENGELI:"]
+        for d in donusum[:2]:
+            lines.append(f"• {d.get('engel', '-')} → {d.get('kayip', '')}")
+
+    if kazanimlar:
+        lines += ["", "HIZLI KAZANIMLAR (max 1 hafta):"]
+        for k in kazanimlar[:3]:
+            lines.append(f"• {k}")
+
+    lines += [
+        "",
+        f"Skor → UX:{skorlar.get('ux', 0)}  SEO:{skorlar.get('seo', 0)}  Donusum:{skorlar.get('donusum', 0)}  Genel:{audit.get('genel_skor', 0)}/100",
+        f"{urgency_emoji} Urgency: {audit.get('urgency', '-')}  {kalite_emoji} Lead: {audit.get('lead_kalitesi', '-')}",
+        "",
+        f"En acitan: {audit.get('en_acitan_nokta', '-')}",
+    ]
+    if audit.get("kisisel_insight"):
+        lines += ["", f"Kisisel gozlem: {audit['kisisel_insight']}"]
     if warnings:
-        lines += ["", f"⚠ Uyari: {', '.join(warnings[:3])}"]
+        lines += ["", f"⚠ {', '.join(warnings[:3])}"]
     lines += ["", f"Sonraki adim: /mesaj {page_id}".rstrip()]
     return "\n".join(lines)
 
