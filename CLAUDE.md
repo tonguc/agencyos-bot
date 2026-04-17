@@ -162,7 +162,7 @@ Framework glue tamamen `routes/`, `jobs/`, `telegram/` katmanlarında.
 | 7 | Pipeline + Lead listesi ekranları | ✅ Tamamlandı |
 | 8 | Lead detay (audit/outreach/proposal/history) | ✅ Tamamlandı |
 | 9 | Telegram bot → FastAPI refactor | ✅ Tamamlandı |
-| 10 | Docker + deploy | ⏳ |
+| 10 | Docker + deploy | ✅ Tamamlandı |
 
 ---
 

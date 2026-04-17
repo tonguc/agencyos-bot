@@ -1,0 +1,102 @@
+services:
+
+  # ── Infrastructure ──────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: agencyos
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agencyos}
+      POSTGRES_DB: agencyos
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agencyos"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── Backend API ─────────────────────────────────────────────────────
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://agencyos:${POSTGRES_PASSWORD:-agencyos}@postgres:5432/agencyos
+      REDIS_URL: redis://redis:6379
+      APP_ENV: production
+    ports:
+      - "8000:8000"
+    volumes:
+      - proposals:/app/proposals
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── ARQ Worker ──────────────────────────────────────────────────────
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://agencyos:${POSTGRES_PASSWORD:-agencyos}@postgres:5432/agencyos
+      REDIS_URL: redis://redis:6379
+      APP_ENV: production
+    entrypoint: ["arq", "jobs.worker.WorkerSettings"]
+    volumes:
+      - proposals:/app/proposals
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── Frontend ────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+        NEXT_PUBLIC_API_KEY: ${AGENCYOS_API_KEY:-changeme}
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+  # ── Telegram Bot ────────────────────────────────────────────────────
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile.bot
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      AGENCYOS_API_URL: http://api:8000
+    depends_on:
+      - api
+    profiles:
+      - bot   # run only when needed: docker compose --profile bot up
+
+volumes:
+  postgres_data:
+  redis_data:
+  proposals:

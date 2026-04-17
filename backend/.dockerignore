@@ -1,0 +1,9 @@
+__pycache__
+*.pyc
+*.pyo
+.env
+.env.*
+*.log
+.pytest_cache
+.mypy_cache
+proposals/
