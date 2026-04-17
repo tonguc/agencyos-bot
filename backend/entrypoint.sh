@@ -2,6 +2,7 @@
 echo "=== ENTRYPOINT STARTED ==="
 echo "PORT=${PORT}"
 echo "DATABASE_URL prefix: $(echo $DATABASE_URL | cut -c1-30)"
+echo "REDIS_URL prefix: $(echo $REDIS_URL | cut -c1-30)"
 echo "=== Running alembic ==="
 alembic upgrade head
 EXIT_CODE=$?

@@ -20,7 +20,10 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("AgencyOS API başlıyor | env=%s", settings.APP_ENV)
-    app.state.arq_pool = await create_pool(RedisSettings.from_dsn(settings.REDIS_URL))
+    redis_url = settings.REDIS_URL
+    if not redis_url.startswith(("redis://", "rediss://", "unix://")):
+        redis_url = "redis://" + redis_url
+    app.state.arq_pool = await create_pool(RedisSettings.from_dsn(redis_url))
     yield
     await app.state.arq_pool.aclose()
     await engine.dispose()
