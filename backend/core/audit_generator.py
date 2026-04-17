@@ -168,4 +168,5 @@ async def generate_audit(lead: dict, playbook: dict) -> dict:
             "Audit tamamlandi: %s | skor=%s | uyari=%d",
             lead.get("isim"), result.get("genel_skor", 0), len(warnings),
         )
+        result["_site_data"] = site  # passed through for service layer to persist
         return result

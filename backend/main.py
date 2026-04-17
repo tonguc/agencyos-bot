@@ -8,6 +8,7 @@ from config import settings
 from database import engine
 from logging_config import setup_logging
 from middleware.auth import APIKeyMiddleware
+from api.router import api_router
 from api.routes import health
 
 setup_logging(level=settings.LOG_LEVEL, log_file=settings.LOG_FILE)
@@ -41,3 +42,4 @@ app.add_middleware(
 app.add_middleware(APIKeyMiddleware)
 
 app.include_router(health.router)
+app.include_router(api_router)
