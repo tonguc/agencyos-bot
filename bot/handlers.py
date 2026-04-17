@@ -14,6 +14,7 @@ from core.opportunity_scorer import score_opportunity
 from core.audit_generator import generate_audit
 from core.hook_engine import select_and_generate_hook
 from core.outreach_writer import write_outreach, write_followup
+from core.proposal_generator import generate_proposal
 from crm.notion_client import (
     create_lead,
     update_lead,
@@ -28,6 +29,7 @@ from bot.formatters import (
     format_outreach,
     format_pipeline,
     format_yardim,
+    format_teklif_summary,
 )
 
 logger = logging.getLogger(__name__)
@@ -350,6 +352,65 @@ async def handle_followup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     mesaj = await write_followup(lead, gun, lead.get("gonderilen_mesaj") or "", playbook)
     await update_lead(page_id, {"notlar": f"[followup gun={gun}] {mesaj}"})
     await update.message.reply_text(f"Followup (gun {gun}):\n\n{mesaj}")
+
+
+async def handle_teklif(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await _guard(update):
+        return
+    args = context.args or []
+    if not args:
+        await update.message.reply_text("Kullanim: /teklif <lead_id>")
+        return
+
+    page_id = args[0]
+    await _typing(update, context)
+    await update.message.reply_text("Teklif hazirlaniyor... (15-30 sn surebilir)")
+
+    lead = await get_lead(page_id)
+    if not lead:
+        await update.message.reply_text(f"Lead bulunamadi: {page_id}")
+        return
+
+    try:
+        playbook = load_playbook(lead.get("sektor") or "klinik")
+    except (FileNotFoundError, ValueError) as e:
+        await update.message.reply_text(f"Playbook hatasi: {e}")
+        return
+
+    import json as _json4
+    audit: dict = {}
+    raw = lead.get("audit_ozeti") or ""
+    try:
+        if raw:
+            audit = _json4.loads(raw)
+    except _json4.JSONDecodeError:
+        pass
+    if not audit or not audit.get("killer_insight", {}).get("bulgu"):
+        audit = _synthetic_audit(lead)
+
+    try:
+        pdf_path, content = await generate_proposal(lead, audit, playbook)
+    except Exception as e:
+        logger.exception("Teklif PDF hatasi: %s", e)
+        await update.message.reply_text(f"PDF uretme hatasi: {e}")
+        return
+
+    await update_lead(page_id, {"durum": "Teklif"})
+
+    import os as _os
+    try:
+        with open(pdf_path, "rb") as f:
+            await update.message.reply_document(
+                document=f,
+                filename=_os.path.basename(pdf_path),
+                caption=format_teklif_summary(lead, content),
+            )
+    finally:
+        try:
+            _os.remove(pdf_path)
+            _os.rmdir(_os.path.dirname(pdf_path))
+        except Exception:
+            pass
 
 
 async def handle_durum(update: Update, context: ContextTypes.DEFAULT_TYPE):

@@ -128,6 +128,18 @@ def format_outreach(lead: dict, hook_tipi: str, msgs: dict) -> str:
     ])
 
 
+def format_teklif_summary(lead: dict, content: dict) -> str:
+    lines = [
+        f"Teklif hazir: {lead.get('isim', '-')}",
+        f"{content.get('paket_adi', '')} — {content.get('fiyat_araligi', '')}",
+        "",
+        content.get("neden_simdi", ""),
+        "",
+        content.get("cta", ""),
+    ]
+    return "\n".join(l for l in lines if l is not None)
+
+
 def format_pipeline(counts: dict) -> str:
     return "\n".join([
         "Pipeline Durumu:",
@@ -141,12 +153,13 @@ def format_pipeline(counts: dict) -> str:
 
 def format_yardim() -> str:
     return "\n".join([
-        "Phase 1A Komutlari:",
+        "AgencyOS Komutlari:",
         "/lead <sektor> <sehir> [ilce] [limit=20] — Google Maps'ten lead topla",
-        "/audit <lead_id | toplu>              — Lead icin audit + hook uret",
-        "/mesaj <lead_id>                      — 3 versiyon outreach mesaji uret",
-        "/gonder <lead_id> <v1|v2|v3>          — Secilen versiyonu gonderildi olarak kaydet",
+        "/audit <lead_id | toplu>              — Lead icin derin audit + hook uret",
+        "/mesaj <lead_id>                      — 4 versiyon outreach mesaji uret",
+        "/gonder <lead_id> <v1|v2|v3|v4>       — Secilen versiyonu gonderildi kaydet",
         "/followup <lead_id>                   — Takip mesaji uret",
+        "/teklif <lead_id>                     — Kisisel PDF teklif olustur ve gonder",
         "/durum                                — Pipeline ozeti",
         "/yardim                               — Bu menu",
     ])
