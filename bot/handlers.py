@@ -29,7 +29,6 @@ from bot.formatters import (
     format_pipeline,
     format_yardim,
 )
-from core.netgsm_client import send_sms, is_configured as netgsm_configured
 
 logger = logging.getLogger(__name__)
 
@@ -287,18 +286,6 @@ async def handle_mesaj(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     msgs = await write_outreach(lead, audit, hook, playbook)
 
-    import json as _json2
-    await update_lead(
-        page_id,
-        {
-            "notlar": _json2.dumps(
-                {"mesajlar": {k: msgs[k] for k in ("v1", "v2", "v3", "v4") if k in msgs},
-                 "hook": hook["hook"], "hook_tip": hook["tip"]},
-                ensure_ascii=False,
-            )
-        },
-    )
-
     prefix = "ℹ Not: Audit kaydi yok, lead bilgisinden uretildi.\n\n" if synthetic else ""
     await update.message.reply_text(prefix + format_outreach(lead, hook["tip"], msgs))
 
@@ -314,58 +301,20 @@ async def handle_gonder(update: Update, context: ContextTypes.DEFAULT_TYPE):
     page_id, versiyon = args[0], args[1]
     await _typing(update, context)
 
-    lead = await get_lead(page_id)
-    if not lead:
-        await update.message.reply_text(f"Lead bulunamadi: {page_id}")
-        return
-
-    import json as _json3
-    mesaj_metni: str | None = None
-    notlar_raw = lead.get("notlar") or ""
-    try:
-        notlar = _json3.loads(notlar_raw)
-        mesaj_metni = (notlar.get("mesajlar") or {}).get(versiyon)
-    except (_json3.JSONDecodeError, AttributeError):
-        pass
-
-    telefon = lead.get("telefon")
-    sms_sonuc: dict | None = None
-
-    if mesaj_metni and telefon:
-        if netgsm_configured():
-            sms_sonuc = await send_sms(telefon, mesaj_metni)
-        else:
-            sms_sonuc = {"success": False, "message": "NetGSM yapılandırılmamış (.env eksik)"}
-    elif not mesaj_metni:
-        sms_sonuc = {"success": False, "message": "Mesaj metni bulunamadi — once /mesaj calistirin"}
-    elif not telefon:
-        sms_sonuc = {"success": False, "message": "Telefon numarasi kayitli degil"}
-
-    gonderim_notu = (
-        f"[{versiyon}] SMS gonderildi @ {datetime.now(timezone.utc).isoformat()}"
-        if (sms_sonuc and sms_sonuc["success"])
-        else f"[{versiyon}] manuel @ {datetime.now(timezone.utc).isoformat()}"
-    )
-
     ok = await update_lead(
         page_id,
         {
             "durum": "Mesaj",
             "mesaj_versiyonu": versiyon,
-            "gonderilen_mesaj": gonderim_notu,
+            "gonderilen_mesaj": f"[{versiyon}] gonderildi @ {datetime.now(timezone.utc).isoformat()}",
         },
     )
-
-    if sms_sonuc and sms_sonuc["success"]:
-        reply = f"SMS gönderildi ({versiyon}). 3 gun sonra: /followup {page_id}"
-    elif sms_sonuc:
-        reply = f"SMS gonderilemedi: {sms_sonuc['message']}\nKaydedildi (manuel olarak gonderin). 3 gun sonra: /followup {page_id}"
-    elif ok:
-        reply = f"Kaydedildi. 3 gun sonra: /followup {page_id}"
+    if ok:
+        await update.message.reply_text(
+            f"Kaydedildi. 3 gun sonra: /followup {page_id}"
+        )
     else:
-        reply = "Kaydedilemedi — log'a bak."
-
-    await update.message.reply_text(reply)
+        await update.message.reply_text("Kaydedilemedi — log'a bak.")
 
 
 async def handle_followup(update: Update, context: ContextTypes.DEFAULT_TYPE):
