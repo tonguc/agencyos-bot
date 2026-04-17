@@ -1,0 +1,138 @@
+import type {
+  AppSettings,
+  Audit,
+  Job,
+  JobResponse,
+  Lead,
+  LeadListResponse,
+  OutreachMessage,
+  PipelineCounts,
+  Proposal,
+} from "@/types";
+
+const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API_KEY = process.env.NEXT_PUBLIC_API_KEY ?? "changeme";
+
+async function request<T>(
+  path: string,
+  init: RequestInit = {}
+): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      "X-API-Key": API_KEY,
+      ...init.headers,
+    },
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    throw new Error(`${res.status} ${text}`);
+  }
+  return res.json() as Promise<T>;
+}
+
+// ── Leads ──────────────────────────────────────────────────────────────
+export const leadsApi = {
+  list: (params?: {
+    sector?: string;
+    status?: string;
+    priority?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.sector) q.set("sector", params.sector);
+    if (params?.status) q.set("status", params.status);
+    if (params?.priority) q.set("priority", params.priority);
+    if (params?.search) q.set("search", params.search);
+    if (params?.limit !== undefined) q.set("limit", String(params.limit));
+    if (params?.offset !== undefined) q.set("offset", String(params.offset));
+    const qs = q.toString();
+    return request<LeadListResponse>(`/api/leads${qs ? `?${qs}` : ""}`);
+  },
+
+  get: (id: string) => request<Lead>(`/api/leads/${id}`),
+
+  create: (body: Partial<Lead>) =>
+    request<Lead>("/api/leads", { method: "POST", body: JSON.stringify(body) }),
+
+  update: (id: string, body: Partial<Lead>) =>
+    request<Lead>(`/api/leads/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+
+  delete: (id: string) =>
+    fetch(`${BASE}/api/leads/${id}`, {
+      method: "DELETE",
+      headers: { "X-API-Key": API_KEY },
+    }),
+
+  pipeline: () => request<PipelineCounts>("/api/leads/pipeline"),
+};
+
+// ── Audit ──────────────────────────────────────────────────────────────
+export const auditApi = {
+  trigger: (leadId: string) =>
+    request<JobResponse>(`/api/leads/${leadId}/audit`, { method: "POST" }),
+
+  get: (leadId: string) => request<Audit>(`/api/leads/${leadId}/audit`),
+};
+
+// ── Outreach ───────────────────────────────────────────────────────────
+export const outreachApi = {
+  trigger: (leadId: string) =>
+    request<JobResponse>(`/api/leads/${leadId}/outreach`, { method: "POST" }),
+
+  get: (leadId: string) =>
+    request<OutreachMessage>(`/api/leads/${leadId}/outreach`),
+
+  markSent: (leadId: string, outreachId: string, version: string, channel: string) =>
+    request<OutreachMessage>(
+      `/api/leads/${leadId}/outreach/${outreachId}/send`,
+      { method: "PATCH", body: JSON.stringify({ version, channel }) }
+    ),
+
+  followup: (leadId: string) =>
+    request<{ text: string }>(`/api/leads/${leadId}/followup`, { method: "POST" }),
+};
+
+// ── Proposals ──────────────────────────────────────────────────────────
+export const proposalApi = {
+  trigger: (leadId: string) =>
+    request<JobResponse>(`/api/leads/${leadId}/proposal`, { method: "POST" }),
+
+  get: (leadId: string) => request<Proposal>(`/api/leads/${leadId}/proposal`),
+
+  pdfUrl: (proposalId: string) => `${BASE}/api/proposals/${proposalId}/pdf`,
+};
+
+// ── Jobs ───────────────────────────────────────────────────────────────
+export const jobsApi = {
+  list: (status?: string) => {
+    const q = status ? `?status=${status}` : "";
+    return request<Job[]>(`/api/jobs${q}`);
+  },
+
+  get: (id: string) => request<Job>(`/api/jobs/${id}`),
+
+  streamUrl: (id: string) => `${BASE}/api/jobs/${id}/stream`,
+};
+
+// ── Scrape ─────────────────────────────────────────────────────────────
+export const scrapeApi = {
+  run: (sector: string, city: string, district: string, limit: number) =>
+    request<JobResponse>("/api/scrape", {
+      method: "POST",
+      body: JSON.stringify({ sector, city, district, limit }),
+    }),
+};
+
+// ── Settings ───────────────────────────────────────────────────────────
+export const settingsApi = {
+  get: () => request<AppSettings>("/api/settings"),
+  testClaude: () => request<{ ok: boolean; message: string }>("/api/settings/test/claude", { method: "POST" }),
+  testApify: () => request<{ ok: boolean; message: string }>("/api/settings/test/apify", { method: "POST" }),
+};
