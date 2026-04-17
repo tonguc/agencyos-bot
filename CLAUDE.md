@@ -159,8 +159,8 @@ Framework glue tamamen `routes/`, `jobs/`, `telegram/` katmanlarında.
 | 4 | REST API routes (sync stub, Postman test) | ✅ Tamamlandı |
 | 5 | Job queue (ARQ, async, SSE/WebSocket) | ✅ Tamamlandı |
 | 6 | Frontend shell (Next.js, shadcn/ui, API client) | ✅ Tamamlandı |
-| 7 | Pipeline + Lead listesi ekranları | ⏳ |
-| 8 | Lead detay (audit/outreach/proposal/history) | ⏳ |
+| 7 | Pipeline + Lead listesi ekranları | ✅ Tamamlandı |
+| 8 | Lead detay (audit/outreach/proposal/history) | ✅ Tamamlandı |
 | 9 | Telegram bot → FastAPI refactor | ⏳ |
 | 10 | Docker + deploy | ⏳ |
 

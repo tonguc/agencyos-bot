@@ -1,61 +1,121 @@
 import { Header } from "@/components/layout/header";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import type { Lead } from "@/types";
 
-const STAGES = [
-  "Yeni", "Audit", "Mesaj", "Cevap", "Demo", "Teklif", "Kapandi", "Soguk",
+const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const KEY = process.env.NEXT_PUBLIC_API_KEY ?? "changeme";
+const hdrs = { "X-API-Key": KEY };
+
+const STAGES: { name: string; color: string }[] = [
+  { name: "Yeni",     color: "border-l-blue-400" },
+  { name: "Audit",    color: "border-l-violet-400" },
+  { name: "Mesaj",    color: "border-l-yellow-400" },
+  { name: "Cevap",    color: "border-l-orange-400" },
+  { name: "Demo",     color: "border-l-pink-400" },
+  { name: "Teklif",   color: "border-l-emerald-400" },
+  { name: "Kapandi",  color: "border-l-green-500" },
+  { name: "Soguk",    color: "border-l-slate-300" },
 ];
 
 async function getPipelineCounts() {
   try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/leads/pipeline`,
-      {
-        headers: { "X-API-Key": process.env.NEXT_PUBLIC_API_KEY ?? "changeme" },
-        cache: "no-store",
-      }
-    );
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data.counts as Record<string, number>;
-  } catch {
-    return null;
-  }
+    const r = await fetch(`${API}/api/leads/pipeline`, { headers: hdrs, cache: "no-store" });
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d.counts as Record<string, number>;
+  } catch { return null; }
+}
+
+async function getHotLeads(): Promise<Lead[]> {
+  try {
+    const r = await fetch(`${API}/api/leads?status=Yeni&limit=5`, { headers: hdrs, cache: "no-store" });
+    if (!r.ok) return [];
+    const d = await r.json();
+    const items: Lead[] = d.items ?? [];
+    return items
+      .filter((l) => (l.opportunity_score ?? 0) > 0)
+      .sort((a, b) => (b.opportunity_score ?? 0) - (a.opportunity_score ?? 0))
+      .slice(0, 5);
+  } catch { return []; }
 }
 
 export default async function PipelinePage() {
-  const counts = await getPipelineCounts();
+  const [counts, hotLeads] = await Promise.all([getPipelineCounts(), getHotLeads()]);
+  const total = counts ? Object.values(counts).reduce((s, n) => s + n, 0) : 0;
 
   return (
     <div className="flex flex-col flex-1">
       <Header
         title="Pipeline"
-        description="Lead'lerin aşamalara göre dağılımı"
+        description={counts ? `Toplam ${total} lead` : "Lead pipeline"}
       />
-      <div className="p-6">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {STAGES.map((stage) => (
-            <Link key={stage} href={`/leads?status=${stage}`}>
-              <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between">
-                    <Badge value={stage} />
-                  </div>
-                  <p className="mt-3 text-3xl font-bold text-slate-900">
-                    {counts ? (counts[stage] ?? 0) : "—"}
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1">lead</p>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
 
+      <div className="p-6 space-y-6">
         {!counts && (
-          <p className="mt-6 text-sm text-slate-400 text-center">
-            API'ye bağlanılamadı. Backend çalışıyor mu?
-          </p>
+          <p className="text-sm text-slate-400 text-center py-10">API'ye bağlanılamadı. Backend çalışıyor mu?</p>
+        )}
+
+        {/* Stage cards */}
+        {counts && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {STAGES.map(({ name, color }) => {
+              const count = counts[name] ?? 0;
+              return (
+                <Link key={name} href={`/leads?status=${name}`}>
+                  <Card className={`border-l-4 ${color} hover:shadow-md transition-all cursor-pointer`}>
+                    <CardContent className="p-4">
+                      <Badge value={name} className="mb-2" />
+                      <p className="text-2xl font-bold text-slate-900">{count}</p>
+                      <div className="mt-2 h-1 w-full rounded-full bg-slate-100">
+                        <div
+                          className="h-full rounded-full bg-slate-300"
+                          style={{ width: total > 0 ? `${(count / total) * 100}%` : "0%" }}
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Hot leads */}
+        {hotLeads.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Öne Çıkan Lead&apos;ler</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <ul className="divide-y divide-slate-100">
+                {hotLeads.map((lead) => (
+                  <li key={lead.id}>
+                    <Link
+                      href={`/leads/${lead.id}`}
+                      className="flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition-colors"
+                    >
+                      <div>
+                        <p className="font-medium text-slate-800 text-sm">{lead.name}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {lead.sector} · {lead.city}
+                          {lead.google_rating ? ` · ⭐ ${lead.google_rating}` : ""}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <p className="text-xs text-slate-500">Fırsat</p>
+                          <p className="font-bold text-slate-800 text-sm">{lead.opportunity_score ?? "—"}</p>
+                        </div>
+                        <Badge value={lead.status} />
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>
