@@ -1,24 +1,32 @@
 import uuid
 
+from arq import ArqRedis
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
+from jobs.pool import get_arq_pool
 from repositories.audit import AuditRepository
+from repositories.job import JobRepository
 from schemas.audit import AuditOut
 from schemas.common import JobResponse
-from services.audit_service import run_audit
 
 router = APIRouter(prefix="/leads", tags=["audit"])
 
 
 @router.post("/{lead_id}/audit", response_model=JobResponse)
-async def trigger_audit(lead_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    try:
-        audit = await run_audit(lead_id, db)
-    except ValueError as e:
-        raise HTTPException(404, str(e))
-    return JobResponse(job_id=audit.id, status="completed", result=AuditOut.model_validate(audit).model_dump())
+async def trigger_audit(
+    lead_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    arq: ArqRedis = Depends(get_arq_pool),
+):
+    job = await JobRepository(db).create(
+        type="generate_audit",
+        payload={"lead_id": str(lead_id)},
+    )
+    await db.commit()
+    await arq.enqueue_job("run_audit_job", str(lead_id), str(job.id))
+    return JobResponse(job_id=job.id, status="pending", result=None)
 
 
 @router.get("/{lead_id}/audit", response_model=AuditOut)

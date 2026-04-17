@@ -1,6 +1,8 @@
 import logging
 from contextlib import asynccontextmanager
 
+from arq import create_pool
+from arq.connections import RedisSettings
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -18,7 +20,9 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("AgencyOS API başlıyor | env=%s", settings.APP_ENV)
+    app.state.arq_pool = await create_pool(RedisSettings.from_dsn(settings.REDIS_URL))
     yield
+    await app.state.arq_pool.aclose()
     await engine.dispose()
     logger.info("AgencyOS API durdu.")
 
