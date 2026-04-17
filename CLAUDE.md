@@ -155,7 +155,7 @@ Framework glue tamamen `routes/`, `jobs/`, `telegram/` katmanlarında.
 |---|------|-------|
 | 1 | Backend foundation (FastAPI, config, DB, Alembic, auth) | ✅ Tamamlandı |
 | 2 | ORM modelleri + repository pattern + migration | ✅ Tamamlandı |
-| 3 | Core taşıma (Notion kaldır, service layer) | 🔄 Sıradaki |
+| 3 | Core taşıma (Notion kaldır, service layer) | ✅ Tamamlandı |
 | 4 | REST API routes (sync stub, Postman test) | ⏳ |
 | 5 | Job queue (ARQ, async, SSE/WebSocket) | ⏳ |
 | 6 | Frontend shell (Next.js, shadcn/ui, API client) | ⏳ |

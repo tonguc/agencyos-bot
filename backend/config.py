@@ -24,6 +24,15 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     LOG_FILE: str = "agencyos.log"
 
+    # Lead filtering
+    ICP_STRICT_MODE: bool = False
+
+    # Claude model
+    CLAUDE_MODEL: str = "claude-sonnet-4-6"
+
+    # Playbooks directory (relative to backend/)
+    PLAYBOOKS_DIR: str = "playbooks"
+
     @property
     def is_dev(self) -> bool:
         return self.APP_ENV == "development"

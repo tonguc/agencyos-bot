@@ -1,0 +1,68 @@
+{
+  "sektor": "klinik",
+  "display_name": "Klinik ve Muayenehane",
+  "kpi_listesi": ["aylik hasta sayisi", "randevu dolulugu", "online gorunurluk"],
+
+  "icp_filtre": {
+    "yorum_min": 0,
+    "yorum_max": 500,
+    "puan_max": 5.0,
+    "oncelikli_ilceler": ["Kadikoy", "Sisli", "Besiktas", "Uskudar", "Maltepe"],
+    "site_durumu_kabul": ["yok", "zayif"],
+    "eleme_kriterleri": []
+  },
+
+  "hook_mantigi": {
+    "ana_kayip_birimi": "hasta",
+    "dusuk_aralik": "10-20 hasta/ay",
+    "orta_aralik": "20-40 hasta/ay",
+    "yuksek_aralik": "40-80 hasta/ay",
+    "varsayilan_guven": 65
+  },
+
+  "hook_tipleri": {
+    "data_hook": {
+      "aciklama": "Rakip sayisi / piyasa verisi ile dikkat cek",
+      "sablon": "{ilce} bolgesinde {rakip_sayi} rakip Google Ads yapiyor, siz yapmiyorsunuz.",
+      "tetikleyici": "audit.reklam_firsati.rakip_durum == aktif"
+    },
+    "gap_hook": {
+      "aciklama": "Gorunurluk veya siralama acigi",
+      "sablon": "Google aramada {ilce} {sektor} icin gozukmuyorsunuz.",
+      "tetikleyici": "lead.website mevcut AND audit.genel_skor < 50"
+    },
+    "money_hook": {
+      "aciklama": "Tahmini aylik kayip — fallback",
+      "sablon": "Bu gorunurlukle aylik {min}-{max} hasta kaciyor olabilir. (%{guven} guven)",
+      "tetikleyici": "her zaman — fallback"
+    },
+    "tercih_sirasi": ["data_hook", "gap_hook", "money_hook"]
+  },
+
+  "audit_kriterleri": [
+    {"id": "maps", "soru": "Google Maps profili aktif ve fotografli mi?", "agirlik": 25},
+    {"id": "form", "soru": "Online randevu formu mobilde calisiyor mu?", "agirlik": 25},
+    {"id": "seo",  "soru": "Ilce + sektor aramasinda ilk sayfada mi?", "agirlik": 20},
+    {"id": "ads",  "soru": "Rakipler Google Ads yapiyor mu?", "agirlik": 20},
+    {"id": "yorum","soru": "Yorum sayisi 20+ ve puan 4.5+ mi?", "agirlik": 10}
+  ],
+
+  "audit_dil_kurallari": {
+    "yasak": ["tespit edildi", "mevcut degil", "onerilir"],
+    "zorunlu_format": "Sorun → Kayip etkisi → Kisa cozum",
+    "killer_insight_zorunlu": true
+  },
+
+  "outreach": {
+    "kanal": "WhatsApp",
+    "ton": "guven veren, cozum odakli, satis baskisi yok",
+    "giris_yasak": ["Ajansim var", "hizmet sunuyorum", "size ulasmak istedim"],
+    "giris_onerilen": ["sitenize baktim", "fark ettim ki", "dikkatimi cekti"]
+  },
+
+  "killer_insight_ornekleri": [
+    "Mobilde randevu formu acilmiyor — hastalarin %70i telefondan geliyor",
+    "Google Maps 3. sayfada — rakipler ilk 3te, siz gozukmuyorsunuz",
+    "6 aydir yorum yok — Google aktif klinikleri one cikariyor"
+  ]
+}
