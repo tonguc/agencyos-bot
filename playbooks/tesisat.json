@@ -1,0 +1,67 @@
+{
+  "sektor": "tesisat",
+  "display_name": "Tesisatci",
+  "kpi_listesi": ["aylik is emri", "cagri donusumu"],
+
+  "icp_filtre": {
+    "yorum_min": 5,
+    "yorum_max": 150,
+    "puan_max": 4.5,
+    "oncelikli_ilceler": ["Kadikoy", "Uskudar", "Atasehir", "Maltepe", "Kartal"],
+    "site_durumu_kabul": ["yok", "zayif"],
+    "eleme_kriterleri": ["zincir", "marka", "devlet"]
+  },
+
+  "hook_mantigi": {
+    "ana_kayip_birimi": "is",
+    "dusuk_aralik": "5-15 is/ay",
+    "orta_aralik": "15-30 is/ay",
+    "yuksek_aralik": "30-60 is/ay",
+    "varsayilan_guven": 60
+  },
+
+  "hook_tipleri": {
+    "data_hook": {
+      "aciklama": "Rakip reklam/piyasa verisi ile dikkat cek",
+      "sablon": "{ilce} bolgesinde {rakip_sayi} rakip Google Ads yapiyor, acil arayanlar once onlara dusuyor.",
+      "tetikleyici": "audit.reklam_firsati.rakip_durum == aktif"
+    },
+    "gap_hook": {
+      "aciklama": "Maps veya arama gorunurlugu acigi",
+      "sablon": "Google Maps'te {ilce} {sektor} aramasinda gozukmuyorsunuz.",
+      "tetikleyici": "lead.website mevcut AND audit.genel_skor < 50"
+    },
+    "money_hook": {
+      "aciklama": "Tahmini aylik kayip — fallback",
+      "sablon": "Bu gorunurlukle aylik {min}-{max} is kaciyor olabilir. (%{guven} guven)",
+      "tetikleyici": "her zaman — fallback"
+    },
+    "tercih_sirasi": ["data_hook", "gap_hook", "money_hook"]
+  },
+
+  "audit_kriterleri": [
+    {"id": "maps",    "soru": "Google Maps profili aktif ve fotografli mi?", "agirlik": 35},
+    {"id": "telefon", "soru": "Telefon numarasi dogru ve ulasilabilir mi?",  "agirlik": 25},
+    {"id": "hiz",     "soru": "Site mobilde hizli aciliyor mu?",              "agirlik": 20},
+    {"id": "yorum",   "soru": "Yorum sayisi 20+ ve puan 4.5+ mi?",            "agirlik": 20}
+  ],
+
+  "audit_dil_kurallari": {
+    "yasak": ["tespit edildi", "mevcut degil", "onerilir"],
+    "zorunlu_format": "Sorun → Kayip etkisi → Kisa cozum",
+    "killer_insight_zorunlu": true
+  },
+
+  "outreach": {
+    "kanal": "WhatsApp + Telefon",
+    "ton": "hizli cozum odakli, pratik",
+    "giris_yasak": ["Ajansim var", "hizmet sunuyorum", "size ulasmak istedim"],
+    "giris_onerilen": ["sitenize baktim", "fark ettim ki", "dikkatimi cekti"]
+  },
+
+  "killer_insight_ornekleri": [
+    "Telefon numarasi Google Maps'te yanlis kayitli — gelen cagrilar baska yere dusuyor",
+    "Isletme profilinde fotograf yok — rakipler 20+ gorselle one cikiyor",
+    "Rakip tesisatcilar Google Ads yapiyor — acil aramalarda siz gozukmuyorsunuz"
+  ]
+}

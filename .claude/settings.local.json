@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ' *)",
+      "Bash(pip install *)",
+      "Bash(python -m pip install -r requirements.txt)",
+      "Bash(python -W ignore::UserWarning -c ' *)",
+      "Bash(python -W ignore -c ' *)",
+      "Bash(python -W ignore main.py)",
+      "Bash(tasklist)",
+      "WebFetch(domain:apify.com)",
+      "Bash(wmic process *)",
+      "Bash(taskkill //F //PID 51064 //PID 51116)",
+      "Bash(taskkill //F //PID 22916 //PID 51012)"
+    ]
+  }
+}
