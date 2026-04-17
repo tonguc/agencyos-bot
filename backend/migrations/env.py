@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from database import Base  # noqa: E402 — must come after sys.path fix
 from config import settings  # noqa: E402
+import models  # noqa: E402, F401 — registers all tables with Base.metadata
 
 # Alembic Config object
 config = context.config
