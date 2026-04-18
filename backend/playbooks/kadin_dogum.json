@@ -101,5 +101,13 @@
     "Google Maps 'kadin dogum' aramasinda 3. sayfada — rakipler ilk 3te",
     "Uzman fotografı ve ozgecmis yok — hastaların en cok baktigi bilgi bu"
   ],
-  "blog_weight": 1.3
+  "feature_weights": {
+    "blog_signal": 1.0,
+    "content_depth_signal": 1.0,
+    "linkedin_signal": 0.3,
+    "youtube_signal": 0.5,
+    "instagram_signal": 0.8,
+    "online_booking_signal": 1.0,
+    "ads_signal": 0.8
+  }
 }

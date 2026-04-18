@@ -101,5 +101,13 @@
     "'Sisli bosanma avukati' aramasinda gozukmuyor — bu arami ayda 500+ kisi yapiyor",
     "Google Maps profili foto yok — rakipler tam profille ilk sirada"
   ],
-  "blog_weight": 1.5
+  "feature_weights": {
+    "blog_signal": 1.0,
+    "content_depth_signal": 1.0,
+    "linkedin_signal": 0.8,
+    "youtube_signal": 0.4,
+    "instagram_signal": 0.4,
+    "online_booking_signal": 0.6,
+    "ads_signal": 1.0
+  }
 }

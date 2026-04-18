@@ -101,5 +101,13 @@
     "Oncesi-sonrasi fotografi yok — estetik musterisinin karar kriterinin 1 numarasi bu",
     "Google Maps 'Kadikoy botoks' aramasinda 5. sayfada — rakip merkezler ilk 3te"
   ],
-  "blog_weight": 1.0
+  "feature_weights": {
+    "blog_signal": 0.6,
+    "content_depth_signal": 0.8,
+    "linkedin_signal": 0.1,
+    "youtube_signal": 0.5,
+    "instagram_signal": 1.0,
+    "online_booking_signal": 0.8,
+    "ads_signal": 0.7
+  }
 }

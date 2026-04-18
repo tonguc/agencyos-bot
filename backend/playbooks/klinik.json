@@ -107,5 +107,13 @@
     "Google Maps 3. sayfada — rakipler ilk 3te, siz gozukmuyorsunuz",
     "6 aydir yorum yok — Google aktif klinikleri one cikariyor"
   ],
-  "blog_weight": 1.5
+  "feature_weights": {
+    "blog_signal": 1.0,
+    "content_depth_signal": 1.0,
+    "linkedin_signal": 0.3,
+    "youtube_signal": 0.5,
+    "instagram_signal": 1.0,
+    "online_booking_signal": 1.0,
+    "ads_signal": 1.0
+  }
 }
