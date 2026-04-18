@@ -1,20 +1,11 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
 import { Header } from "@/components/layout/header";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/utils";
+import { jobsApi } from "@/lib/api";
 import type { Job } from "@/types";
-
-async function getJobs(): Promise<Job[] | null> {
-  try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/jobs?limit=100`,
-      {
-        headers: { "X-API-Key": process.env.NEXT_PUBLIC_API_KEY ?? "changeme" },
-        cache: "no-store",
-      }
-    );
-    return res.ok ? res.json() : null;
-  } catch { return null; }
-}
 
 const typeLabel: Record<string, string> = {
   generate_audit: "Audit",
@@ -23,15 +14,37 @@ const typeLabel: Record<string, string> = {
   collect_leads: "Lead Topla",
 };
 
-export default async function JobsPage() {
-  const jobs = await getJobs();
+export default function JobsPage() {
+  const [jobs, setJobs] = useState<Job[] | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const data = await jobsApi.list();
+      setJobs(data);
+    } catch {
+      setJobs([]);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function handleDelete(id: string) {
+    setDeleting(id);
+    try {
+      await jobsApi.delete(id);
+      setJobs((prev) => prev?.filter((j) => j.id !== id) ?? null);
+    } finally {
+      setDeleting(null);
+    }
+  }
 
   return (
     <div className="flex flex-col flex-1">
       <Header title="İşler" description="Arka plan görevleri" />
       <div className="p-6">
-        {!jobs && (
-          <p className="text-sm text-slate-400 text-center py-10">API'ye bağlanılamadı.</p>
+        {jobs === null && (
+          <p className="text-sm text-slate-400 text-center py-10">Yükleniyor...</p>
         )}
         {jobs && jobs.length === 0 && (
           <p className="text-sm text-slate-400 text-center py-10">Henüz iş yok.</p>
@@ -43,27 +56,49 @@ export default async function JobsPage() {
                 <tr className="border-b border-slate-100 bg-slate-50">
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wide">Tür</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wide">Durum</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wide">İlerleme</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wide">Mesaj</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wide">Şehir / İlçe</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wide">Bulunan</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wide">Ort. Puan</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wide">Başlangıç</th>
+                  <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {jobs.map((job) => (
-                  <tr key={job.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-3 font-medium text-slate-800">
-                      {typeLabel[job.type] ?? job.type}
-                    </td>
-                    <td className="px-4 py-3"><Badge value={job.status} /></td>
-                    <td className="px-4 py-3 text-slate-600">{job.progress_pct}%</td>
-                    <td className="px-4 py-3 text-slate-500 text-xs max-w-xs truncate">
-                      {job.error_message ?? job.progress_message ?? "—"}
-                    </td>
-                    <td className="px-4 py-3 text-slate-400 text-xs">
-                      {job.started_at ? formatDateTime(job.started_at) : formatDateTime(job.created_at)}
-                    </td>
-                  </tr>
-                ))}
+                {jobs.map((job) => {
+                  const city = job.payload?.city as string | undefined;
+                  const district = job.payload?.district as string | undefined;
+                  const saved = job.result?.saved as number | undefined;
+                  const avgScore = job.result?.avg_score as number | undefined;
+                  return (
+                    <tr key={job.id} className="hover:bg-slate-50">
+                      <td className="px-4 py-3 font-medium text-slate-800">
+                        {typeLabel[job.type] ?? job.type}
+                      </td>
+                      <td className="px-4 py-3"><Badge value={job.status} /></td>
+                      <td className="px-4 py-3 text-slate-600 text-xs">
+                        {city ?? "—"}{district ? ` / ${district}` : ""}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">
+                        {saved !== undefined ? `${saved} lead` : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">
+                        {avgScore !== undefined ? avgScore : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-slate-400 text-xs">
+                        {job.started_at ? formatDateTime(job.started_at) : formatDateTime(job.created_at)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => handleDelete(job.id)}
+                          disabled={deleting === job.id}
+                          className="text-xs text-red-500 hover:text-red-700 disabled:opacity-40"
+                        >
+                          {deleting === job.id ? "..." : "Sil"}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

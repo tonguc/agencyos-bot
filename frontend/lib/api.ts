@@ -118,6 +118,12 @@ export const jobsApi = {
 
   get: (id: string) => request<Job>(`/api/jobs/${id}`),
 
+  delete: (id: string) =>
+    fetch(`${BASE}/api/jobs/${id}`, {
+      method: "DELETE",
+      headers: { "X-API-Key": API_KEY },
+    }),
+
   streamUrl: (id: string) => `${BASE}/api/jobs/${id}/stream`,
 };
 

@@ -54,6 +54,7 @@ async def collect_and_save(
     repo = LeadRepository(db)
     saved = 0
 
+    scores = []
     for lead_data in filtered["nitelikli"]:
         score = score_opportunity(lead_data)
         await repo.create(
@@ -72,11 +73,13 @@ async def collect_and_save(
             priority=score["oncelik"],
             status="Yeni",
         )
+        scores.append(score["skor"])
         saved += 1
 
+    avg_score = round(sum(scores) / len(scores), 1) if scores else 0
     logger.info("collect_and_save: %d/%d kayit edildi | sektor=%s sehir=%s",
                 saved, len(filtered["nitelikli"]), sector, city)
-    return {"saved": saved, "stats": filtered["istatistik"]}
+    return {"saved": saved, "avg_score": avg_score, "stats": filtered["istatistik"]}
 
 
 async def update_status(lead_id: uuid.UUID, status: str, db: AsyncSession) -> bool:

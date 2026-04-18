@@ -34,6 +34,15 @@ async def get_job(job_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     return job
 
 
+@router.delete("/{job_id}", status_code=204)
+async def delete_job(job_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    job = await JobRepository(db).get(job_id)
+    if not job:
+        raise HTTPException(404, "Job bulunamadi")
+    await JobRepository(db).delete(job)
+    await db.commit()
+
+
 @router.get("/{job_id}/stream")
 async def stream_job(job_id: uuid.UUID):
     """SSE endpoint — streams job status until completed or failed."""

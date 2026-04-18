@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 
 const nav = [
-  { href: "/", label: "Dashboard", icon: BarChart3 },
+  { href: "/", label: "Gösterge", icon: BarChart3 },
   { href: "/pipeline", label: "Pipeline", icon: BriefcaseBusiness },
   { href: "/leads", label: "Lead'ler", icon: Users },
   { href: "/scrape", label: "Lead Topla", icon: Search },
