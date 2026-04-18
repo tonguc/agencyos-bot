@@ -20,7 +20,28 @@ _SECTOR_SEARCH_TERMS: dict[str, str] = {
     "guzellik":      "güzellik salonu kuaför",
     "egitim":        "eğitim kursu dil okulu",
     "ev_hizmetleri": "tesisatçı",
-    "kadin_dogum":   "kadın doğum uzmanı",
+    "kadin_dogum":   "kadın hastalıkları ve doğum uzmanı jinekoloji",
+}
+
+# İsim veya kategori bu pattern'lara uyan lead'ler filtrelenir
+_SECTOR_REJECT: dict[str, re.Pattern] = {
+    "kadin_dogum": re.compile(
+        r"\b(butik|mağaza|shop|store|tekstil|moda|giyim|kuaför|güzellik\s*salonu|"
+        r"kozmetik|parfüm|takı|kafe|restoran|otel|hostel|spa|masaj|temizlik)\b",
+        re.I | re.UNICODE,
+    ),
+    "klinik": re.compile(
+        r"\b(butik|mağaza|tekstil|moda|giyim|kafe|restoran|otel|kuaför)\b",
+        re.I | re.UNICODE,
+    ),
+    "avukat": re.compile(
+        r"\b(butik|mağaza|kafe|restoran|güzellik|kuaför|inşaat|tesisat)\b",
+        re.I | re.UNICODE,
+    ),
+    "guzellik": re.compile(
+        r"\b(tesisat|elektrik|avukat|hukuk|klinik|hastane|muayene)\b",
+        re.I | re.UNICODE,
+    ),
 }
 
 
@@ -69,8 +90,23 @@ async def collect_google_maps(sektor: str, sehir: str, ilce: str, limit: int = 3
 
     logger.info(f"{len(raw_leads)} ham lead alındı: '{search_term} @ {location}'")
     enriched = [enrich_lead(lead) for lead in raw_leads]
-    logger.info(f"{len(enriched)} lead zenginleştirildi: '{search_term} @ {location}'")
+    enriched = _filter_relevant(enriched, sektor)
+    logger.info(f"{len(enriched)} lead zenginleştirildi ve filtrelendi: '{search_term} @ {location}'")
     return enriched
+
+
+def _filter_relevant(leads: list[dict], sektor: str) -> list[dict]:
+    pattern = _SECTOR_REJECT.get(sektor)
+    if not pattern:
+        return leads
+    result = []
+    for lead in leads:
+        text = f"{lead.get('isim') or ''} {lead.get('kategori') or ''}".lower()
+        if pattern.search(text):
+            logger.info("Alakasız lead filtrelendi: %s (kategori: %s)", lead.get("isim"), lead.get("kategori"))
+        else:
+            result.append(lead)
+    return result
 
 
 def enrich_lead(raw: dict) -> dict:
