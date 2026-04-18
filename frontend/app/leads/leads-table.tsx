@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { leadsApi } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -23,19 +22,23 @@ const SECTOR_LABELS: Record<string, string> = {
 
 export function LeadsTable() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlSector = searchParams.get("sector") ?? "";
+
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
-  const [openSectors, setOpenSectors] = useState<Set<string>>(new Set());
+  const [openSectors, setOpenSectors] = useState<Set<string>>(
+    urlSector ? new Set([urlSector]) : new Set()
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const data = await leadsApi.list({ limit: 500, search: search || undefined });
       setLeads(data.items);
-      // open the most recently added sector by default
-      if (data.items.length > 0) {
+      if (!urlSector && data.items.length > 0) {
         const latest = data.items.reduce((a, b) =>
           new Date(a.created_at) > new Date(b.created_at) ? a : b
         );
@@ -46,7 +49,7 @@ export function LeadsTable() {
     } finally {
       setLoading(false);
     }
-  }, [search]);
+  }, [search, urlSector]);
 
   useEffect(() => { load(); }, [load]);
 
