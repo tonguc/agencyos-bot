@@ -159,7 +159,7 @@ def _validate_audit(audit: dict, playbook: dict) -> tuple[bool, list[str]]:
         warnings.append("kisisel_insight bos")
 
     skorlar = audit.get("skorlar") or {}
-    if not isinstance(skorlar, dict) or not any(skorlar.get(k, 0) > 0 for k in ("ux", "seo", "donusum")):
+    if not isinstance(skorlar, dict) or not any((skorlar.get(k) or 0) > 0 for k in ("ux", "seo", "donusum")):
         warnings.append("skorlar eksik veya sifir")
 
     if audit.get("lead_kalitesi") not in ("soguk", "ilik", "sicak"):

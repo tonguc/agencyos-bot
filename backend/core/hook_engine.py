@@ -26,7 +26,8 @@ def _select_hook_type(lead: dict, audit: dict, playbook: dict) -> str:
         logger.debug("Hook: data_hook (rakip aktif)")
         return "data_hook"
 
-    if lead.get("website") and audit.get("genel_skor", 100) < 50:
+    genel_skor = audit.get("genel_skor")
+    if lead.get("website") and genel_skor is not None and genel_skor < 50:
         logger.debug("Hook: gap_hook (site var, skor dusuk)")
         return "gap_hook"
 
