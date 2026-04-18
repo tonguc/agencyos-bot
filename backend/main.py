@@ -39,6 +39,7 @@ app = FastAPI(
     openapi_url="/openapi.json",
 )
 
+app.add_middleware(APIKeyMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -46,7 +47,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(APIKeyMiddleware)
 
 app.include_router(health.router)
 app.include_router(api_router)
