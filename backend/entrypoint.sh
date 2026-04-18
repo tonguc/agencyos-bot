@@ -11,5 +11,9 @@ if [ $EXIT_CODE -ne 0 ]; then
   echo "ALEMBIC FAILED"
   exit 1
 fi
+echo "=== Starting ARQ worker in background ==="
+arq jobs.worker.WorkerSettings &
+WORKER_PID=$!
 echo "=== Starting uvicorn on port ${PORT:-8000} ==="
-exec uvicorn main:app --host 0.0.0.0 --port "${PORT:-8000}" --log-level debug
+uvicorn main:app --host 0.0.0.0 --port "${PORT:-8000}" --log-level info
+kill $WORKER_PID 2>/dev/null
