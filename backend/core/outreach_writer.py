@@ -1,7 +1,7 @@
 import logging
 
 from core.utils import safe_json_parse, API_SEMAPHORE, claude_api_call
-from core.prompts import build_outreach_prompt, build_followup_prompt
+from core.prompts import build_outreach_prompt, build_followup_prompt, build_initial_message_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -45,3 +45,12 @@ async def write_followup(lead: dict, gun: int, onceki: str, playbook: dict) -> s
         result = await claude_api_call(prompt, max_tokens=300, temperature=0.3)
         logger.info("Followup uretildi: %s | gun=%d", lead.get("isim"), gun)
         return (result or "Takip mesaji uretilemedi").strip()
+
+
+async def write_initial_message(lead: dict, audit: dict, hook: dict, playbook: dict) -> str:
+    """Single 4-sentence outreach message for automated sending (not the 4-version system)."""
+    async with API_SEMAPHORE:
+        prompt = build_initial_message_prompt(lead, audit, hook, playbook)
+        result = await claude_api_call(prompt, max_tokens=300, temperature=0.3)
+        logger.info("Initial message uretildi: %s", lead.get("isim"))
+        return (result or "Mesaj uretilemedi").strip()

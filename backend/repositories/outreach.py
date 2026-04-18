@@ -25,3 +25,25 @@ class OutreachRepository(BaseRepository[OutreachMessage]):
             .order_by(OutreachMessage.created_at.desc())
         )
         return list(result.scalars().all())
+
+    async def update_reply(
+        self,
+        outreach: OutreachMessage,
+        reply_text: str,
+        intent: str,
+        confidence: float,
+    ) -> OutreachMessage:
+        outreach.reply_text = reply_text
+        outreach.reply_intent = intent
+        outreach.reply_confidence = confidence
+        await self._session.flush()
+        return outreach
+
+    async def update_followup_stage(
+        self,
+        outreach: OutreachMessage,
+        stage: int,
+    ) -> OutreachMessage:
+        outreach.followup_stage = stage
+        await self._session.flush()
+        return outreach

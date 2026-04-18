@@ -23,6 +23,7 @@ class ActivityEvent:
     PROPOSAL_GENERATED = "proposal_generated"
     PROPOSAL_SENT = "proposal_sent"
     FOLLOWUP_GENERATED = "followup_generated"
+    REPLY_RECEIVED = "reply_received"
     JOB_FAILED = "job_failed"
 
 
