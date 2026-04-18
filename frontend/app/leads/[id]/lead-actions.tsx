@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { auditApi, outreachApi, proposalApi, jobsApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -69,6 +69,32 @@ export function LeadActions({ leadId, hasAudit, hasOutreach, hasProposal, propos
     }
   }
 
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  const downloadPdf = useCallback(async () => {
+    if (!proposalId) return;
+    setPdfLoading(true);
+    try {
+      const base = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+      const key  = process.env.NEXT_PUBLIC_API_KEY  ?? "changeme";
+      const res  = await fetch(`${base}/api/proposals/${proposalId}/pdf`, {
+        headers: { "X-API-Key": key },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = `teklif-${proposalId.slice(0, 8)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "PDF indirilemedi");
+    } finally {
+      setPdfLoading(false);
+    }
+  }, [proposalId]);
+
   const busy = runningJob !== null;
 
   return (
@@ -102,13 +128,14 @@ export function LeadActions({ leadId, hasAudit, hasOutreach, hasProposal, propos
           {hasProposal ? "Teklifi Yenile" : "Teklif Oluştur"}
         </Button>
         {proposalId && (
-          <a
-            href={`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/proposals/${proposalId}/pdf`}
-            target="_blank"
-            rel="noopener noreferrer"
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={pdfLoading}
+            onClick={downloadPdf}
           >
-            <Button size="sm" variant="outline">PDF İndir ↓</Button>
-          </a>
+            {pdfLoading ? "İndiriliyor…" : "PDF İndir ↓"}
+          </Button>
         )}
       </div>
 
