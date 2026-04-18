@@ -61,6 +61,11 @@ def calc_opportunity(lead: dict, audit: dict, playbook: dict) -> int:
     pagespeed = audit.get("pagespeed", 60)
     ssl = audit.get("ssl", True)
 
+    # Google Ads pressure (None = veri yok → nötr)
+    ads_pressure: bool | None = lead.get("market_ads_pressure")
+    competitor_ads_count: int | None = lead.get("competitor_ads_count")
+    self_ads_visible: bool | None = lead.get("self_ads_visible")
+
     # --- Yorum ---
     if yorum < 10:
         score += 15
@@ -116,6 +121,23 @@ def calc_opportunity(lead: dict, audit: dict, playbook: dict) -> int:
     if not ssl:
         score += 8
 
+    # --- Google Ads pressure (pazar ticari, fırsat var) ---
+    if ads_pressure is True:
+        score += 4
+
+    if competitor_ads_count is not None:
+        if competitor_ads_count >= 3:
+            score += 4
+        elif competitor_ads_count >= 1:
+            score += 2
+
+    if ads_pressure is True and self_ads_visible is False:
+        # Rakipler reklam yapıyor, işletme yapmıyor → büyük açık
+        score += 4
+    elif self_ads_visible is True:
+        # Zaten reklam yapıyor → fırsatımız daha küçük
+        score -= 3
+
     return max(0, min(score, 100))
 
 
@@ -131,9 +153,18 @@ def calc_buyer_intent(lead: dict, audit: dict, playbook: dict) -> int:
     website = lead.get("website")
     ilce_oncelik = lead.get("oncelikli_ilce", False)
 
+    # Instagram (None = veri yok → nötr)
+    post_90: int | None = lead.get("instagram_post_90d")
+    last_post_days: int | None = lead.get("instagram_last_post_days")
+
+    # YouTube (None = veri yok → nötr, düşük ağırlık)
+    yt_180: int | None = lead.get("youtube_video_180d")
+    yt_last_days: int | None = lead.get("youtube_last_video_days")
+
+    # Audit'ten rakip reklam sinyali (buyer intent tarafı zaten var, ads_pressure ile çakışmaz)
     rakip = audit.get("reklam_firsati", {}).get("rakip_durum", "")
 
-    # --- Aktivite ---
+    # --- Google Maps aktivitesi ---
     if son_yorum is not None:
         if son_yorum < 30:
             score += 15
@@ -148,12 +179,50 @@ def calc_buyer_intent(lead: dict, audit: dict, playbook: dict) -> int:
     if website:
         score += 5
 
-    # --- Büyüme sinyali ---
+    # --- Rakip reklam sinyali (audit verisi) ---
     if rakip == "aktif":
         score += 10
 
+    # --- Öncelikli ilçe ---
     if ilce_oncelik:
         score += 8
+
+    # --- Instagram aktivite sinyali ---
+    if post_90 is not None:
+        if post_90 == 0:
+            score -= 6   # Hesap var ama ölü
+        elif post_90 <= 3:
+            score -= 2   # Neredeyse durmuş
+        elif post_90 <= 10:
+            score += 4   # Orta aktif
+        else:
+            score += 6   # Aktif hesap, dijital bilinç var
+
+    if last_post_days is not None:
+        if last_post_days < 14:
+            score += 4   # Bu hafta/geçen hafta post atmış
+        elif last_post_days < 60:
+            score += 2   # Son 2 ayda atmış
+        elif last_post_days > 60:
+            score -= 4   # 2 aydan uzun süredir sessiz
+
+    # --- YouTube aktivite sinyali (düşük ağırlık) ---
+    # Yoksa ceza yok — çoğu yerel işletme YouTube kullanmaz
+    if yt_180 is not None:
+        if yt_180 == 0:
+            score += 0
+        elif yt_180 <= 2:
+            score += 1
+        elif yt_180 <= 6:
+            score += 3
+        else:
+            score += 4
+
+    if yt_last_days is not None:
+        if yt_last_days < 30:
+            score += 2
+        elif yt_last_days < 90:
+            score += 1
 
     return max(0, min(score, 100))
 
@@ -211,12 +280,34 @@ def calculate_final_score(lead: dict, audit: dict, playbook: dict) -> dict:
 # 5. DEBUG / LOG
 # --------------------------------------------------
 
-def explain_score(result: dict) -> str:
+def explain_score(result: dict, lead: dict | None = None) -> str:
     if result["status"] == "rejected":
         return f"ELENDI: {result['reason']}"
 
-    return (
-        f"Skor: {result['final_score']} ({result['segment']})\n"
-        f"Opportunity: {result['opportunity']}\n"
-        f"Buyer Intent: {result['buyer_intent']}"
-    )
+    lines = [
+        f"Skor: {result['final_score']} ({result['segment']})",
+        f"Opportunity: {result['opportunity']}",
+        f"Buyer Intent: {result['buyer_intent']}",
+    ]
+
+    if lead:
+        extras: list[str] = []
+        if lead.get("instagram_post_90d") is not None:
+            extras.append(f"Instagram 90g post: {lead['instagram_post_90d']}")
+        if lead.get("instagram_last_post_days") is not None:
+            extras.append(f"Instagram son post: {lead['instagram_last_post_days']} gün")
+        if lead.get("youtube_video_180d") is not None:
+            extras.append(f"YouTube 180g video: {lead['youtube_video_180d']}")
+        if lead.get("youtube_last_video_days") is not None:
+            extras.append(f"YouTube son video: {lead['youtube_last_video_days']} gün")
+        if lead.get("market_ads_pressure") is not None:
+            extras.append(f"Ads pressure: {lead['market_ads_pressure']}")
+        if lead.get("competitor_ads_count") is not None:
+            extras.append(f"Rakip reklam sayisi: {lead['competitor_ads_count']}")
+        if lead.get("self_ads_visible") is not None:
+            extras.append(f"Self ads visible: {lead['self_ads_visible']}")
+        if extras:
+            lines.append("")
+            lines.extend(extras)
+
+    return "\n".join(lines)
