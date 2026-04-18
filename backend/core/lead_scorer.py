@@ -30,6 +30,9 @@ CHANNEL_FIELDS = [
     "has_before_after", "has_visual_gallery",
     # Clinic trust signals
     "has_doctor_profile",
+    # Lawyer signals
+    "has_legal_articles", "has_practice_areas", "has_case_examples",
+    "has_contact_clear", "has_linkedin_profile",
     # Review velocity
     "review_last_30d", "review_last_90d",
     # Update detection
@@ -255,6 +258,27 @@ def calc_opportunity(lead: dict, audit: dict, playbook: dict) -> tuple[int, list
 
     # "general" için mevcut GMB + pagespeed sinyalleri yeterli
 
+    # ── Lawyer subsector sinyalleri ──────────────────
+    sub_sector = lead.get("sub_sector")
+
+    if sub_sector == "litigation":
+        if lead.get("has_legal_articles") is False:
+            add(8, "Hukuki içerik yok (dava)")
+        if lead.get("has_practice_areas") is False:
+            add(6, "Uzmanlık alanları yok (dava)")
+        if lead.get("has_case_examples") is False:
+            add(6, "Dava örnekleri yok (dava)")
+        if lead.get("has_contact_clear") is False:
+            add(6, "İletişim belirsiz (dava)")
+
+    elif sub_sector == "corporate":
+        if lead.get("has_linkedin_profile") is False:
+            add(8, "LinkedIn profil yok (kurumsal)")
+        if lead.get("has_practice_areas") is False:
+            add(6, "Uzmanlık alanları yok (kurumsal)")
+        if lead.get("has_contact_clear") is False:
+            add(6, "İletişim belirsiz (kurumsal)")
+
     return max(0, min(score, 100)), signals
 
 
@@ -386,6 +410,19 @@ def calc_buyer_intent(lead: dict, audit: dict, playbook: dict) -> tuple[int, lis
         puan = lead.get("puan") or 0
         if 3.0 <= puan < 3.8:
             add(8, f"Puan kritik aralık ({puan}, güven segmenti)")
+
+    # ── Lawyer subsector intent sinyalleri ───────────
+    sub_sector = lead.get("sub_sector")
+    if sub_sector in ("litigation", "corporate"):
+        li_w = fw["linkedin_signal"]
+        # has_linkedin_profile boolean flag (avukat için ek kontrol)
+        if lead.get("has_linkedin_profile") is True and not lead.get("linkedin_url"):
+            add(round(4 * li_w), "LinkedIn profil var (avukat)")
+        elif lead.get("has_linkedin_profile") is False and not lead.get("linkedin_url"):
+            add(round(-4 * li_w), "LinkedIn yok (avukat)")
+        # Review velocity extra boost for lawyers (danışman güveni için kritik)
+        if rev_30 is not None and 3 <= rev_30 < 5:
+            add(2, f"Avukat yorum hız bonusu ({rev_30}/30g)")
 
     return max(0, min(score, 100)), signals
 
