@@ -11,12 +11,12 @@ import type { Lead } from "@/types";
 
 const SECTOR_LABELS: Record<string, string> = {
   klinik: "Klinik / Muayenehane",
-  diyetisyen: "Diyetisyen",
   avukat: "Avukat / Hukuk Bürosu",
-  plastik_cerrah: "Plastik Cerrah / Estetik",
+  emlak: "Emlak / Gayrimenkul",
+  guzellik: "Güzellik / Kuaför",
+  egitim: "Eğitim / Kurs",
+  ev_hizmetleri: "Ev Hizmetleri",
   kadin_dogum: "Kadın Doğum Uzmanı",
-  guzellik: "Güzellik Merkezi / Botoks",
-  tesisatci: "Sıhhi Tesisat",
 };
 
 const PIPELINE_STATUSES = ["Yeni", "Audit", "Mesaj", "Cevap", "Demo", "Teklif", "Kapandi", "Soguk"];
