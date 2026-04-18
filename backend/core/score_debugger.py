@@ -8,7 +8,7 @@ katman ağırlıklarını analiz eder. Mevcut scoring mantığına dokunmaz.
 from statistics import mean, median
 from typing import List
 
-BREAKDOWN_KEYS = ["maps", "audit", "conversion", "intent", "ads", "social"]
+BREAKDOWN_KEYS = ["maps", "audit", "conversion", "intent", "ads", "social", "fit", "boost"]
 
 INFLATION_THRESHOLDS = {
     "hot_ratio_warn": 0.25,
@@ -31,7 +31,7 @@ def summarize_score_distribution(results: List[dict]) -> dict:
     opportunities = [r["opportunity"] for r in ok_results]
     intents = [r["buyer_intent"] for r in ok_results]
 
-    seg_counts: dict[str, int] = {"HOT": 0, "WARM": 0, "OK": 0, "LOW": 0, "REJECTED": rejected}
+    seg_counts: dict[str, int] = {"HOT": 0, "WARM": 0, "LOW": 0, "REJECTED": rejected}
     for r in ok_results:
         seg = r.get("segment", "LOW")
         seg_counts[seg] = seg_counts.get(seg, 0) + 1
@@ -101,8 +101,8 @@ def find_top_score_drivers(results: List[dict]) -> dict:
     has_breakdown = False
 
     for r in results:
-        bd = r.get("score_breakdown")
-        if bd:
+        bd = r.get("score_layers") or r.get("score_breakdown")
+        if isinstance(bd, dict):
             has_breakdown = True
             for k in BREAKDOWN_KEYS:
                 if k in bd:
@@ -185,7 +185,7 @@ def format_score_debug_report(summary: dict, inflation: dict, suggestions: List[
         f"Ort. Opportunity : {summary.get('mean_opportunity', '-')}\n"
         f"Ort. Intent      : {summary.get('mean_intent', '-')}\n"
         f"\nSegment dagilimi:\n"
-        f"{seg_line('HOT')}\n{seg_line('WARM')}\n{seg_line('OK')}\n"
+        f"{seg_line('HOT')}\n{seg_line('WARM')}\n"
         f"{seg_line('LOW')}\n{seg_line('REJECTED')}\n"
         f"\nEn guclu skor suruculeri:\n{driver_lines}\n"
         f"\nEnflasyon riski: {inflation['inflation_risk'].upper()}\n"

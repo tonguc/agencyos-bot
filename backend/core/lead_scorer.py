@@ -1,9 +1,19 @@
 """
-Lead Scorer — 3-layer scoring pipeline.
+Lead Scorer — 4-boyutlu scoring pipeline.
 
-Layer 1: Hard Filter  (eleme)
-Layer 2: Opportunity  (problemin büyüklüğü)
-Layer 3: Buyer Intent (satın alma ihtimali)
+  Hard Filter        → elenenler (anlamsız lead'ler)
+  Opportunity  (0-100) → problemin büyüklüğü (biz ne kadar fark yaratabiliriz?)
+  Buyer Intent (0-100) → alıcı şimdi satın alır mı? (aktiflik, reklam baskısı)
+  Fit          (0-100) → ICP uyumu (boyut, erişilebilirlik, canlılık)
+  Pattern Boost        → çoklu sinyal kombinasyonları (IG aktif + booking yok gibi)
+
+final = 0.50·opportunity + 0.30·intent + 0.20·fit + pattern_boost   (0-100 cap)
+
+Segmentler: HOT (≥75) | WARM (≥55) | LOW (<55)
+
+lead["score_breakdown"] → sıralı string listesi (ör. "+12 IG aktif + booking yok")
+lead["score_layers"]   → debugger için eski katmanlı dict (maps/audit/conversion…)
+lead["signals"]        → her boyutun tam sinyal listesi (audit için)
 
 Tüm sinyal ağırlıkları playbook["feature_weights"] üzerinden gelir.
 weight = 0.0 → sinyal tamamen kapalı
@@ -13,6 +23,7 @@ weight > 1.0 → sektörde ekstra kritik sinyal
 """
 
 import logging
+import re
 from typing import Tuple
 
 logger = logging.getLogger(__name__)
@@ -61,8 +72,7 @@ DEFAULT_FEATURE_WEIGHTS = {
 
 SEGMENT_TO_PRIORITY = {
     "HOT": "yuksek",
-    "WARM": "yuksek",
-    "OK": "orta",
+    "WARM": "orta",
     "LOW": "dusuk",
 }
 
@@ -563,8 +573,193 @@ def calc_buyer_intent(lead: dict, audit: dict, playbook: dict) -> tuple[int, lis
 
 
 # --------------------------------------------------
-# 4. FINAL SCORE
+# 4. FIT SCORE (0–100)
 # --------------------------------------------------
+
+def calc_fit(lead: dict, audit: dict, playbook: dict) -> tuple[int, list[str]]:
+    """
+    ICP uyumu. Bu lead bizim çalıştığımız tipte mi?
+    - Erişilebilir mi? (tel, site)
+    - Canlı mı? (yorum sayısı makul, son aktivite taze)
+    - Alt ve üst bantta mı kalmış? (çok küçük veya çok güçlü olmasın)
+    """
+    score = 40
+    signals: list[str] = []
+
+    def add(delta: int, label: str) -> None:
+        nonlocal score
+        score += delta
+        if delta != 0:
+            signals.append(f"{label} → {'+' if delta > 0 else ''}{delta}")
+
+    telefon = lead.get("telefon")
+    website = lead.get("website")
+    site_durumu = lead.get("site_durumu")
+    yorum = lead.get("yorum_sayisi") or 0
+    puan = lead.get("puan") or 0
+    son_yorum = lead.get("son_yorum_gun")
+
+    if telefon:
+        add(10, "Telefon erişilebilir")
+    if website:
+        add(5, "Website var")
+    if site_durumu == "zayif":
+        add(15, "Site zayıf (biz çözeriz)")
+
+    if 10 <= yorum <= 80:
+        add(15, f"Yorum hacmi uygun ({yorum})")
+    elif yorum > 200:
+        add(-10, f"Yorum çok fazla ({yorum})")
+
+    if 3.5 <= puan <= 4.4:
+        add(10, f"Puan bandı uygun ({puan})")
+    elif puan > 4.8:
+        add(-8, f"Zaten çok iyi ({puan})")
+
+    if son_yorum is not None:
+        if son_yorum < 60:
+            add(8, f"Aktif profil ({son_yorum}g)")
+        elif son_yorum > 365:
+            add(-15, f"Ölü profil ({son_yorum}g)")
+
+    return max(0, min(score, 100)), signals
+
+
+# --------------------------------------------------
+# 5. PATTERN BOOSTS
+# --------------------------------------------------
+
+def calc_pattern_boosts(lead: dict, audit: dict, playbook: dict) -> tuple[int, list[str]]:
+    """
+    Çoklu sinyal kombinasyonları. Tek başına orta olan sinyaller,
+    birlikte geldiğinde "bu kesin satılır" göstergesine döner.
+    Return (toplam_boost, sinyal_listesi) — her sinyal "+N label" formatında.
+    """
+    total = 0
+    signals: list[str] = []
+
+    def fire(delta: int, label: str) -> None:
+        nonlocal total
+        total += delta
+        signals.append(f"{'+' if delta > 0 else ''}{delta} {label}")
+
+    website = lead.get("website")
+    site_durumu = lead.get("site_durumu")
+    telefon = lead.get("telefon")
+    yorum = lead.get("yorum_sayisi") or 0
+    puan = lead.get("puan") or 0
+
+    ig_post_90 = lead.get("instagram_post_90d")
+    has_booking = lead.get("has_online_booking")
+    has_cta = lead.get("has_cta")
+    rev_30 = lead.get("review_last_30d")
+    competitor_ads = lead.get("competitor_ads_count")
+    self_ads = lead.get("self_ads_visible")
+
+    # IG aktif + booking kanalı yok → para hazır, yakalama aracı yok
+    if ig_post_90 is not None and ig_post_90 > 5 and has_booking is False:
+        fire(12, "IG aktif + booking kanalı yok")
+
+    # Maps güçlü + site zayıf/yok → organik trafik var, dönüşüm kırık
+    if yorum > 20 and puan >= 4.0 and (not website or site_durumu == "zayif"):
+        fire(10, "Maps güçlü ama site zayıf")
+
+    # Telefon var + website yok → acil dijital varlık ihtiyacı
+    if telefon and not website:
+        fire(6, "Telefon var ama website yok")
+
+    # Taze yorum akışı + CTA yok → trafik var, CTA eksikliği kayıp
+    if rev_30 is not None and rev_30 >= 3 and has_cta is False:
+        fire(8, "Taze yorum var ama CTA yok")
+
+    # Rakip reklam basıyor + kendisi basmıyor → açık pazar
+    if competitor_ads is not None and competitor_ads >= 2 and self_ads is False:
+        fire(8, "Rakip reklam basıyor, kendisi yok")
+
+    return total, signals
+
+
+# --------------------------------------------------
+# 6. FINAL SCORE
+# --------------------------------------------------
+
+_SIGNAL_DELTA_RE = re.compile(r"→\s*([+-]?\d+)\s*$")
+
+
+def _parse_delta(signal: str) -> tuple[int, str]:
+    """'Yorum az (3) → +15' → (15, 'Yorum az (3)'). Unknown → (0, signal)."""
+    m = _SIGNAL_DELTA_RE.search(signal)
+    if not m:
+        return 0, signal.strip()
+    try:
+        delta = int(m.group(1))
+    except ValueError:
+        return 0, signal.strip()
+    label = signal[: m.start()].rstrip(" →").strip()
+    return delta, label
+
+
+def _build_breakdown_list(
+    opp_signals: list[str],
+    intent_signals: list[str],
+    fit_signals: list[str],
+    boost_signals: list[str],
+    limit: int = 12,
+) -> list[str]:
+    """
+    Tüm sinyalleri 'signed N label' formatında tek listeye düzleştir.
+    Mutlak değere göre sırala, en etkili limit kadar sinyali döndür.
+    Pattern boost sinyalleri zaten doğru formatta (ör. '+12 IG aktif...').
+    """
+    items: list[tuple[int, str]] = []
+
+    for s in opp_signals + intent_signals + fit_signals:
+        delta, label = _parse_delta(s)
+        if delta == 0 or not label:
+            continue
+        items.append((delta, f"{'+' if delta > 0 else ''}{delta} {label}"))
+
+    for s in boost_signals:
+        m = re.match(r"\s*([+-]?\d+)\s+(.+)", s)
+        if not m:
+            continue
+        try:
+            delta = int(m.group(1))
+        except ValueError:
+            continue
+        items.append((delta, f"{'+' if delta > 0 else ''}{delta} {m.group(2).strip()}"))
+
+    items.sort(key=lambda x: -abs(x[0]))
+    return [label for _, label in items[:limit]]
+
+
+def _build_score_layers(
+    opp_signals: list[str],
+    intent_signals: list[str],
+    fit_signals: list[str],
+    boost_sum: int,
+) -> dict:
+    """Debugger için eski katmanlı dict — score_debugger.py bunu okuyor."""
+
+    def _sum(signals: list[str], keywords: list[str]) -> float:
+        total = 0.0
+        for s in signals:
+            if any(k in s for k in keywords):
+                delta, _ = _parse_delta(s)
+                total += delta
+        return total
+
+    return {
+        "maps":       _sum(opp_signals, ["Yorum", "Puan", "Son yorum", "GMB"]),
+        "audit":      _sum(opp_signals, ["Audit", "PageSpeed", "SSL"]),
+        "conversion": _sum(opp_signals, ["CTA", "WhatsApp", "booking", "Blog", "Website yok", "Site", "Servis", "SSS", "Hakkında", "Before", "Görsel", "Doktor"]),
+        "ads":        _sum(opp_signals, ["Ads", "Rakip reklam", "Self ads"]),
+        "social":     _sum(intent_signals, ["Instagram", "YouTube", "LinkedIn"]),
+        "intent":     _sum(intent_signals, ["Telefon", "yorum", "Öncelikli", "Rakip reklam aktif", "Website var"]),
+        "fit":        float(sum(_parse_delta(s)[0] for s in fit_signals)),
+        "boost":      float(boost_sum),
+    }
+
 
 def calculate_final_score(lead: dict, audit: dict, playbook: dict) -> dict:
     """Full scoring pipeline. audit can be {} at scrape time."""
@@ -574,56 +769,49 @@ def calculate_final_score(lead: dict, audit: dict, playbook: dict) -> dict:
 
     opportunity, opp_signals = calc_opportunity(lead, audit, playbook)
     intent, intent_signals = calc_buyer_intent(lead, audit, playbook)
+    fit, fit_signals = calc_fit(lead, audit, playbook)
+    boost_sum, boost_signals = calc_pattern_boosts(lead, audit, playbook)
 
-    def _sum(signals: list[str], keywords: list[str]) -> float:
-        total = 0.0
-        for s in signals:
-            if any(k in s for k in keywords):
-                try:
-                    total += float(s.split("→")[-1].strip().replace("+", ""))
-                except ValueError:
-                    pass
-        return total
+    weighted = (opportunity * 0.50) + (intent * 0.30) + (fit * 0.20)
+    final = round(max(0.0, min(100.0, weighted + boost_sum)), 1)
 
-    score_breakdown = {
-        "maps":       _sum(opp_signals, ["Yorum", "Puan", "Son yorum", "GMB"]),
-        "audit":      _sum(opp_signals, ["Audit", "PageSpeed", "SSL"]),
-        "conversion": _sum(opp_signals, ["CTA", "WhatsApp", "booking", "Blog", "Website yok", "Site", "Servis", "SSS", "Hakkında", "Before", "Görsel", "Doktor"]),
-        "ads":        _sum(opp_signals, ["Ads", "Rakip reklam", "Self ads"]),
-        "social":     _sum(intent_signals, ["Instagram", "YouTube", "LinkedIn"]),
-        "intent":     _sum(intent_signals, ["Telefon", "yorum", "Öncelikli", "Rakip reklam aktif", "Website var"]),
-    }
+    if final >= 75:
+        segment = "HOT"
+    elif final >= 55:
+        segment = "WARM"
+    else:
+        segment = "LOW"
 
     fw = _fw(playbook)
     active_weights = {k: v for k, v in fw.items() if v != 1.0}
 
-    final = round((opportunity * 0.65) + (intent * 0.35), 1)
-
-    if final >= 80:
-        segment = "HOT"
-    elif final >= 65:
-        segment = "WARM"
-    elif final >= 50:
-        segment = "OK"
-    else:
-        segment = "LOW"
+    score_breakdown = _build_breakdown_list(opp_signals, intent_signals, fit_signals, boost_signals)
+    score_layers = _build_score_layers(opp_signals, intent_signals, fit_signals, boost_sum)
 
     result = {
         "status": "ok",
         "opportunity": opportunity,
         "buyer_intent": intent,
+        "fit": fit,
+        "pattern_boost": boost_sum,
         "final_score": final,
         "segment": segment,
         "priority": SEGMENT_TO_PRIORITY[segment],
-        "signals": {"opportunity": opp_signals, "intent": intent_signals},
+        "signals": {
+            "opportunity": opp_signals,
+            "intent": intent_signals,
+            "fit": fit_signals,
+            "pattern": boost_signals,
+        },
         "score_breakdown": score_breakdown,
+        "score_layers": score_layers,
         "active_weights": active_weights,
         "clinic_subsector": lead.get("clinic_subsector"),
     }
 
     logger.info(
-        "Score: %s | final=%.1f segment=%s opp=%d intent=%d subsector=%s",
-        lead.get("isim"), final, segment, opportunity, intent,
+        "Score: %s | final=%.1f segment=%s opp=%d intent=%d fit=%d boost=%d subsector=%s",
+        lead.get("isim"), final, segment, opportunity, intent, fit, boost_sum,
         lead.get("clinic_subsector", "-"),
     )
     return result
@@ -637,23 +825,39 @@ def explain_score(result: dict, lead: dict | None = None) -> str:
     if result["status"] == "rejected":
         return f"ELENDI: {result['reason']}"
 
+    boost = result.get("pattern_boost", 0)
     lines = [
         f"Skor: {result['final_score']} ({result['segment']})",
-        f"Opportunity: {result['opportunity']}",
+        f"  = 0.50·{result['opportunity']} + 0.30·{result['buyer_intent']} + 0.20·{result.get('fit', 0)} + {boost:+d} boost",
+        "",
+        f"Opportunity : {result['opportunity']}",
         f"Buyer Intent: {result['buyer_intent']}",
+        f"Fit         : {result.get('fit', 0)}",
+        f"Pattern Boost: {boost:+d}",
     ]
 
     sub = result.get("clinic_subsector")
     if sub:
         lines.append(f"Klinik alt sektör: {sub}")
 
+    breakdown = result.get("score_breakdown") or []
+    if breakdown:
+        lines.append("\nEn etkili sinyaller:")
+        lines.extend(f"  {s}" for s in breakdown)
+
     signals = result.get("signals", {})
+    if signals.get("pattern"):
+        lines.append("\nPattern boost sinyalleri:")
+        lines.extend(f"  {s}" for s in signals["pattern"])
     if signals.get("opportunity"):
         lines.append("\nOpportunity sinyalleri:")
         lines.extend(f"  {s}" for s in signals["opportunity"])
     if signals.get("intent"):
         lines.append("\nIntent sinyalleri:")
         lines.extend(f"  {s}" for s in signals["intent"])
+    if signals.get("fit"):
+        lines.append("\nFit sinyalleri:")
+        lines.extend(f"  {s}" for s in signals["fit"])
 
     active_w = result.get("active_weights", {})
     if active_w:
