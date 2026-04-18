@@ -8,6 +8,7 @@ import type {
   OutreachMessage,
   PipelineCounts,
   Proposal,
+  SearchResponse,
 } from "@/types";
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -133,6 +134,15 @@ export const scrapeApi = {
     request<JobResponse>("/api/scrape", {
       method: "POST",
       body: JSON.stringify({ sector, city, district, limit }),
+    }),
+};
+
+// ── Search ─────────────────────────────────────────────────────────────
+export const searchApi = {
+  run: (query: string, limit = 25) =>
+    request<SearchResponse>("/api/search", {
+      method: "POST",
+      body: JSON.stringify({ query, limit }),
     }),
 };
 

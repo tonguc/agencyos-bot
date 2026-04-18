@@ -100,3 +100,55 @@ export interface AppSettings {
   apify_configured: boolean;
   playbooks: string[];
 }
+
+// ── Search ─────────────────────────────────────────────────────────────
+export type SearchSegment = "hot" | "warm" | "ok" | "low";
+
+export interface SearchParsedQuery {
+  raw_query: string;
+  city: string | null;
+  district: string | null;
+  category: string;
+  sector: string | null;
+  sub_sector_hint: string | null;
+  search_string: string;
+}
+
+export interface SearchResultItem {
+  name: string;
+  address: string;
+  phone: string | null;
+  website: string | null;
+  google_rating: number | null;
+  review_count: number;
+  category: string | null;
+  lat: number | null;
+  lng: number | null;
+  maps_url: string | null;
+  site_status: string | null;
+  score: number | null;
+  segment: SearchSegment;
+  priority: string | null;
+  reason: string | null;
+}
+
+export interface SearchSummary {
+  hot: number;
+  warm: number;
+  ok: number;
+  low: number;
+  total: number;
+}
+
+export interface SearchResponse {
+  parsed: SearchParsedQuery;
+  results: SearchResultItem[];
+  summary: SearchSummary;
+  filter_stats: {
+    toplam: number;
+    gecen: number;
+    elenen: number;
+    gecis_orani: number;
+  } | null;
+  error: string | null;
+}

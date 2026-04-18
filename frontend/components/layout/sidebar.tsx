@@ -7,6 +7,7 @@ import {
   BarChart3,
   Users,
   Search,
+  Sparkles,
   BriefcaseBusiness,
   Settings,
   Zap,
@@ -14,6 +15,7 @@ import {
 
 const nav = [
   { href: "/", label: "Gösterge", icon: BarChart3 },
+  { href: "/search", label: "Firma Ara", icon: Sparkles },
   { href: "/pipeline", label: "Pipeline", icon: BriefcaseBusiness },
   { href: "/leads", label: "Adaylar", icon: Users },
   { href: "/scrape", label: "Yeni Tarama", icon: Search },

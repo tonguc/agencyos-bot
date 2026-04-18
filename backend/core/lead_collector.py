@@ -78,13 +78,51 @@ _SECTOR_REJECT: dict[str, re.Pattern] = {
 }
 
 
+async def collect_by_query(
+    search_string: str,
+    sehir: str | None = None,
+    ilce: str | None = None,
+    limit: int = 30,
+    sektor_filter: str | None = None,
+) -> list[dict]:
+    """
+    Free-form search against Apify Google Places.
+    Skips the per-sector regex filter unless sektor_filter is provided.
+    """
+    if not (search_string or "").strip():
+        return []
+    return await _run_apify(
+        search_term=search_string.strip(),
+        sehir=sehir or "",
+        ilce=ilce or "",
+        limit=limit,
+        sektor_for_filter=sektor_filter,
+    )
+
+
 async def collect_google_maps(sektor: str, sehir: str, ilce: str, limit: int = 30) -> list[dict]:
+    search_term = _SECTOR_SEARCH_TERMS.get(sektor, sektor)
+    return await _run_apify(
+        search_term=search_term,
+        sehir=sehir,
+        ilce=ilce,
+        limit=limit,
+        sektor_for_filter=sektor,
+    )
+
+
+async def _run_apify(
+    search_term: str,
+    sehir: str,
+    ilce: str,
+    limit: int,
+    sektor_for_filter: str | None,
+) -> list[dict]:
     token = os.getenv("APIFY_API_TOKEN")
     if not token:
         logger.error("APIFY_API_TOKEN .env'de tanımlı değil — lead toplama atlandı")
         return []
 
-    search_term = _SECTOR_SEARCH_TERMS.get(sektor, sektor)
     location = ", ".join(p for p in [ilce, sehir, "Turkey"] if p)
     logger.info(
         "Google Maps taraması başlıyor: arama='%s' konum='%s' limit=%d",
@@ -123,7 +161,8 @@ async def collect_google_maps(sektor: str, sehir: str, ilce: str, limit: int = 3
 
     logger.info(f"{len(raw_leads)} ham lead alındı: '{search_term} @ {location}'")
     enriched = [enrich_lead(lead) for lead in raw_leads]
-    enriched = _filter_relevant(enriched, sektor)
+    if sektor_for_filter:
+        enriched = _filter_relevant(enriched, sektor_for_filter)
     logger.info(f"{len(enriched)} lead zenginleştirildi ve filtrelendi: '{search_term} @ {location}'")
     return enriched
 
