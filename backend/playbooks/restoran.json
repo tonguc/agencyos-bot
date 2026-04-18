@@ -1,0 +1,112 @@
+{
+  "sektor": "restaurant_maps_driven",
+  "display_name": "Restoran / Lokanta",
+  "kpi_listesi": [
+    "aylık rezervasyon sayısı",
+    "masa doluluk oranı",
+    "akşam servisi kapasitesi"
+  ],
+  "icp_filtre": {
+    "yorum_min": 3,
+    "yorum_max": 2000,
+    "puan_max": 5.0,
+    "oncelikli_ilceler": [],
+    "site_durumu_kabul": ["yok", "zayif"],
+    "eleme_kriterleri": [
+      "klinik", "hastane", "eczane", "tesisat", "elektrik", "inşaat",
+      "mağaza", "butik", "tekstil", "avukat", "hukuk",
+      "bilgisayar", "gsm", "nakliyat", "temizlik", "veteriner"
+    ]
+  },
+  "hook_mantigi": {
+    "ana_kayip_birimi": "rezervasyon",
+    "dusuk_aralik": "10-25 rezervasyon/ay",
+    "orta_aralik": "25-60 rezervasyon/ay",
+    "yuksek_aralik": "60-120 rezervasyon/ay",
+    "varsayilan_guven": 65
+  },
+  "hook_tipleri": {
+    "gap_hook": {
+      "aciklama": "Görünürlük veya dönüşüm açığı",
+      "sablon": "Sizi gören müşteriler var ama rezervasyona dönüşmeden çıkıyor olabilir.",
+      "tetikleyici": "her zaman"
+    },
+    "data_hook": {
+      "aciklama": "Rakip restoran verisi",
+      "sablon": "{ilce} bölgesinde {rakip_sayi} restoran online kanalda sizi geçiyor.",
+      "tetikleyici": "audit.reklam_firsati.rakip_durum == aktif"
+    },
+    "money_hook": {
+      "aciklama": "Tahmini aylık kayıp",
+      "sablon": "Bu açıkla ayda {min}-{max} rezervasyon kaçıyor olabilir. (%{guven} güven)",
+      "tetikleyici": "her zaman — fallback"
+    },
+    "tercih_sirasi": [
+      "gap_hook",
+      "data_hook",
+      "money_hook"
+    ]
+  },
+  "audit_kriterleri": [
+    {
+      "id": "rezervasyon",
+      "soru": "Online rezervasyon veya net rezervasyon CTA'sı var mı?",
+      "agirlik": 30
+    },
+    {
+      "id": "instagram",
+      "soru": "Instagram aktif mi ve son 30 günde post var mı?",
+      "agirlik": 25
+    },
+    {
+      "id": "menu",
+      "soru": "Menü fiyatlarıyla birlikte mobilde görünüyor mu?",
+      "agirlik": 20
+    },
+    {
+      "id": "guven",
+      "soru": "Google yorumları 4.0+ puan ve yanıtlanıyor mu?",
+      "agirlik": 15
+    },
+    {
+      "id": "gorsel",
+      "soru": "Yemek fotoğrafları kaliteli ve güncel mi?",
+      "agirlik": 10
+    }
+  ],
+  "audit_dil_kurallari": {
+    "yasak": [
+      "SEO", "meta", "title tag", "organik trafik", "dönüşüm oranı",
+      "tespit edildi", "mevcut değil", "önerilir"
+    ],
+    "zorunlu_format": "Sorun → Boş masa / kaçan rezervasyon → Kısa çözüm",
+    "kayip_dili": "rezervasyon kaçıyor, masa boş kalıyor, müşteri başka restorana gidiyor",
+    "killer_insight_zorunlu": true
+  },
+  "outreach": {
+    "kanal": "Instagram DM / WhatsApp",
+    "ton": "samimi, yaratıcı, doğal",
+    "giris_yasak": [
+      "ajansım var", "hizmet sunuyorum", "size ulaşmak istedim"
+    ],
+    "giris_onerilen": [
+      "restoranınıza baktım", "fark ettim ki", "menünüz dikkatimi çekti"
+    ]
+  },
+  "killer_insight_ornekleri": [
+    "Instagram'da 50+ post var ama biyoda rezervasyon linki yok — görmek isteyen müşteri başka restorana gidiyor",
+    "Menü sadece görsel, fiyat görünmüyor — karar vermek isteyen müşteri çıkıyor",
+    "Google Maps yorumlarına hiç yanıt verilmemiş — güven son adımda kayboluyor",
+    "Akşam servisi dolu ama bunu bilmek mümkün değil — rezervasyon yapmak isteyen vazgeçiyor"
+  ],
+  "feature_weights": {
+    "blog_signal": 0.1,
+    "content_depth_signal": 0.3,
+    "linkedin_signal": 0.0,
+    "youtube_signal": 0.3,
+    "instagram_signal": 2.0,
+    "online_booking_signal": 2.0,
+    "ads_signal": 0.6,
+    "trust_signal": 1.2
+  }
+}

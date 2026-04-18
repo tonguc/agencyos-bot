@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import {
-  Stethoscope, Scale, Home, Sparkles, GraduationCap, Wrench, Baby,
+  Stethoscope, Scale, Home, Sparkles, GraduationCap, Wrench, Baby, Utensils,
 } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,6 +43,7 @@ const SECTORS = [
   { key: "egitim",        label: "Eğitim",           sub: "Kurs, Dil Okulu, Koçluk",        Icon: GraduationCap,color: "text-amber-600",  bg: "bg-amber-50",  ring: "ring-amber-400" },
   { key: "ev_hizmetleri", label: "Ev Hizmetleri",   sub: "Tesisat, Elektrik, Tadilat",     Icon: Wrench,       color: "text-orange-600", bg: "bg-orange-50", ring: "ring-orange-400" },
   { key: "kadin_dogum",   label: "Kadın Doğum",      sub: "Jinekoloji, Gebelik",            Icon: Baby,         color: "text-rose-600",   bg: "bg-rose-50",   ring: "ring-rose-400" },
+  { key: "restoran",      label: "Restoran",          sub: "Lokanta, Kafe, Bistro",          Icon: Utensils,     color: "text-yellow-600", bg: "bg-yellow-50", ring: "ring-yellow-400" },
 ];
 
 function SearchableDropdown({

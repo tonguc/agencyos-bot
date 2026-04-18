@@ -13,6 +13,7 @@ const SECTOR_LABELS: Record<string, string> = {
   klinik: "Klinik", avukat: "Avukat", emlak: "Emlak",
   guzellik: "Güzellik", egitim: "Eğitim",
   ev_hizmetleri: "Ev Hizmetleri", kadin_dogum: "Kadın Doğum",
+  restoran: "Restoran",
 };
 
 function getPriority(avg: number | undefined) {

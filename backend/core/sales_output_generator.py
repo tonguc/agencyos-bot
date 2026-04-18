@@ -32,6 +32,7 @@ _SEKTOR_DIL: dict[str, dict[str, str]] = {
     "guzellik":      {"service": "randevu",  "call": "işlem",                 "unit": "müşteri"},
     "emlak":         {"service": "müşteri",  "call": "ilan / danışmaya ulaşma", "unit": "portföy"},
     "kadin_dogum":   {"service": "hasta",    "call": "randevu",               "unit": "danışan"},
+    "restoran":      {"service": "müşteri",  "call": "rezervasyon",           "unit": "masa"},
 }
 
 _PROMPT = """Teknik audit ciktisini IKI FARKLI satis mesajina cevir.

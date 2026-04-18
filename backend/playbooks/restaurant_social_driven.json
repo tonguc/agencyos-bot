@@ -1,0 +1,113 @@
+{
+  "sektor": "restaurant_social_driven",
+  "display_name": "Restoran — Sosyal Medya Odaklı",
+  "kpi_listesi": [
+    "aylık rezervasyon sayısı",
+    "masa doluluk oranı",
+    "akşam servisi kapasitesi",
+    "sosyal medya etkileşim-rezervasyon oranı"
+  ],
+  "icp_filtre": {
+    "yorum_min": 5,
+    "yorum_max": 2000,
+    "puan_max": 5.0,
+    "oncelikli_ilceler": [],
+    "site_durumu_kabul": ["yok", "zayif"],
+    "eleme_kriterleri": [
+      "klinik", "hastane", "eczane", "tesisat", "elektrik", "inşaat",
+      "mağaza", "butik", "tekstil", "avukat", "hukuk",
+      "bilgisayar", "gsm", "nakliyat", "temizlik", "veteriner"
+    ]
+  },
+  "hook_mantigi": {
+    "ana_kayip_birimi": "rezervasyon",
+    "dusuk_aralik": "10-20 rezervasyon/ay",
+    "orta_aralik": "20-50 rezervasyon/ay",
+    "yuksek_aralik": "50-100 rezervasyon/ay",
+    "varsayilan_guven": 65
+  },
+  "hook_tipleri": {
+    "gap_hook": {
+      "aciklama": "Sosyal medya trafiği rezervasyona dönüşmüyor",
+      "sablon": "Sizi gören müşteriler var ama rezervasyona dönüşmeden çıkıyor olabilir.",
+      "tetikleyici": "lead.website mevcut AND audit.genel_skor < 55"
+    },
+    "data_hook": {
+      "aciklama": "Rakip restoran verisi",
+      "sablon": "{ilce} bölgesinde {rakip_sayi} restoran online rezervasyonla sizi geçiyor.",
+      "tetikleyici": "audit.reklam_firsati.rakip_durum == aktif"
+    },
+    "money_hook": {
+      "aciklama": "Tahmini aylık kayıp rezervasyon",
+      "sablon": "Bu dönüşüm açığıyla ayda {min}-{max} rezervasyon kaçıyor olabilir. (%{guven} güven)",
+      "tetikleyici": "her zaman — fallback"
+    },
+    "tercih_sirasi": [
+      "gap_hook",
+      "data_hook",
+      "money_hook"
+    ]
+  },
+  "audit_kriterleri": [
+    {
+      "id": "rezervasyon",
+      "soru": "Online rezervasyon sistemi (RestoranPOS, Yemeksepeti rezervasyon, form) var ve mobilde çalışıyor mu?",
+      "agirlik": 30
+    },
+    {
+      "id": "cta",
+      "soru": "Sosyal medya biyosunda veya sitede 'Rezervasyon Yap' CTA'sı açık ve tıklanabilir mi?",
+      "agirlik": 25
+    },
+    {
+      "id": "menu",
+      "soru": "Menü fiyatlarıyla birlikte net şekilde görünüyor mu? (görsel değil, metin/PDF)?",
+      "agirlik": 20
+    },
+    {
+      "id": "guven",
+      "soru": "Müşteri yorumları sosyal medyada veya Google'da görünür ve yanıtlanıyor mu?",
+      "agirlik": 15
+    },
+    {
+      "id": "gorsel",
+      "soru": "Yemek ve mekan fotoğrafları profesyonel kalitede mi?",
+      "agirlik": 10
+    }
+  ],
+  "audit_dil_kurallari": {
+    "yasak": [
+      "SEO", "meta", "title tag", "organik trafik", "dönüşüm oranı",
+      "tespit edildi", "mevcut değil", "önerilir"
+    ],
+    "zorunlu_format": "Sorun → Boş masa / kaçan rezervasyon → Kısa çözüm",
+    "kayip_dili": "rezervasyon kaçıyor, masa boş kalıyor, müşteri başka restorana gidiyor",
+    "killer_insight_zorunlu": true
+  },
+  "outreach": {
+    "kanal": "Instagram DM / WhatsApp",
+    "ton": "samimi, yaratıcı, doğal",
+    "giris_yasak": [
+      "ajansım var", "hizmet sunuyorum", "size ulaşmak istedim", "dijital çözümler"
+    ],
+    "giris_onerilen": [
+      "hesabınıza baktım", "fark ettim ki", "menünüz dikkatimi çekti"
+    ]
+  },
+  "killer_insight_ornekleri": [
+    "Instagram'da 50+ post var ama biyoda rezervasyon linki yok — görmek isteyen müşteri başka restorana gidiyor",
+    "Menü sadece görsel olarak paylaşılmış, fiyat görünmüyor — karar vermek isteyen müşteri çıkıyor",
+    "Google Maps 4.3 puan ama yorumlara hiç yanıt verilmemiş — güven son adımda kayboluyor",
+    "Akşam servisi dolu ama bunu bilmek mümkün değil — reserve etmek isteyen bir yere bakıp vazgeçiyor"
+  ],
+  "feature_weights": {
+    "blog_signal": 0.2,
+    "content_depth_signal": 0.5,
+    "linkedin_signal": 0.0,
+    "youtube_signal": 0.4,
+    "instagram_signal": 1.8,
+    "online_booking_signal": 2.0,
+    "ads_signal": 0.6,
+    "trust_signal": 1.2
+  }
+}

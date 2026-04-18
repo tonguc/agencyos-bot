@@ -17,6 +17,7 @@ const SECTOR_LABELS: Record<string, string> = {
   egitim: "Eğitim / Kurs",
   ev_hizmetleri: "Ev Hizmetleri",
   kadin_dogum: "Kadın Doğum Uzmanı",
+  restoran: "Restoran / Lokanta",
 };
 
 const PIPELINE_STATUSES = ["Yeni", "Audit", "Mesaj", "Cevap", "Demo", "Teklif", "Kapandi", "Soguk"];

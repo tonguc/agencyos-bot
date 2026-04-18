@@ -16,6 +16,7 @@ from core.education_subsector import detect_education_subsector
 from core.ev_hizmetleri_subsector import detect_ev_hizmetleri_subsector
 from core.lawyer_subsector import detect_lawyer_subsector
 from core.real_estate_subsector import detect_real_estate_subsector
+from core.restaurant_subsector import detect_restaurant_subsector
 from core.hook_engine import select_and_generate_hook
 from core.lead_scorer import calculate_final_score
 from core.playbook import load_playbook
@@ -86,6 +87,12 @@ async def run_audit(lead_id: uuid.UUID, db: AsyncSession) -> Audit:
         lead_dict["sub_sector"] = subsector
         playbook = load_playbook(f"ev_hizmetleri_{subsector}")
         logger.info("Ev hizmetleri subsector: lead=%s subsector=%s", str(lead_id)[:8], subsector)
+
+    elif sector == "restoran":
+        subsector = detect_restaurant_subsector(lead_dict)
+        lead_dict["sub_sector"] = subsector
+        playbook = load_playbook(f"restaurant_{subsector}")
+        logger.info("Restaurant subsector: lead=%s subsector=%s", str(lead_id)[:8], subsector)
 
     else:
         # kadin_dogum ve bilinmeyen sektörler doğrudan playbook'larına gider

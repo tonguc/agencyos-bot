@@ -21,6 +21,7 @@ _SECTOR_SEARCH_TERMS: dict[str, str] = {
     "egitim":        "eğitim kursu dil okulu",
     "ev_hizmetleri": "tesisatçı",
     "kadin_dogum":   "kadın hastalıkları ve doğum uzmanı jinekoloji",
+    "restoran":      "restoran lokanta",
 }
 
 # İsim veya kategori bu pattern'lara uyan lead'ler koleksiyon aşamasında filtrelenir.
@@ -66,6 +67,12 @@ _SECTOR_REJECT: dict[str, re.Pattern] = {
         r"\b(butik|mağaza|shop|store|tekstil|moda|giyim|kuaför|güzellik\s*salonu|"
         r"kozmetik|parfüm|takı|kafe|restoran|otel|hostel|temizlik|"
         r"tesisat|elektrik|inşaat|bilgisayar|gsm|veteriner)\b",
+        re.I | re.UNICODE,
+    ),
+    "restoran": re.compile(
+        r"\b(klinik|hastane|eczane|tesisat|elektrik|inşaat|boyacı|tadilat|"
+        r"mağaza|butik|tekstil|avukat|hukuk|güzellik\s*merkezi|"
+        r"bilgisayar|gsm|nakliyat|temizlik|veteriner)\b",
         re.I | re.UNICODE,
     ),
 }

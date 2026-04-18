@@ -1,0 +1,113 @@
+{
+  "sektor": "restaurant_maps_driven",
+  "display_name": "Restoran — Google Maps Odaklı",
+  "kpi_listesi": [
+    "aylık arama görünürlüğü",
+    "masa doluluk oranı",
+    "Google Maps sıralaması",
+    "sosyal medya takipçi artışı"
+  ],
+  "icp_filtre": {
+    "yorum_min": 3,
+    "yorum_max": 1500,
+    "puan_max": 5.0,
+    "oncelikli_ilceler": [],
+    "site_durumu_kabul": ["yok", "zayif"],
+    "eleme_kriterleri": [
+      "klinik", "hastane", "eczane", "tesisat", "elektrik", "inşaat",
+      "mağaza", "butik", "tekstil", "avukat", "hukuk",
+      "bilgisayar", "gsm", "nakliyat", "temizlik", "veteriner"
+    ]
+  },
+  "hook_mantigi": {
+    "ana_kayip_birimi": "müşteri",
+    "dusuk_aralik": "15-30 müşteri/ay",
+    "orta_aralik": "30-70 müşteri/ay",
+    "yuksek_aralik": "70-150 müşteri/ay",
+    "varsayilan_guven": 60
+  },
+  "hook_tipleri": {
+    "gap_hook": {
+      "aciklama": "Sosyal medya görünürlüğü eksik",
+      "sablon": "Sizi arayan kişiler var ama sizi sosyal medyada göremediği için tercih etmiyor olabilir.",
+      "tetikleyici": "lead.website eksik OR audit.genel_skor < 50"
+    },
+    "data_hook": {
+      "aciklama": "Rakip restoran sosyal medya verisi",
+      "sablon": "{ilce} bölgesinde {rakip_sayi} restoran sosyal medyada aktif şekilde sizi geçiyor.",
+      "tetikleyici": "audit.reklam_firsati.rakip_durum == aktif"
+    },
+    "money_hook": {
+      "aciklama": "Tahmini aylık kayıp müşteri",
+      "sablon": "Bu görünürlük açığıyla ayda {min}-{max} müşteri kaçıyor olabilir. (%{guven} güven)",
+      "tetikleyici": "her zaman — fallback"
+    },
+    "tercih_sirasi": [
+      "gap_hook",
+      "data_hook",
+      "money_hook"
+    ]
+  },
+  "audit_kriterleri": [
+    {
+      "id": "instagram",
+      "soru": "Instagram hesabı var mı ve son 30 günde en az 4 post paylaşıldı mı?",
+      "agirlik": 30
+    },
+    {
+      "id": "maps_profil",
+      "soru": "Google Maps profili fotoğraflı, menülü ve eksiksiz mi?",
+      "agirlik": 25
+    },
+    {
+      "id": "site",
+      "soru": "Restoran sitesi mobilde çalışıyor ve menüyü gösteriyor mu?",
+      "agirlik": 20
+    },
+    {
+      "id": "guven",
+      "soru": "Google yorumlarına yanıt veriliyor mu, puan 4.0+ mu?",
+      "agirlik": 15
+    },
+    {
+      "id": "rezervasyon",
+      "soru": "Telefon veya online rezervasyon için net bir CTA var mı?",
+      "agirlik": 10
+    }
+  ],
+  "audit_dil_kurallari": {
+    "yasak": [
+      "SEO", "meta", "title tag", "organik trafik", "dönüşüm oranı",
+      "tespit edildi", "mevcut değil", "önerilir"
+    ],
+    "zorunlu_format": "Sorun → Boş masa / görünmez restoran → Kısa çözüm",
+    "kayip_dili": "müşteri sizi görmeden başka restorana gidiyor, masa boş kalıyor",
+    "killer_insight_zorunlu": true
+  },
+  "outreach": {
+    "kanal": "Instagram DM / WhatsApp",
+    "ton": "meraklı, yardımsever, doğal",
+    "giris_yasak": [
+      "ajansım var", "hizmet sunuyorum", "size ulaşmak istedim", "dijital çözümler"
+    ],
+    "giris_onerilen": [
+      "restoranınızı fark ettim", "bölgenizde bir araştırma yaptım", "dikkatimi çeken bir detay var"
+    ]
+  },
+  "killer_insight_ornekleri": [
+    "Google Maps'te 3.8 puan ile liste dışına düşüyor — akşam servisi için arayan kişi rakibi tercih ediyor",
+    "Instagram hesabı yok — yemek fotoğrafı arayan müşteri sizi bulamadan başka restorana gidiyor",
+    "Google Maps profili fotoğrafsız — menüsüz profil güven vermiyor, masa rezervasyonu düşüyor",
+    "Sadece Google Maps'te varsınız ama yorumlara hiç yanıt verilmemiş — güven son adımda kayboluyor"
+  ],
+  "feature_weights": {
+    "blog_signal": 0.1,
+    "content_depth_signal": 0.3,
+    "linkedin_signal": 0.0,
+    "youtube_signal": 0.3,
+    "instagram_signal": 2.0,
+    "online_booking_signal": 1.5,
+    "ads_signal": 0.5,
+    "trust_signal": 1.0
+  }
+}
