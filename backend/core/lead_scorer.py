@@ -38,6 +38,10 @@ CHANNEL_FIELDS = [
     "has_photos_quality", "has_video_tour", "has_location_info", "has_call_button",
     # Beauty signals
     "has_visual_quality", "has_service_list", "has_instagram_link",
+    # Education signals
+    "has_course_details", "has_curriculum", "has_success_stories",
+    "has_testimonials", "has_free_content", "has_video_content",
+    "has_clear_pricing", "has_cta_clear",
     # Review velocity
     "review_last_30d", "review_last_90d",
     # Update detection
@@ -326,6 +330,29 @@ def calc_opportunity(lead: dict, audit: dict, playbook: dict) -> tuple[int, list
             add(5, "Fiyat bilgisi yok (rutin güzellik)")
         # has_whatsapp generic conversion bloğunda zaten +5 veriyor — tekrar etme
 
+    # ── Education subsector sinyalleri ───────────────
+    elif sub_sector == "course":
+        if lead.get("has_course_details") is False:
+            add(8, "Kurs detay sayfası yok (kurs)")
+        if lead.get("has_curriculum") is False:
+            add(8, "Müfredat yok (kurs)")
+        if lead.get("has_success_stories") is False:
+            add(6, "Başarı hikayesi yok (kurs)")
+        if lead.get("has_clear_pricing") is False:
+            add(6, "Net fiyat yok (kurs)")
+        if lead.get("has_cta_clear") is False:
+            add(6, "CTA belirsiz (kurs)")
+
+    elif sub_sector == "coaching":
+        if lead.get("has_testimonials") is False:
+            add(8, "Müşteri yorumu yok (koçluk)")
+        if lead.get("has_video_content") is False:
+            add(6, "Video içerik yok (koçluk)")
+        if lead.get("has_free_content") is False:
+            add(6, "Ücretsiz içerik yok (koçluk)")
+        if lead.get("has_cta_clear") is False:
+            add(6, "CTA belirsiz (koçluk)")
+
     return max(0, min(score, 100)), signals
 
 
@@ -494,6 +521,19 @@ def calc_buyer_intent(lead: dict, audit: dict, playbook: dict) -> tuple[int, lis
             add(round(3 * ig_w), "Instagram linki mevcut (güzellik)")
         elif ig_w > 0 and lead.get("has_instagram_link") is False:
             add(round(-3 * ig_w), "Instagram linki yok (güzellik)")
+
+    # ── Education subsector intent sinyalleri ────────
+    # instagram/youtube/review generic scorer'da feature_weights ile hallediliyor.
+    # Burada sadece eğitime özgü EK sinyal: ücretsiz içerik lead magnet olarak çalışır.
+    elif sub_sector in ("course", "coaching"):
+        li_w = fw["linkedin_signal"]
+        # Koçluk için LinkedIn aktifliği doğrudan müşteri niyeti göstergesi
+        if sub_sector == "coaching" and li_w > 0:
+            if lead.get("linkedin_active_30d") is True and not lead.get("linkedin_url"):
+                add(round(5 * li_w), "LinkedIn aktif (koçluk)")
+        # Ücretsiz içerik varsa → lead sıcak, dönüşme ihtimali yüksek
+        if lead.get("has_free_content") is True:
+            add(5, "Ücretsiz içerik mevcut (eğitim)")
 
     return max(0, min(score, 100)), signals
 

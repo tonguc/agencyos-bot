@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.audit_generator import generate_audit
 from core.beauty_subsector import detect_beauty_subsector
 from core.clinic_subsector import detect_clinic_subsector
+from core.education_subsector import detect_education_subsector
 from core.lawyer_subsector import detect_lawyer_subsector
 from core.real_estate_subsector import detect_real_estate_subsector
 from core.hook_engine import select_and_generate_hook
@@ -58,6 +59,11 @@ async def run_audit(lead_id: uuid.UUID, db: AsyncSession) -> Audit:
         lead_dict["sub_sector"] = subsector
         playbook = load_playbook(f"beauty_{subsector}")
         logger.info("Beauty subsector: lead=%s subsector=%s", str(lead_id)[:8], subsector)
+    elif sector == "egitim":
+        subsector = detect_education_subsector(lead_dict)
+        lead_dict["sub_sector"] = subsector
+        playbook = load_playbook(f"education_{subsector}")
+        logger.info("Education subsector: lead=%s subsector=%s", str(lead_id)[:8], subsector)
     else:
         playbook = load_playbook(sector)
 
