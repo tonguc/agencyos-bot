@@ -205,11 +205,12 @@ def calc_opportunity(lead: dict, audit: dict, playbook: dict) -> tuple[int, list
         if lead.get("has_online_booking") is False:
             add(10, "Online booking yok")
 
-        # TODO: blog sinyali sektör bazlı olmalı (tesisatçı için anlamsız)
+        # Blog sinyali — sektöre göre ağırlık (playbook'tan okunur, default 1.0)
+        blog_w: float = playbook.get("blog_weight", 1.0)
         if lead.get("has_blog") is False:
-            add(4, "Blog yok")
+            add(round(6 * blog_w), "Blog yok")
         elif lead.get("last_blog_days") is not None and lead["last_blog_days"] > 120:
-            add(6, f"Blog eski ({lead['last_blog_days']}g)")
+            add(round(8 * blog_w), f"Blog eski ({lead['last_blog_days']}g)")
 
     # --- Website güncellik (sadece conf > 0.3 olduğunda — footer bile etkili) ---
     update_days: int | None = lead.get("last_website_update_days")

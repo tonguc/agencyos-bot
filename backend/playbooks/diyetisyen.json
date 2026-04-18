@@ -1,17 +1,22 @@
 {
   "sektor": "diyetisyen",
   "display_name": "Diyetisyen ve Beslenme Uzmanı",
-  "kpi_listesi": ["aylik danisan sayisi", "online gorünurluk", "randevu dolulugu"],
-
+  "kpi_listesi": [
+    "aylik danisan sayisi",
+    "online gorünurluk",
+    "randevu dolulugu"
+  ],
   "icp_filtre": {
     "yorum_min": 0,
     "yorum_max": 400,
     "puan_max": 5.0,
     "oncelikli_ilceler": [],
-    "site_durumu_kabul": ["yok", "zayif"],
+    "site_durumu_kabul": [
+      "yok",
+      "zayif"
+    ],
     "eleme_kriterleri": []
   },
-
   "hook_mantigi": {
     "ana_kayip_birimi": "danisan",
     "dusuk_aralik": "5-10 danisan/ay",
@@ -19,7 +24,6 @@
     "yuksek_aralik": "25-50 danisan/ay",
     "varsayilan_guven": 65
   },
-
   "hook_tipleri": {
     "data_hook": {
       "aciklama": "Rakip sayisi ile dikkat cek",
@@ -36,33 +40,66 @@
       "sablon": "Bu gorunurlukle aylik {min}-{max} danisan kaciyor olabilir. (%{guven} guven)",
       "tetikleyici": "her zaman — fallback"
     },
-    "tercih_sirasi": ["gap_hook", "data_hook", "money_hook"]
+    "tercih_sirasi": [
+      "gap_hook",
+      "data_hook",
+      "money_hook"
+    ]
   },
-
   "audit_kriterleri": [
-    {"id": "maps",  "soru": "Google Maps profili fotografli ve aktif mi?", "agirlik": 25},
-    {"id": "seo",   "soru": "Ilce + diyetisyen aramasinda ilk sayfada mi?", "agirlik": 25},
-    {"id": "form",  "soru": "Online randevu veya iletisim formu var mi?", "agirlik": 20},
-    {"id": "sosyal","soru": "Instagram/sosyal medya aktif mi?", "agirlik": 20},
-    {"id": "yorum", "soru": "Yorum sayisi 15+ ve puan 4.5+ mi?", "agirlik": 10}
+    {
+      "id": "maps",
+      "soru": "Google Maps profili fotografli ve aktif mi?",
+      "agirlik": 25
+    },
+    {
+      "id": "seo",
+      "soru": "Ilce + diyetisyen aramasinda ilk sayfada mi?",
+      "agirlik": 25
+    },
+    {
+      "id": "form",
+      "soru": "Online randevu veya iletisim formu var mi?",
+      "agirlik": 20
+    },
+    {
+      "id": "sosyal",
+      "soru": "Instagram/sosyal medya aktif mi?",
+      "agirlik": 20
+    },
+    {
+      "id": "yorum",
+      "soru": "Yorum sayisi 15+ ve puan 4.5+ mi?",
+      "agirlik": 10
+    }
   ],
-
   "audit_dil_kurallari": {
-    "yasak": ["tespit edildi", "mevcut degil", "onerilir"],
+    "yasak": [
+      "tespit edildi",
+      "mevcut degil",
+      "onerilir"
+    ],
     "zorunlu_format": "Sorun → Kayip etkisi → Kisa cozum",
     "killer_insight_zorunlu": true
   },
-
   "outreach": {
     "kanal": "Instagram DM veya WhatsApp",
     "ton": "samimi, saglik odakli, satis baskisi yok",
-    "giris_yasak": ["Ajansim var", "hizmet sunuyorum", "size ulasmak istedim"],
-    "giris_onerilen": ["profilinize baktim", "fark ettim ki", "dikkatimi cekti"]
+    "giris_yasak": [
+      "Ajansim var",
+      "hizmet sunuyorum",
+      "size ulasmak istedim"
+    ],
+    "giris_onerilen": [
+      "profilinize baktim",
+      "fark ettim ki",
+      "dikkatimi cekti"
+    ]
   },
-
   "killer_insight_ornekleri": [
     "Instagram aktif ama siteye link yok — takipciler randevu alamiyor",
     "Google Maps fotografi yok — hastalar guvensiz hissediyor",
     "'Besiktas diyetisyen' aramasinda 4. sayfadasiniz — rakipler ilk 3te"
-  ]
+  ],
+  "blog_weight": 1.5
 }
