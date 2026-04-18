@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { leadsApi } from "@/lib/api";
+import { leadsApi, auditApi } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
@@ -19,6 +19,8 @@ const SECTOR_LABELS: Record<string, string> = {
   tesisatci: "Sıhhi Tesisat",
 };
 
+const PIPELINE_STATUSES = ["Yeni", "Audit", "Mesaj", "Cevap", "Demo", "Teklif", "Kapandi", "Soguk"];
+
 export function LeadsTable() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -28,9 +30,12 @@ export function LeadsTable() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
+  const [highScoreOnly, setHighScoreOnly] = useState(false);
   const [openSectors, setOpenSectors] = useState<Set<string>>(
     urlSector ? new Set([urlSector]) : new Set()
   );
+  const [auditingId, setAuditingId] = useState<string | null>(null);
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -57,8 +62,34 @@ export function LeadsTable() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  // group by sector, sorted by most recent lead
-  const grouped = leads.reduce<Record<string, Lead[]>>((acc, lead) => {
+  async function handleAudit(e: React.MouseEvent, leadId: string) {
+    e.stopPropagation();
+    setAuditingId(leadId);
+    try {
+      await auditApi.trigger(leadId);
+      router.push(`/leads/${leadId}`);
+    } catch {
+      setAuditingId(null);
+    }
+  }
+
+  async function handleStatusChange(e: React.ChangeEvent<HTMLSelectElement>, lead: Lead) {
+    e.stopPropagation();
+    const newStatus = e.target.value;
+    setUpdatingStatus(lead.id);
+    try {
+      await leadsApi.update(lead.id, { status: newStatus });
+      setLeads((prev) => prev.map((l) => l.id === lead.id ? { ...l, status: newStatus } : l));
+    } finally {
+      setUpdatingStatus(null);
+    }
+  }
+
+  const filteredLeads = highScoreOnly
+    ? leads.filter((l) => (l.opportunity_score ?? 0) >= 70)
+    : leads;
+
+  const grouped = filteredLeads.reduce<Record<string, Lead[]>>((acc, lead) => {
     if (!acc[lead.sector]) acc[lead.sector] = [];
     acc[lead.sector].push(lead);
     return acc;
@@ -81,12 +112,25 @@ export function LeadsTable() {
 
   return (
     <div className="p-6 space-y-4">
-      <Input
-        className="w-72"
-        placeholder="İsim, sektör veya şehir ara..."
-        value={searchInput}
-        onChange={(e) => setSearchInput(e.target.value)}
-      />
+      <div className="flex items-center gap-3">
+        <Input
+          className="w-72"
+          placeholder="İsim, sektör veya şehir ara..."
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+        />
+        <button
+          type="button"
+          onClick={() => setHighScoreOnly((v) => !v)}
+          className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+            highScoreOnly
+              ? "bg-green-600 text-white border-green-600"
+              : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+          }`}
+        >
+          Yüksek Skor (70+)
+        </button>
+      </div>
 
       {loading ? (
         <div className="flex justify-center py-16"><Spinner className="text-slate-400 h-6 w-6" /></div>
@@ -99,7 +143,6 @@ export function LeadsTable() {
             const label = SECTOR_LABELS[sector] ?? sector;
             return (
               <div key={sector} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-                {/* Sector header */}
                 <button
                   type="button"
                   onClick={() => toggleSector(sector)}
@@ -114,14 +157,13 @@ export function LeadsTable() {
                   <span className="text-slate-400 text-sm">{isOpen ? "▲" : "▼"}</span>
                 </button>
 
-                {/* Leads table */}
                 {isOpen && (
                   <div className="border-t border-slate-100 overflow-auto">
                     <table className="min-w-full text-sm">
                       <thead>
                         <tr className="bg-slate-50 border-b border-slate-100">
-                          {["İsim", "Şehir / İlçe", "Google", "Skor", "Durum", "Tarih"].map((h) => (
-                            <th key={h} className="px-4 py-2.5 text-left text-xs font-medium text-slate-500 uppercase tracking-wide whitespace-nowrap">
+                          {["İsim", "Şehir / İlçe", "Google", "Skor", "Durum", "Tarih", ""].map((h, i) => (
+                            <th key={i} className="px-4 py-2.5 text-left text-xs font-medium text-slate-500 uppercase tracking-wide whitespace-nowrap">
                               {h}
                             </th>
                           ))}
@@ -151,8 +193,28 @@ export function LeadsTable() {
                                 </span>
                               ) : "—"}
                             </td>
-                            <td className="px-4 py-3"><Badge value={lead.status} /></td>
+                            <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                              <select
+                                value={lead.status}
+                                onChange={(e) => handleStatusChange(e, lead)}
+                                disabled={updatingStatus === lead.id}
+                                className="text-xs border border-slate-200 rounded-md px-2 py-1 bg-white text-slate-700 cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50"
+                              >
+                                {PIPELINE_STATUSES.map((s) => (
+                                  <option key={s} value={s}>{s}</option>
+                                ))}
+                              </select>
+                            </td>
                             <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">{formatDate(lead.created_at)}</td>
+                            <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                onClick={(e) => handleAudit(e, lead.id)}
+                                disabled={auditingId === lead.id}
+                                className="text-xs px-2.5 py-1 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 disabled:opacity-50 whitespace-nowrap"
+                              >
+                                {auditingId === lead.id ? "..." : "Audit Başlat"}
+                              </button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
