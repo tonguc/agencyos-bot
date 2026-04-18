@@ -23,23 +23,49 @@ _SECTOR_SEARCH_TERMS: dict[str, str] = {
     "kadin_dogum":   "kadın hastalıkları ve doğum uzmanı jinekoloji",
 }
 
-# İsim veya kategori bu pattern'lara uyan lead'ler filtrelenir
+# İsim veya kategori bu pattern'lara uyan lead'ler koleksiyon aşamasında filtrelenir.
+# icp_filter.eleme_kriterleri ikinci katman olarak çalışır.
 _SECTOR_REJECT: dict[str, re.Pattern] = {
-    "kadin_dogum": re.compile(
-        r"\b(butik|mağaza|shop|store|tekstil|moda|giyim|kuaför|güzellik\s*salonu|"
-        r"kozmetik|parfüm|takı|kafe|restoran|otel|hostel|spa|masaj|temizlik)\b",
-        re.I | re.UNICODE,
-    ),
     "klinik": re.compile(
-        r"\b(butik|mağaza|tekstil|moda|giyim|kafe|restoran|otel|kuaför)\b",
+        r"\b(bilgisayar|gsm|telefon\s*tamiri|teknik\s*servis|oto\s*klinik|"
+        r"boya\s*kliniği|eczane|veteriner|market|süpermarket|"
+        r"mağaza|butik|restoran|kafe|inşaat|tesisat)\b",
         re.I | re.UNICODE,
     ),
     "avukat": re.compile(
-        r"\b(butik|mağaza|kafe|restoran|güzellik|kuaför|inşaat|tesisat)\b",
+        r"\b(mağaza|butik|restoran|kafe|market|tekstil|tesisat|elektrik|"
+        r"inşaat|boyacı|temizlik|nakliyat|oto|güzellik|kuaför|"
+        r"bilgisayar|gsm|eczane|veteriner)\b",
+        re.I | re.UNICODE,
+    ),
+    "emlak": re.compile(
+        r"\b(mağaza|butik|tekstil|kafe|restoran|otel|tesisat|elektrik|"
+        r"boyacı|temizlik|güzellik|kuaför|muayenehane|eczane|"
+        r"avukat|bilgisayar|gsm)\b",
         re.I | re.UNICODE,
     ),
     "guzellik": re.compile(
-        r"\b(tesisat|elektrik|avukat|hukuk|klinik|hastane|muayene)\b",
+        r"\b(muayenehane|klinik|hastane|eczane|veteriner|avukat|hukuk|"
+        r"tesisat|elektrik|inşaat|boyacı|nakliyat|temizlik|"
+        r"mağaza|butik|tekstil|market|bilgisayar|gsm|oto|restoran)\b",
+        re.I | re.UNICODE,
+    ),
+    "egitim": re.compile(
+        r"\b(mağaza|butik|tekstil|kafe|restoran|market|tesisat|elektrik|"
+        r"inşaat|boyacı|nakliyat|güzellik|kuaför|muayenehane|klinik|"
+        r"eczane|avukat|bilgisayar|gsm|oto|veteriner)\b",
+        re.I | re.UNICODE,
+    ),
+    "ev_hizmetleri": re.compile(
+        r"\b(mağaza|butik|tekstil|kafe|restoran|market|otel|"
+        r"muayenehane|klinik|hastane|eczane|veteriner|"
+        r"avukat|hukuk|güzellik|kuaför|emlak|bilgisayar|gsm)\b",
+        re.I | re.UNICODE,
+    ),
+    "kadin_dogum": re.compile(
+        r"\b(butik|mağaza|shop|store|tekstil|moda|giyim|kuaför|güzellik\s*salonu|"
+        r"kozmetik|parfüm|takı|kafe|restoran|otel|hostel|temizlik|"
+        r"tesisat|elektrik|inşaat|bilgisayar|gsm|veteriner)\b",
         re.I | re.UNICODE,
     ),
 }

@@ -12,7 +12,12 @@
     "puan_max": 5.0,
     "oncelikli_ilceler": [],
     "site_durumu_kabul": ["yok", "zayif"],
-    "eleme_kriterleri": []
+    "eleme_kriterleri": [
+      "mağaza", "butik", "tekstil", "kafe", "restoran", "market", "otel",
+      "muayenehane", "klinik", "hastane", "eczane", "veteriner",
+      "avukat", "hukuk", "güzellik", "kuaför", "emlak", "gayrimenkul",
+      "bilgisayar", "gsm", "telefon tamiri"
+    ]
   },
   "hook_mantigi": {
     "ana_kayip_birimi": "iş",

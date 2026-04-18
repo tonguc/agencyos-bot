@@ -15,7 +15,11 @@
       "yok",
       "zayif"
     ],
-    "eleme_kriterleri": []
+    "eleme_kriterleri": [
+      "bilgisayar", "gsm", "telefon tamiri", "teknik servis", "oto klinik",
+      "araba kliniği", "boya kliniği", "eczane", "veteriner", "market",
+      "süpermarket", "mağaza", "butik", "restoran", "kafe", "inşaat", "tesisat"
+    ]
   },
   "hook_mantigi": {
     "ana_kayip_birimi": "hasta",

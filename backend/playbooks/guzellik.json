@@ -15,7 +15,12 @@
       "yok",
       "zayif"
     ],
-    "eleme_kriterleri": []
+    "eleme_kriterleri": [
+      "muayenehane", "klinik", "hastane", "eczane", "veteriner",
+      "avukat", "hukuk", "tesisat", "elektrik", "inşaat", "boyacı",
+      "nakliyat", "temizlik", "mağaza", "butik", "tekstil", "market",
+      "bilgisayar", "gsm", "oto", "kafe", "restoran"
+    ]
   },
   "hook_mantigi": {
     "ana_kayip_birimi": "müşteri",
