@@ -16,8 +16,7 @@ const SECTOR_LABELS: Record<string, string> = {
   plastik_cerrah: "Plastik Cerrah / Estetik",
   kadin_dogum: "Kadın Doğum Uzmanı",
   guzellik: "Güzellik Merkezi / Botoks",
-  tesisatci: "Tesisatçı",
-  tesisat: "Tesisat",
+  tesisatci: "Sıhhi Tesisat",
 };
 
 export function LeadsTable() {

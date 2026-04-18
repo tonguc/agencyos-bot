@@ -2,17 +2,6 @@ import { Header } from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { AppSettings } from "@/types";
 
-const SECTOR_LABELS: Record<string, string> = {
-  klinik: "Klinik / Muayenehane",
-  diyetisyen: "Diyetisyen",
-  avukat: "Avukat / Hukuk Bürosu",
-  plastik_cerrah: "Plastik Cerrah / Estetik",
-  kadin_dogum: "Kadın Doğum Uzmanı",
-  guzellik: "Güzellik Merkezi / Botoks",
-  tesisatci: "Tesisatçı",
-  tesisat: "Tesisat",
-};
-
 async function getSettings(): Promise<AppSettings | null> {
   try {
     const res = await fetch(
@@ -83,18 +72,6 @@ export default async function SettingsPage() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader><CardTitle>Aktif Sektörler</CardTitle></CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {s.playbooks.map((p) => (
-                    <span key={p} className="rounded-md bg-slate-100 px-2.5 py-1 text-sm text-slate-700">
-                      {SECTOR_LABELS[p] ?? p.replace(/_/g, " ")}
-                    </span>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
           </>
         )}
       </div>

@@ -1,6 +1,6 @@
 {
   "sektor": "tesisatci",
-  "display_name": "Tesisatçı ve Su Tesisatı",
+  "display_name": "Sıhhi Tesisat",
   "kpi_listesi": ["aylik is sayisi", "online gorunurluk", "acil cagri orani"],
 
   "icp_filtre": {
