@@ -19,6 +19,7 @@ from core.real_estate_subsector import detect_real_estate_subsector
 from core.hook_engine import select_and_generate_hook
 from core.lead_scorer import calculate_final_score
 from core.playbook import load_playbook
+from core.sales_output_generator import generate_sales_output
 from core.website_update_detector import detect_website_update
 from models.activity_log import ActivityEvent
 from models.audit import Audit
@@ -92,6 +93,9 @@ async def run_audit(lead_id: uuid.UUID, db: AsyncSession) -> Audit:
 
     audit_result = await generate_audit(lead_dict, playbook)
     hook = await select_and_generate_hook(lead_dict, audit_result, playbook)
+
+    sales_output = await generate_sales_output(lead_dict, audit_result, playbook)
+    audit_result["sales_output"] = sales_output
 
     skorlar = audit_result.get("skorlar") or {}
     killer = audit_result.get("killer_insight") or {}
