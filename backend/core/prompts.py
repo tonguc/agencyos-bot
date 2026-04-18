@@ -23,6 +23,24 @@ DERINLIK KURALLARI:
 - hizli_kazanimlar: 2-3 madde, max 1 haftada uygulanabilir quick win
 
 ===========================
+BU SEKTORDE ODAKLANILACAK KPI'LAR
+===========================
+{kpi_listesi}
+
+===========================
+SEKTORE OZGU DEGERLENDIR KRITERLERI (agirlikli — yuksek agirlik = daha kritik)
+===========================
+{audit_kriterleri}
+
+===========================
+ZORUNLU CIKTI FORMATI
+===========================
+{zorunlu_format}
+
+KAYIP DILI — bulgulari bu cercevede yaz:
+{kayip_dili}
+
+===========================
 SEKTORE OZGU TARZ ORNEKLERI (ICERIK DEGIL, TARZ KOPYALANACAK)
 ===========================
 {killer_ornekleri}
@@ -160,9 +178,22 @@ FOLLOWUP_PROMPT_LAST = (
 
 def build_audit_prompt(lead: dict, playbook: dict, site: dict) -> str:
     dil = playbook.get("audit_dil_kurallari", {})
+
+    kriteler = playbook.get("audit_kriterleri", [])
+    audit_kriterleri_str = "\n".join(
+        f"- [Agirlik {k['agirlik']}] {k['soru']}"
+        for k in kriteler
+    ) or "(genel kriterler gecerli)"
+
+    kpi_str = ", ".join(playbook.get("kpi_listesi", [])) or "(genel)"
+
     return AUDIT_PROMPT.format(
         display_name=playbook["display_name"],
-        yasak_kelimeler=dil.get("yasak", []),
+        yasak_kelimeler=", ".join(dil.get("yasak", [])) or "(yok)",
+        kpi_listesi=kpi_str,
+        audit_kriterleri=audit_kriterleri_str,
+        zorunlu_format=dil.get("zorunlu_format", "Sorun → Kayip etkisi → Kisa cozum"),
+        kayip_dili=dil.get("kayip_dili", "musteri kaybi"),
         killer_ornekleri="\n".join(f"- {x}" for x in playbook.get("killer_insight_ornekleri", [])),
         isim=lead.get("isim") or "",
         adres=lead.get("adres") or "",
