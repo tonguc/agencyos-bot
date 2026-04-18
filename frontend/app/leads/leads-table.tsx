@@ -37,6 +37,7 @@ export function LeadsTable() {
   );
   const [auditingId, setAuditingId] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -71,6 +72,17 @@ export function LeadsTable() {
       router.push(`/leads/${leadId}`);
     } catch {
       setAuditingId(null);
+    }
+  }
+
+  async function handleDelete(e: React.MouseEvent, leadId: string) {
+    e.stopPropagation();
+    setDeletingId(leadId);
+    try {
+      await leadsApi.delete(leadId);
+      setLeads((prev) => prev.filter((l) => l.id !== leadId));
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -147,24 +159,24 @@ export function LeadsTable() {
                 <button
                   type="button"
                   onClick={() => toggleSector(sector)}
-                  className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-slate-50 transition-colors"
+                  className="w-full flex items-center justify-between px-5 py-4 bg-slate-50 hover:bg-slate-100 transition-colors border-b border-slate-200"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="font-semibold text-slate-800">{label}</span>
-                    <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">
+                    <span className="text-base font-bold text-slate-900 tracking-tight">{label}</span>
+                    <span className="text-xs font-semibold bg-white border border-slate-200 text-slate-500 px-2.5 py-0.5 rounded-full">
                       {items.length} aday
                     </span>
                   </div>
-                  <span className="text-slate-400 text-sm">{isOpen ? "▲" : "▼"}</span>
+                  <span className="text-slate-400 text-xs font-medium">{isOpen ? "Kapat ▲" : "Göster ▼"}</span>
                 </button>
 
                 {isOpen && (
-                  <div className="border-t border-slate-100 overflow-auto">
+                  <div className="overflow-auto">
                     <table className="min-w-full text-sm">
                       <thead>
-                        <tr className="bg-slate-50 border-b border-slate-100">
-                          {["İsim", "Şehir / İlçe", "Google", "Skor", "Durum", "Tarih", ""].map((h, i) => (
-                            <th key={i} className="px-4 py-2.5 text-left text-xs font-medium text-slate-500 uppercase tracking-wide whitespace-nowrap">
+                        <tr className="bg-white border-b border-slate-100">
+                          {["İsim", "Şehir / İlçe", "Google", "Skor", "Durum", "Tarih", "", ""].map((h, i) => (
+                            <th key={i} className="px-4 py-2.5 text-left text-xs font-medium text-slate-400 uppercase tracking-wide whitespace-nowrap">
                               {h}
                             </th>
                           ))}
@@ -214,6 +226,16 @@ export function LeadsTable() {
                                 className="text-xs px-2.5 py-1 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 disabled:opacity-50 whitespace-nowrap"
                               >
                                 {auditingId === lead.id ? "..." : "Audit Başlat"}
+                              </button>
+                            </td>
+                            <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                onClick={(e) => handleDelete(e, lead.id)}
+                                disabled={deletingId === lead.id}
+                                className="text-slate-300 hover:text-red-400 disabled:opacity-40 transition-colors p-1 rounded"
+                                title="Kaldır"
+                              >
+                                {deletingId === lead.id ? "…" : "✕"}
                               </button>
                             </td>
                           </tr>
