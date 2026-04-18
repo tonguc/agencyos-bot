@@ -16,7 +16,7 @@ from core.education_subsector import detect_education_subsector
 from core.ev_hizmetleri_subsector import detect_ev_hizmetleri_subsector
 from core.lawyer_subsector import detect_lawyer_subsector
 from core.outreach_writer import write_followup, write_initial_message
-from core.playbook import load_playbook
+from core.playbook import load_playbook, load_playbook_for_sector
 from core.real_estate_subsector import detect_real_estate_subsector
 from core.reply_analyzer import analyze_reply
 from core.response_engine import generate_response
@@ -79,7 +79,7 @@ def _resolve_playbook(lead_dict: dict) -> dict:
         lead_dict["sub_sector"] = sub
         return load_playbook(f"ev_hizmetleri_{sub}")
 
-    return load_playbook(sector)
+    return load_playbook_for_sector(sector)
 
 
 async def send_initial_outreach(
