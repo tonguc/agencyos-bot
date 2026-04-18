@@ -211,6 +211,14 @@ def calc_opportunity(lead: dict, audit: dict, playbook: dict) -> tuple[int, list
         elif lead.get("last_blog_days") is not None and lead["last_blog_days"] > 120:
             add(6, f"Blog eski ({lead['last_blog_days']}g)")
 
+    # --- Website güncellik (sadece conf > 0.3 olduğunda — footer bile etkili) ---
+    update_days: int | None = lead.get("last_website_update_days")
+    update_conf: float = lead.get("website_update_confidence", 0.0)
+
+    if update_days is not None and update_conf >= 0.3:
+        if update_days > 180:
+            add(4, f"Site eski ({update_days}g, conf={update_conf:.1f})")
+
     return max(0, min(score, 100)), signals
 
 
@@ -320,6 +328,18 @@ def calc_buyer_intent(lead: dict, audit: dict, playbook: dict) -> tuple[int, lis
 
     if rev_90 is not None and rev_90 >= 10:
         add(8, f"Son 90g yorum: {rev_90}")
+
+    # --- Website güncellik (sadece conf > 0.5 olduğunda — footer düşük güven, intent'e etkimez) ---
+    update_days: int | None = lead.get("last_website_update_days")
+    update_conf: float = lead.get("website_update_confidence", 0.0)
+
+    if update_days is not None and update_conf > 0.5:
+        if update_days < 30:
+            add(8, f"Site çok güncel ({update_days}g)")
+        elif update_days < 90:
+            add(4, f"Site güncel ({update_days}g)")
+        elif update_days > 365:
+            add(-4, f"Site terk edilmiş ({update_days}g)")
 
     return max(0, min(score, 100)), signals
 

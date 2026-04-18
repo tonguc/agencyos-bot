@@ -13,6 +13,7 @@ from core.audit_generator import generate_audit
 from core.hook_engine import select_and_generate_hook
 from core.lead_scorer import calculate_final_score
 from core.playbook import load_playbook
+from core.website_update_detector import detect_website_update
 from models.activity_log import ActivityEvent
 from models.audit import Audit
 from repositories.audit import AuditRepository
@@ -63,6 +64,16 @@ async def run_audit(lead_id: uuid.UUID, db: AsyncSession) -> Audit:
         personal_insight=audit_result.get("kisisel_insight"),
         hook_type=hook["tip"],
         hook_text=hook["hook"],
+    )
+
+    # Website güncelleme tespiti (ayrı kaynak — sitemap/blog/header/footer)
+    update_info = await detect_website_update(lead.website or "")
+    lead_dict["last_website_update_days"] = update_info["last_update_days"]
+    lead_dict["website_update_confidence"] = update_info["confidence"]
+    logger.info(
+        "Website update: lead=%s days=%s conf=%.1f source=%s",
+        str(lead_id)[:8], update_info["last_update_days"],
+        update_info["confidence"], update_info["source"],
     )
 
     audit_for_scorer = {
