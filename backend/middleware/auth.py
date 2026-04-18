@@ -15,7 +15,7 @@ _EXEMPT: frozenset[str] = frozenset({
 
 class APIKeyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        if request.url.path in _EXEMPT:
+        if request.url.path in _EXEMPT or request.method == "OPTIONS":
             return await call_next(request)
 
         key = request.headers.get("X-API-Key", "")
