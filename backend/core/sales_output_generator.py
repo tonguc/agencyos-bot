@@ -47,11 +47,24 @@ _PROMPT = """Teknik audit ciktisini IKI FARKLI satis mesajina ve 3 alternatif gi
 
 === SHORT MESSAGE (WhatsApp/SMS) ===
 - Tam 3 cumle. Fazlasi yasak.
-- 300-400 karakter.
-- YAPI: kisisel giris (isim + 1 somut olumlu gozlem) → spesifik sorun (audit'ten) → dusuk surtuenmeli CTA
-- CTA ornekleri: "10 dakikada gosterebilirim", "iki madde paylasayim ister misiniz", "yarin mi uygun, persembe mi"
-- KESINLIKLE KULLANMA: "hizmet sunuyorum", "ajansim", "optimizasyon", "yardimci olabilirim"
-- KULLAN: "sizi arayan kisi", "karar rakibe kayiyor", "talep size gelmeden gidiyor", "masalarinizin X'i"
+- 280-380 karakter.
+
+CUMLE 1 — OLUMLU GIRIS (zorunlu):
+  Isim ile BASLAMAZ. Somut bir guc noktasi ile baslar.
+  Kullan: puan, yorum sayisi, konum avantaji, kisisel_insight'tan gozlem.
+  Ornek: "404 yorumunuz Beylikduzu'nde guclu bir itibar kaniti —"
+  Ornek: "Ege mutfagi aramasinda cogu rakibin ustune cikacak bir konumunuz var —"
+  YASAK: "kisa bir analiz yaptim", "{isim} —", "size ulasiyorum"
+
+CUMLE 2 — SPESIFIK SORUN (tek, somut):
+  Killer insight veya en acitan noktadan. Rakam varsa ic.
+  Ornek: "ama teras araması yapan musteri sizi bulamadan rakibe gidiyor (%65 terk)."
+  YASAK: listeleme (birden fazla sorun), teknik terim
+
+CUMLE 3 — CTA (soru formunda, secenekli):
+  Her zaman soru ile biter. Alternatif zaman teklifi.
+  Ornek: "10 dakikada somut olarak gosterebilirim — yarin mi uygun, persembe mi?"
+  YASAK: "isterseniz", "yardimci olabilirim", noktayla bitmek
 
 === FULL MESSAGE (e-posta/detayli mesaj) ===
 - 8-12 satir. Sadece \\n ile ayir. Baslik/emoji yasak.
