@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import settings
-from core.playbook import list_playbooks
+from core.playbook import list_playbooks, list_top_level_sectors
 from database import get_db
 from schemas.settings import SettingsOut, TestResult
 
@@ -18,7 +18,7 @@ async def get_settings():
         claude_model=settings.CLAUDE_MODEL,
         pagespeed_configured=bool(settings.PAGESPEED_API_KEY),
         apify_configured=bool(settings.APIFY_API_TOKEN),
-        playbooks=list_playbooks(),
+        playbooks=list_top_level_sectors(),
     )
 
 

@@ -20,8 +20,26 @@ def load_playbook(sector: str) -> dict:
 
 
 def list_playbooks() -> list[str]:
-    """Return available sector names."""
+    """Return available sector names (all, including subsectors)."""
     d = settings.PLAYBOOKS_DIR
     if not os.path.isdir(d):
         return []
     return [f[:-5] for f in os.listdir(d) if f.endswith(".json")]
+
+
+# Canonical top-level sectors shown in the UI dropdown.
+# Order matters — displayed as-is.
+TOP_LEVEL_SECTORS = [
+    "klinik",
+    "avukat",
+    "emlak",
+    "guzellik",
+    "egitim",
+    "ev_hizmetleri",
+    "kadin_dogum",
+]
+
+
+def list_top_level_sectors() -> list[str]:
+    """Return only the user-facing top-level sector codes."""
+    return TOP_LEVEL_SECTORS

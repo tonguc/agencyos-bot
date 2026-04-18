@@ -1,11 +1,14 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import {
+  Stethoscope, Scale, Home, Sparkles, GraduationCap, Wrench, Baby,
+} from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { scrapeApi, settingsApi } from "@/lib/api";
+import { scrapeApi } from "@/lib/api";
 
 const CITIES: Record<string, string[]> = {
   "İstanbul": ["Adalar","Arnavutköy","Ataşehir","Avcılar","Bağcılar","Bahçelievler","Bakırköy","Başakşehir","Bayrampaşa","Beşiktaş","Beykoz","Beylikdüzü","Beyoğlu","Büyükçekmece","Çatalca","Çekmeköy","Esenler","Esenyurt","Eyüpsultan","Fatih","Gaziosmanpaşa","Güngören","Kadıköy","Kağıthane","Kartal","Küçükçekmece","Maltepe","Pendik","Sancaktepe","Sarıyer","Şile","Şişli","Silivri","Sultanbeyli","Sultangazi","Tuzla","Ümraniye","Üsküdar","Zeytinburnu"],
@@ -32,15 +35,15 @@ const CITIES: Record<string, string[]> = {
 
 const LIMIT_PRESETS = [5, 10, 15, 20, 25];
 
-const SECTOR_LABELS: Record<string, string> = {
-  klinik: "Klinik / Muayenehane",
-  diyetisyen: "Diyetisyen",
-  avukat: "Avukat / Hukuk Bürosu",
-  plastik_cerrah: "Plastik Cerrah / Estetik",
-  kadin_dogum: "Kadın Doğum Uzmanı",
-  guzellik: "Güzellik Merkezi / Botoks",
-  tesisatci: "Sıhhi Tesisat",
-};
+const SECTORS = [
+  { key: "klinik",        label: "Klinik",          sub: "Muayenehane, Poliklinik",        Icon: Stethoscope, color: "text-blue-600",   bg: "bg-blue-50",   ring: "ring-blue-400" },
+  { key: "avukat",        label: "Avukat",           sub: "Hukuk Bürosu, Danışmanlık",      Icon: Scale,        color: "text-violet-600", bg: "bg-violet-50", ring: "ring-violet-400" },
+  { key: "emlak",         label: "Emlak",            sub: "Gayrimenkul, Danışman",          Icon: Home,         color: "text-emerald-600",bg: "bg-emerald-50",ring: "ring-emerald-400" },
+  { key: "guzellik",      label: "Güzellik",         sub: "Kuaför, Lazer, Estetik",         Icon: Sparkles,     color: "text-pink-600",   bg: "bg-pink-50",   ring: "ring-pink-400" },
+  { key: "egitim",        label: "Eğitim",           sub: "Kurs, Dil Okulu, Koçluk",        Icon: GraduationCap,color: "text-amber-600",  bg: "bg-amber-50",  ring: "ring-amber-400" },
+  { key: "ev_hizmetleri", label: "Ev Hizmetleri",   sub: "Tesisat, Elektrik, Tadilat",     Icon: Wrench,       color: "text-orange-600", bg: "bg-orange-50", ring: "ring-orange-400" },
+  { key: "kadin_dogum",   label: "Kadın Doğum",      sub: "Jinekoloji, Gebelik",            Icon: Baby,         color: "text-rose-600",   bg: "bg-rose-50",   ring: "ring-rose-400" },
+];
 
 function SearchableDropdown({
   options, value, onChange, placeholder, labelMap, disabled,
@@ -100,7 +103,6 @@ function SearchableDropdown({
 }
 
 export default function ScrapePage() {
-  const [sectors, setSectors] = useState<string[]>(Object.keys(SECTOR_LABELS));
   const [sector, setSector] = useState("");
   const [city, setCity] = useState("");
   const [district, setDistrict] = useState("");
@@ -109,12 +111,6 @@ export default function ScrapePage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ job_id: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    settingsApi.get().then((s) => {
-      if (s.playbooks?.length) setSectors(s.playbooks);
-    }).catch(() => {});
-  }, []);
 
   const cities = Object.keys(CITIES).sort((a, b) => a.localeCompare(b, "tr"));
   const districts = city ? (CITIES[city] ?? []) : [];
@@ -154,20 +150,36 @@ export default function ScrapePage() {
   return (
     <div className="flex flex-col flex-1">
       <Header title="Lead Topla" description="Google Maps'ten yeni lead'ler topla" />
-      <div className="p-6 max-w-lg">
+      <div className="p-6 max-w-2xl">
         <Card>
           <CardHeader><CardTitle>Yeni Tarama</CardTitle></CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Sektör</label>
-                <SearchableDropdown
-                  options={sectors}
-                  value={sector}
-                  onChange={setSector}
-                  placeholder="Sektör seçin veya yazın..."
-                  labelMap={SECTOR_LABELS}
-                />
+                <label className="block text-xs font-medium text-slate-600 mb-2">Sektör</label>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+                  {SECTORS.map(({ key, label, sub, Icon, color, bg, ring }) => {
+                    const selected = sector === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setSector(key)}
+                        className={`flex flex-col items-center gap-1.5 rounded-xl border-2 p-3 text-center transition-all ${
+                          selected
+                            ? `border-current ring-2 ${ring} ${color} ${bg}`
+                            : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50"
+                        }`}
+                      >
+                        <Icon className={`h-6 w-6 ${selected ? color : "text-slate-400"}`} strokeWidth={1.5} />
+                        <span className={`text-xs font-semibold leading-tight ${selected ? color : "text-slate-700"}`}>
+                          {label}
+                        </span>
+                        <span className="text-[10px] leading-tight text-slate-400">{sub}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               <div>
