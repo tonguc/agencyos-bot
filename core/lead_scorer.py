@@ -3,6 +3,30 @@ from typing import Tuple
 
 logger = logging.getLogger(__name__)
 
+# Sektör bazlı override için varsayılan ağırlıklar (playbook'ta channel_weights ile ezilebilir)
+DEFAULT_CHANNEL_WEIGHTS = {
+    "instagram": 1.0,
+    "youtube": 1.0,
+    "ads": 1.0,
+}
+
+# Kanal sinyali field'ları — coverage_stats için
+CHANNEL_FIELDS = [
+    "instagram_post_90d",
+    "instagram_last_post_days",
+    "youtube_video_180d",
+    "youtube_last_video_days",
+    "market_ads_pressure",
+    "competitor_ads_count",
+    "self_ads_visible",
+]
+
+
+def _channel_weights(playbook: dict) -> dict:
+    w = DEFAULT_CHANNEL_WEIGHTS.copy()
+    w.update(playbook.get("channel_weights", {}))
+    return w
+
 
 # --------------------------------------------------
 # 1. HARD FILTER (ELEME)
@@ -10,33 +34,26 @@ logger = logging.getLogger(__name__)
 
 def hard_filter(lead: dict, playbook: dict) -> Tuple[bool, str]:
     """
-    Lead tamamen elenmeli mi?
-
     Return:
     (True, reason) -> ELENDİ
     (False, "")    -> DEVAM
     """
-
     isim = lead.get("isim", "").lower()
     yorum = lead.get("yorum_sayisi", 0)
     puan = lead.get("puan", 0)
     telefon = lead.get("telefon")
     website = lead.get("website")
-    son_yorum = lead.get("son_yorum_gun")  # None = veri yok, sadece gelince kontrol et
+    son_yorum = lead.get("son_yorum_gun")
 
-    # Zincir / kurumsal ele
     if any(x in isim for x in ["hastane", "devlet", "group", "merkez"]):
         return True, "kurumsal / zincir"
 
-    # Zaten çok iyi olanı ele
     if yorum > 150 and puan > 4.5 and website:
         return True, "zaten güçlü"
 
-    # Telefon yoksa
     if not telefon:
         return True, "telefon yok"
 
-    # Ölü profil — sadece veri varsa uygula
     if son_yorum is not None and son_yorum > 365:
         return True, "ölü profil"
 
@@ -47,184 +64,197 @@ def hard_filter(lead: dict, playbook: dict) -> Tuple[bool, str]:
 # 2. OPPORTUNITY SCORE (0-100)
 # --------------------------------------------------
 
-def calc_opportunity(lead: dict, audit: dict, playbook: dict) -> int:
+def calc_opportunity(lead: dict, audit: dict, playbook: dict) -> tuple[int, list[str]]:
+    """Returns (score, signals) where signals log each non-zero contribution."""
     score = 40
+    signals: list[str] = []
 
     yorum = lead.get("yorum_sayisi", 0)
     puan = lead.get("puan", 0)
     website = lead.get("website")
     site_durumu = lead.get("site_durumu")
     telefon = lead.get("telefon")
-    son_yorum = lead.get("son_yorum_gun")  # None = veri yok
+    son_yorum = lead.get("son_yorum_gun")
 
     audit_skor = audit.get("genel_skor", 50)
     pagespeed = audit.get("pagespeed", 60)
     ssl = audit.get("ssl", True)
 
-    # Google Ads pressure (None = veri yok → nötr)
     ads_pressure: bool | None = lead.get("market_ads_pressure")
     competitor_ads_count: int | None = lead.get("competitor_ads_count")
     self_ads_visible: bool | None = lead.get("self_ads_visible")
 
+    cw = _channel_weights(playbook)
+
+    def add(delta: int, label: str) -> None:
+        nonlocal score
+        score += delta
+        if delta != 0:
+            signals.append(f"{label} → {'+' if delta > 0 else ''}{delta}")
+
     # --- Yorum ---
     if yorum < 10:
-        score += 15
+        add(15, f"Yorum az ({yorum})")
     elif yorum < 30:
-        score += 8
+        add(8, f"Yorum orta ({yorum})")
     elif yorum > 100:
-        score -= 8
+        add(-8, f"Yorum çok ({yorum})")
 
     # --- Puan ---
     if 3.8 <= puan <= 4.1:
-        score += 10
+        add(10, f"Puan orta ({puan})")
     elif puan < 3.8:
-        score += 5
+        add(5, f"Puan düşük ({puan})")
     elif puan > 4.6:
-        score -= 10
+        add(-10, f"Puan yüksek ({puan})")
 
     # --- Website ---
     if not website:
-        score += 20
+        add(20, "Website yok")
     elif site_durumu == "zayif":
-        score += 10
+        add(10, "Site zayıf")
     elif site_durumu == "iyi":
-        score -= 5
+        add(-5, "Site iyi")
 
     # --- Telefon ---
     if not telefon:
-        score -= 20
+        add(-20, "Telefon yok")
 
     # --- Yorum güncelliği ---
     if son_yorum is not None:
         if son_yorum < 30:
-            score += 5
+            add(5, f"Son yorum yakın ({son_yorum}g)")
         elif son_yorum > 180:
-            score -= 8
+            add(-8, f"Son yorum eski ({son_yorum}g)")
 
     # --- Audit ---
     if audit_skor < 35:
-        score += 15
+        add(15, f"Audit çok zayıf ({audit_skor})")
     elif audit_skor < 55:
-        score += 8
+        add(8, f"Audit zayıf ({audit_skor})")
     elif audit_skor > 75:
-        score -= 10
+        add(-10, f"Audit güçlü ({audit_skor})")
 
     # --- PageSpeed ---
     if pagespeed < 40:
-        score += 10
+        add(10, f"PageSpeed çok yavaş ({pagespeed})")
     elif pagespeed < 60:
-        score += 5
+        add(5, f"PageSpeed yavaş ({pagespeed})")
     elif pagespeed > 85:
-        score -= 5
+        add(-5, f"PageSpeed hızlı ({pagespeed})")
 
     # --- SSL ---
     if not ssl:
-        score += 8
+        add(8, "SSL yok")
 
-    # --- Google Ads pressure (pazar ticari, fırsat var) ---
+    # --- Google Ads pressure (sektör ağırlıklı) ---
+    ads_w = cw["ads"]
     if ads_pressure is True:
-        score += 4
+        add(round(4 * ads_w), "Ads pressure var")
 
     if competitor_ads_count is not None:
         if competitor_ads_count >= 3:
-            score += 4
+            add(round(4 * ads_w), f"Rakip reklam sayısı: {competitor_ads_count}")
         elif competitor_ads_count >= 1:
-            score += 2
+            add(round(2 * ads_w), f"Rakip reklam sayısı: {competitor_ads_count}")
 
     if ads_pressure is True and self_ads_visible is False:
-        # Rakipler reklam yapıyor, işletme yapmıyor → büyük açık
-        score += 4
+        add(round(4 * ads_w), "Rakip var, self yok → açık")
     elif self_ads_visible is True:
-        # Zaten reklam yapıyor → fırsatımız daha küçük
-        score -= 3
+        add(-3, "Self ads görünüyor")
 
-    return max(0, min(score, 100))
+    return max(0, min(score, 100)), signals
 
 
 # --------------------------------------------------
 # 3. BUYER INTENT SCORE (0-100)
 # --------------------------------------------------
 
-def calc_buyer_intent(lead: dict, audit: dict, playbook: dict) -> int:
+def calc_buyer_intent(lead: dict, audit: dict, playbook: dict) -> tuple[int, list[str]]:
+    """Returns (score, signals) where signals log each non-zero contribution."""
     score = 50
+    signals: list[str] = []
 
-    son_yorum = lead.get("son_yorum_gun")  # None = veri yok
+    son_yorum = lead.get("son_yorum_gun")
     telefon = lead.get("telefon")
     website = lead.get("website")
     ilce_oncelik = lead.get("oncelikli_ilce", False)
+    rakip = audit.get("reklam_firsati", {}).get("rakip_durum", "")
 
-    # Instagram (None = veri yok → nötr)
     post_90: int | None = lead.get("instagram_post_90d")
     last_post_days: int | None = lead.get("instagram_last_post_days")
-
-    # YouTube (None = veri yok → nötr, düşük ağırlık)
     yt_180: int | None = lead.get("youtube_video_180d")
     yt_last_days: int | None = lead.get("youtube_last_video_days")
 
-    # Audit'ten rakip reklam sinyali (buyer intent tarafı zaten var, ads_pressure ile çakışmaz)
-    rakip = audit.get("reklam_firsati", {}).get("rakip_durum", "")
+    cw = _channel_weights(playbook)
+
+    def add(delta: int, label: str) -> None:
+        nonlocal score
+        score += delta
+        if delta != 0:
+            signals.append(f"{label} → {'+' if delta > 0 else ''}{delta}")
 
     # --- Google Maps aktivitesi ---
     if son_yorum is not None:
         if son_yorum < 30:
-            score += 15
+            add(15, f"Son yorum yakın ({son_yorum}g)")
         elif son_yorum < 90:
-            score += 8
+            add(8, f"Son yorum orta ({son_yorum}g)")
         elif son_yorum > 180:
-            score -= 15
+            add(-15, f"Son yorum eski ({son_yorum}g)")
 
     # --- Erişilebilirlik ---
     if telefon:
-        score += 10
+        add(10, "Telefon var")
     if website:
-        score += 5
+        add(5, "Website var")
 
-    # --- Rakip reklam sinyali (audit verisi) ---
+    # --- Rakip reklam sinyali (TODO: ileride opportunity'e taşınabilir) ---
     if rakip == "aktif":
-        score += 10
+        add(10, "Rakip reklam aktif")
 
-    # --- Öncelikli ilçe ---
     if ilce_oncelik:
-        score += 8
+        add(8, "Öncelikli ilçe")
 
     # --- Instagram aktivite sinyali ---
+    ig_w = cw["instagram"]
     if post_90 is not None:
         if post_90 == 0:
-            score -= 6   # Hesap var ama ölü
+            add(round(-6 * ig_w), f"Instagram 90g post: {post_90}")
         elif post_90 <= 3:
-            score -= 2   # Neredeyse durmuş
+            add(round(-2 * ig_w), f"Instagram 90g post: {post_90}")
         elif post_90 <= 10:
-            score += 4   # Orta aktif
+            add(round(4 * ig_w), f"Instagram 90g post: {post_90}")
         else:
-            score += 6   # Aktif hesap, dijital bilinç var
+            add(round(6 * ig_w), f"Instagram 90g post: {post_90}")
 
     if last_post_days is not None:
         if last_post_days < 14:
-            score += 4   # Bu hafta/geçen hafta post atmış
+            add(round(4 * ig_w), f"Instagram son post: {last_post_days}g")
         elif last_post_days < 60:
-            score += 2   # Son 2 ayda atmış
+            add(round(2 * ig_w), f"Instagram son post: {last_post_days}g")
         elif last_post_days > 60:
-            score -= 4   # 2 aydan uzun süredir sessiz
+            add(round(-4 * ig_w), f"Instagram son post: {last_post_days}g")
 
-    # --- YouTube aktivite sinyali (düşük ağırlık) ---
-    # Yoksa ceza yok — çoğu yerel işletme YouTube kullanmaz
+    # --- YouTube aktivite sinyali (düşük ağırlık, yoksa ceza yok) ---
+    yt_w = cw["youtube"]
     if yt_180 is not None:
         if yt_180 == 0:
-            score += 0
+            pass  # ceza verme
         elif yt_180 <= 2:
-            score += 1
+            add(round(1 * yt_w), f"YouTube 180g video: {yt_180}")
         elif yt_180 <= 6:
-            score += 3
+            add(round(3 * yt_w), f"YouTube 180g video: {yt_180}")
         else:
-            score += 4
+            add(round(4 * yt_w), f"YouTube 180g video: {yt_180}")
 
     if yt_last_days is not None:
         if yt_last_days < 30:
-            score += 2
+            add(round(2 * yt_w), f"YouTube son video: {yt_last_days}g")
         elif yt_last_days < 90:
-            score += 1
+            add(round(1 * yt_w), f"YouTube son video: {yt_last_days}g")
 
-    return max(0, min(score, 100))
+    return max(0, min(score, 100)), signals
 
 
 # --------------------------------------------------
@@ -246,8 +276,8 @@ def calculate_final_score(lead: dict, audit: dict, playbook: dict) -> dict:
     if is_blocked:
         return {"status": "rejected", "reason": reason}
 
-    opportunity = calc_opportunity(lead, audit, playbook)
-    intent = calc_buyer_intent(lead, audit, playbook)
+    opportunity, opp_signals = calc_opportunity(lead, audit, playbook)
+    intent, intent_signals = calc_buyer_intent(lead, audit, playbook)
 
     final = round((opportunity * 0.65) + (intent * 0.35), 1)
 
@@ -267,6 +297,7 @@ def calculate_final_score(lead: dict, audit: dict, playbook: dict) -> dict:
         "final_score": final,
         "segment": segment,
         "priority": SEGMENT_TO_PRIORITY[segment],
+        "signals": {"opportunity": opp_signals, "intent": intent_signals},
     }
 
     logger.info(
@@ -290,24 +321,38 @@ def explain_score(result: dict, lead: dict | None = None) -> str:
         f"Buyer Intent: {result['buyer_intent']}",
     ]
 
-    if lead:
-        extras: list[str] = []
-        if lead.get("instagram_post_90d") is not None:
-            extras.append(f"Instagram 90g post: {lead['instagram_post_90d']}")
-        if lead.get("instagram_last_post_days") is not None:
-            extras.append(f"Instagram son post: {lead['instagram_last_post_days']} gün")
-        if lead.get("youtube_video_180d") is not None:
-            extras.append(f"YouTube 180g video: {lead['youtube_video_180d']}")
-        if lead.get("youtube_last_video_days") is not None:
-            extras.append(f"YouTube son video: {lead['youtube_last_video_days']} gün")
-        if lead.get("market_ads_pressure") is not None:
-            extras.append(f"Ads pressure: {lead['market_ads_pressure']}")
-        if lead.get("competitor_ads_count") is not None:
-            extras.append(f"Rakip reklam sayisi: {lead['competitor_ads_count']}")
-        if lead.get("self_ads_visible") is not None:
-            extras.append(f"Self ads visible: {lead['self_ads_visible']}")
-        if extras:
-            lines.append("")
-            lines.extend(extras)
+    signals = result.get("signals", {})
+    opp_signals = signals.get("opportunity", [])
+    intent_signals = signals.get("intent", [])
+
+    if opp_signals:
+        lines.append("\nOpportunity sinyalleri:")
+        lines.extend(f"  {s}" for s in opp_signals)
+
+    if intent_signals:
+        lines.append("\nIntent sinyalleri:")
+        lines.extend(f"  {s}" for s in intent_signals)
 
     return "\n".join(lines)
+
+
+# --------------------------------------------------
+# 6. COVERAGE STATS
+# --------------------------------------------------
+
+def coverage_stats(leads: list[dict]) -> dict:
+    """Kaç lead'de kanal verisi var/yok. Veri coverage'ı ölçer."""
+    total = len(leads)
+    if total == 0:
+        return {}
+
+    stats: dict[str, dict] = {}
+    for field in CHANNEL_FIELDS:
+        present = sum(1 for l in leads if l.get(field) is not None)
+        stats[field] = {
+            "present": present,
+            "missing": total - present,
+            "coverage_pct": round(present / total * 100, 1),
+        }
+
+    return {"total_leads": total, "fields": stats}
