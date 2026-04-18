@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.audit_generator import generate_audit
 from core.hook_engine import select_and_generate_hook
+from core.opportunity_scorer import score_opportunity_with_audit
 from core.playbook import load_playbook
 from models.activity_log import ActivityEvent
 from models.audit import Audit
@@ -64,7 +65,17 @@ async def run_audit(lead_id: uuid.UUID, db: AsyncSession) -> Audit:
         hook_text=hook["hook"],
     )
 
-    await LeadRepository(db).update(lead, status="Audit")
+    refined = score_opportunity_with_audit(
+        base_score=lead.opportunity_score or 50,
+        audit_result=audit_result,
+        site_data=site_data,
+    )
+    await LeadRepository(db).update(
+        lead,
+        status="Audit",
+        opportunity_score=refined["skor"],
+        priority=refined["oncelik"],
+    )
     await log_event(db, event=ActivityEvent.AUDIT_COMPLETED,
                     lead_id=lead_id, data={"audit_id": str(audit.id),
                                            "score": audit_result.get("genel_skor")})
