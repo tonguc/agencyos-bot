@@ -199,7 +199,7 @@ async def generate_sales_output(lead: dict, audit: dict, playbook: dict) -> dict
         try:
             msg = await client.messages.create(
                 model="claude-sonnet-4-6",
-                max_tokens=1000,
+                max_tokens=1500,
                 temperature=0,
                 messages=[{"role": "user", "content": prompt}],
             )
@@ -208,8 +208,18 @@ async def generate_sales_output(lead: dict, audit: dict, playbook: dict) -> dict
                 raw = re.sub(r"^```[a-z]*\n?", "", raw)
                 raw = re.sub(r"\n?```$", "", raw)
             output = json.loads(raw)
+        except json.JSONDecodeError as e:
+            logger.error(
+                "Sales output JSON parse failed (attempt %s) lead=%s: %s | raw=%r",
+                attempt + 1, lead.get("isim", "?"), e, (raw if "raw" in dir() else "")[:200],
+            )
+            if attempt == 1:
+                output = _fallback_output(lead, audit)
+                break
+            continue
         except Exception as e:
-            logger.exception("Sales output generation failed (attempt %s): %s", attempt + 1, e)
+            logger.exception("Sales output generation failed (attempt %s) lead=%s: %s",
+                             attempt + 1, lead.get("isim", "?"), e)
             output = _fallback_output(lead, audit)
             break
 
@@ -241,31 +251,32 @@ async def generate_sales_output(lead: dict, audit: dict, playbook: dict) -> dict
 def _fallback_output(lead: dict, audit: dict) -> dict:
     killer = audit.get("killer_insight") or {}
     isim = lead.get("isim") or "İşletmeniz"
-    adres = lead.get("adres") or "bölgenizde"
+    adres = (lead.get("adres") or "").split(",")[0].strip() or "bölgenizde"
+    bulgu = killer.get("bulgu") or "birkaç kritik nokta dikkatimi çekti"
+    rakam = killer.get("rakam", "")
+    en_acitan = audit.get("en_acitan_nokta", "")
 
+    rakam_str = f" ({rakam})" if rakam else ""
     short = (
-        f"{isim} için kısa bir analiz yaptım. "
-        f"{killer.get('bulgu', 'Birkaç kritik nokta dikkatimi çekti')} — "
-        f"bu durum sizi arayan kişilerin kararını olumsuz etkileyebilir. "
-        f"İsterseniz bunu 10–15 dakikada net şekilde gösterebilirim."
+        f"{isim} — {bulgu}{rakam_str}. "
+        f"Sizi arayan müşteri bu noktada rakibe gidiyor. "
+        f"10 dakikada somut olarak gösterebilirim — yarın mı uygun olur?"
     )
 
     full = (
-        f"{isim} için biraz daha detaylı baktım.\n\n"
-        f"{adres} bölgesinde ciddi bir talep var ama birkaç kritik eksik yüzünden "
-        f"bu talebin bir kısmı size gelmeden başka işletmelere gidiyor.\n\n"
+        f"{isim} için detaylı baktım.\n\n"
+        f"{adres}'da bu sektörde ciddi arama hacmi var. "
+        f"Ama birkaç kritik nokta talebin bir kısmını başka işletmelere yönlendiriyor.\n\n"
         f"3 kritik nokta:\n"
-        f"- {killer.get('bulgu', 'Kritik eksik tespit edildi')} → müşteri kaybı\n"
-        f"- Müşteri ile ilk temas zor → karar rakibe kayıyor\n"
-        f"- Bölge aramasında görünürlük eksik → talep size ulaşmıyor\n\n"
-        f"{audit.get('en_acitan_nokta', 'Güçlü bir başlangıç noktanız var.')} "
-        f"Ama son adımda bazı eksikler müşteri kararını olumsuz etkiliyor.\n\n"
-        f"Bu genelde birkaç net değişiklikle toparlanabiliyor:\n"
-        f"- Müşteri ile ilk teması kolaylaştırmak\n"
-        f"- Güven unsurlarını ön plana taşımak\n"
-        f"- Bölge odaklı erişimi güçlendirmek\n\n"
-        f"İsterseniz bunu sizin örneğinizde kısa bir görüşmede gösterebilirim. "
-        f"Yarın mı daha uygun olur, perşembe mi?"
+        f"- {bulgu}\n"
+        f"- Sizi bulan müşteri son adımda karar veremiyor — rakip önde bitiriyor\n"
+        f"- {en_acitan or 'Bölge aramasında ilk sayfada değilsiniz'}\n\n"
+        f"Bunlar genelde hızlı çözülebilir:\n"
+        f"- İlk temas anını kolaylaştırmak\n"
+        f"- Güven sinyallerini öne çıkarmak\n"
+        f"- Bölge odaklı görünürlüğü netleştirmek\n\n"
+        f"Yarın 10 dakika ayırabilirseniz somut olarak göstereyim — "
+        f"yarın mı daha uygun, perşembe mi?"
     )
 
     return {
