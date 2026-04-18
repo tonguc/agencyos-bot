@@ -33,6 +33,9 @@ CHANNEL_FIELDS = [
     # Lawyer signals
     "has_legal_articles", "has_practice_areas", "has_case_examples",
     "has_contact_clear", "has_linkedin_profile",
+    # Real estate signals
+    "has_property_listings", "listing_count", "has_price_info",
+    "has_photos_quality", "has_video_tour", "has_location_info", "has_call_button",
     # Review velocity
     "review_last_30d", "review_last_90d",
     # Update detection
@@ -279,6 +282,30 @@ def calc_opportunity(lead: dict, audit: dict, playbook: dict) -> tuple[int, list
         if lead.get("has_contact_clear") is False:
             add(6, "İletişim belirsiz (kurumsal)")
 
+    # ── Real estate subsector sinyalleri ─────────────
+    elif sub_sector == "luxury":
+        if lead.get("has_video_tour") is False:
+            add(8, "Video tur yok (lüks emlak)")
+        if lead.get("has_photos_quality") is False:
+            add(8, "Profesyonel fotoğraf yok (lüks emlak)")
+        if lead.get("has_property_listings") is False:
+            add(10, "Online ilan yok (lüks emlak)")
+        if lead.get("has_price_info") is False:
+            add(6, "Fiyat bilgisi yok (lüks emlak)")
+
+    elif sub_sector == "local":
+        if lead.get("has_property_listings") is False:
+            add(10, "Online ilan yok (yerel emlak)")
+        # listing_count: sadece ilanlar var ama az ise (0 ise zaten üstte +10 aldı)
+        listing_count = lead.get("listing_count")
+        if listing_count is not None and 0 < listing_count < 5:
+            add(6, f"İlan az ({listing_count} adet)")
+        if lead.get("has_location_info") is False:
+            add(5, "Bölge bilgisi yok (yerel emlak)")
+        # has_call_button: has_whatsapp'tan bağımsız yeni sinyal
+        if lead.get("has_call_button") is False:
+            add(5, "Arama butonu yok (yerel emlak)")
+
     return max(0, min(score, 100)), signals
 
 
@@ -423,6 +450,19 @@ def calc_buyer_intent(lead: dict, audit: dict, playbook: dict) -> tuple[int, lis
         # Review velocity extra boost for lawyers (danışman güveni için kritik)
         if rev_30 is not None and 3 <= rev_30 < 5:
             add(2, f"Avukat yorum hız bonusu ({rev_30}/30g)")
+
+    # ── Real estate subsector intent sinyalleri ──────
+    # Instagram sinyali feature_weights ile generic bloğa zaten giriyor.
+    # Burada sadece emlak'a özgü EK sinyaller: aktif ilan varlığı ve iletişim.
+    if sub_sector in ("luxury", "local"):
+        ig_w = fw["instagram_signal"]
+        # Emlak için Instagram aktifliği alıcı niyetinin güçlü göstergesi
+        post_90 = lead.get("instagram_post_90d")
+        if ig_w > 0 and post_90 is not None and post_90 >= 10:
+            add(round(4 * ig_w), f"Emlak IG aktif ({post_90} post/90g)")
+        # Aktif ilan = müşteriye dönüşme potansiyeli var demek
+        if lead.get("has_property_listings") is True:
+            add(5, "Online ilan mevcut")
 
     return max(0, min(score, 100)), signals
 

@@ -1,0 +1,110 @@
+{
+  "sektor": "real_estate_local",
+  "display_name": "Bireysel Emlak Danışmanı ve Küçük Ofis",
+  "kpi_listesi": [
+    "aylik arama / talep sayisi",
+    "ilan gorunurlugu",
+    "online gorunurluk"
+  ],
+  "icp_filtre": {
+    "yorum_min": 0,
+    "yorum_max": 400,
+    "puan_max": 5.0,
+    "oncelikli_ilceler": [],
+    "site_durumu_kabul": [
+      "yok",
+      "zayif"
+    ],
+    "eleme_kriterleri": []
+  },
+  "hook_mantigi": {
+    "ana_kayip_birimi": "müşteri",
+    "dusuk_aralik": "5-15 müşteri/ay",
+    "orta_aralik": "15-35 müşteri/ay",
+    "yuksek_aralik": "35-70 müşteri/ay",
+    "varsayilan_guven": 60
+  },
+  "hook_tipleri": {
+    "gap_hook": {
+      "aciklama": "İlan görünürlüğü veya iletişim açığı",
+      "sablon": "Sizi arayan kişiler, yeterli ilan veya net bilgi bulamadığı için başka danışmanlara yöneliyor olabilir.",
+      "tetikleyici": "lead.website mevcut AND audit.genel_skor < 50"
+    },
+    "data_hook": {
+      "aciklama": "Rakip danışman verisi",
+      "sablon": "{ilce} bölgesinde {rakip_sayi} emlak danışmanı Google'da sizi geçiyor ve daha fazla ilan gösteriyor.",
+      "tetikleyici": "audit.reklam_firsati.rakip_durum == aktif"
+    },
+    "money_hook": {
+      "aciklama": "Tahmini aylık kayıp",
+      "sablon": "Bu görünürlükle aylık {min}-{max} potansiyel müşteri kaçıyor olabilir. (%{guven} güven)",
+      "tetikleyici": "her zaman — fallback"
+    },
+    "tercih_sirasi": [
+      "gap_hook",
+      "data_hook",
+      "money_hook"
+    ]
+  },
+  "audit_kriterleri": [
+    {
+      "id": "ilan",
+      "soru": "Aktif ilanlar online görünür ve güncel mi?",
+      "agirlik": 30
+    },
+    {
+      "id": "maps",
+      "soru": "Google Maps profili aktif, fotoğraflı ve telefon görünür mü?",
+      "agirlik": 25
+    },
+    {
+      "id": "iletisim",
+      "soru": "Telefon butonu veya WhatsApp hızlı ulaşım sağlıyor mu?",
+      "agirlik": 25
+    },
+    {
+      "id": "lokasyon",
+      "soru": "Hangi bölgede çalıştığı açıkça belirtilmiş mi?",
+      "agirlik": 20
+    }
+  ],
+  "audit_dil_kurallari": {
+    "yasak": [
+      "tespit edildi",
+      "mevcut degil",
+      "onerilir"
+    ],
+    "zorunlu_format": "Sorun → Müşteri kaybı → Kısa çözüm",
+    "killer_insight_zorunlu": true,
+    "kayip_dili": "potansiyel alıcı/satıcı kaybı — ilan veya iletişim eksikliği"
+  },
+  "outreach": {
+    "kanal": "WhatsApp veya telefon",
+    "ton": "pratik, direkt, somut ilan verisi gösterir",
+    "giris_yasak": [
+      "Ajansım var",
+      "hizmet sunuyorum",
+      "size ulaşmak istedim"
+    ],
+    "giris_onerilen": [
+      "Google'daki profilinize baktım",
+      "ilanlarınıza baktım",
+      "dikkatimi çeken bir nokta var"
+    ]
+  },
+  "killer_insight_ornekleri": [
+    "Sitede aktif ilan yok — arayan kişi rakip danışmanın ilanlarına gidiyor",
+    "Google Maps'te telefon numarası yok — arama yapmak isteyen müşteri bulamıyor",
+    "'Kadıköy kiralık daire' aramasında görünmüyorsunuz — bu aramayı ayda 2000+ kişi yapıyor"
+  ],
+  "feature_weights": {
+    "instagram_signal": 0.8,
+    "content_depth_signal": 0.6,
+    "blog_signal": 0.2,
+    "linkedin_signal": 0.2,
+    "trust_signal": 1.0,
+    "online_booking_signal": 0.4,
+    "ads_signal": 1.0,
+    "youtube_signal": 0.3
+  }
+}
