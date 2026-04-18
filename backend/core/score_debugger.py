@@ -137,7 +137,7 @@ def suggest_rebalancing(summary: dict, inflation: dict) -> List[str]:
         hot_pct = round(seg_ratio.get("HOT", 0) * 100)
         suggestions.append(f"HOT esigini 80 → {'85' if hot_pct > 40 else '82'} cek.")
     if "HOT+WARM orani" in " ".join(reasons):
-        suggestions.append("WARM esigini 65 → 68 yukselt.")
+        suggestions.append("WARM esigini 60 → 63 yukselt.")
     if "Ortalama skor" in " ".join(reasons):
         suggestions.append("Opportunity base score'u 40 → 35 dusurun.")
     if "90 uzerinde" in " ".join(reasons):

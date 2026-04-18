@@ -138,13 +138,10 @@ def calc_opportunity(lead: dict, audit: dict, playbook: dict) -> tuple[int, list
     puan = lead.get("puan") or 0
     website = lead.get("website")
     site_durumu = lead.get("site_durumu")
-    telefon = lead.get("telefon")
-    son_yorum = lead.get("son_yorum_gun")
 
+    # yorum <10 = az (opportunity); yorum 10-100 = uygun boyut → fit'te sayılır
     if yorum < 10:
         add(15, f"Yorum az ({yorum})")
-    elif yorum < 30:
-        add(8, f"Yorum orta ({yorum})")
     elif yorum > 100:
         add(-8, f"Yorum çok ({yorum})")
 
@@ -161,15 +158,6 @@ def calc_opportunity(lead: dict, audit: dict, playbook: dict) -> tuple[int, list
         add(10, "Site zayıf")
     elif site_durumu == "iyi":
         add(-5, "Site iyi")
-
-    if not telefon:
-        add(-20, "Telefon yok")
-
-    if son_yorum is not None:
-        if son_yorum < 30:
-            add(5, f"Son yorum yakın ({son_yorum}g)")
-        elif son_yorum > 180:
-            add(-8, f"Son yorum eski ({son_yorum}g)")
 
     # ── Audit verileri ───────────────────────────────
     audit_skor = audit.get("genel_skor", 50)
@@ -408,19 +396,10 @@ def calc_buyer_intent(lead: dict, audit: dict, playbook: dict) -> tuple[int, lis
         elif son_yorum > 180:
             add(-15, f"Son yorum eski ({son_yorum}g)")
 
-    # ── Erişilebilirlik ──────────────────────────────
-    if lead.get("telefon"):
-        add(10, "Telefon var")
-    if lead.get("website"):
-        add(5, "Website var")
-
     # ── Rakip reklam sinyali (audit) ─────────────────
     rakip = audit.get("reklam_firsati", {}).get("rakip_durum", "")
     if rakip == "aktif":
         add(10, "Rakip reklam aktif")
-
-    if lead.get("oncelikli_ilce"):
-        add(8, "Öncelikli ilçe")
 
     # ── Instagram ────────────────────────────────────
     ig_w = fw["instagram_signal"]
@@ -486,17 +465,6 @@ def calc_buyer_intent(lead: dict, audit: dict, playbook: dict) -> tuple[int, lis
     if rev_90 is not None and rev_90 >= 10:
         add(8, f"Son 90g yorum: {rev_90}")
 
-    # ── Website güncellik ────────────────────────────
-    update_days = lead.get("last_website_update_days")
-    update_conf = lead.get("website_update_confidence") or 0.0
-    if update_days is not None and update_conf > 0.5:
-        if update_days < 30:
-            add(8, f"Site çok güncel ({update_days}g)")
-        elif update_days < 90:
-            add(4, f"Site güncel ({update_days}g)")
-        elif update_days > 365:
-            add(-4, f"Site terk edilmiş ({update_days}g)")
-
     # ── Clinic subsector intent sinyalleri ───────────
     if sub == "aesthetic":
         # Estetik hasta Instagram'dan karar veriyor — düşük aktiflik = düşük intent
@@ -527,12 +495,6 @@ def calc_buyer_intent(lead: dict, audit: dict, playbook: dict) -> tuple[int, lis
     # Instagram sinyali feature_weights ile generic bloğa zaten giriyor.
     # Burada sadece emlak'a özgü EK sinyaller: aktif ilan varlığı ve iletişim.
     if sub_sector in ("luxury", "local"):
-        ig_w = fw["instagram_signal"]
-        # Emlak için Instagram aktifliği alıcı niyetinin güçlü göstergesi
-        post_90 = lead.get("instagram_post_90d")
-        if ig_w > 0 and post_90 is not None and post_90 >= 10:
-            add(round(4 * ig_w), f"Emlak IG aktif ({post_90} post/90g)")
-        # Aktif ilan = müşteriye dönüşme potansiyeli var demek
         if lead.get("has_property_listings") is True:
             add(5, "Online ilan mevcut")
 
@@ -578,12 +540,13 @@ def calc_buyer_intent(lead: dict, audit: dict, playbook: dict) -> tuple[int, lis
 
 def calc_fit(lead: dict, audit: dict, playbook: dict) -> tuple[int, list[str]]:
     """
-    ICP uyumu. Bu lead bizim çalıştığımız tipte mi?
-    - Erişilebilir mi? (tel, site)
-    - Canlı mı? (yorum sayısı makul, son aktivite taze)
-    - Alt ve üst bantta mı kalmış? (çok küçük veya çok güçlü olmasın)
+    ICP erişilebilirlik ve boyut uyumu.
+    Sinyal sahipliği (opportunity/intent ile örtüşme yok):
+      telefon       → sadece burada (intent'ten kaldırıldı)
+      yorum 10-100  → sadece burada (opportunity <10 ve >100 ile aralık örtüşmez)
+      oncelikli_ilce→ sadece burada (intent'ten taşındı)
     """
-    score = 40
+    score = 30
     signals: list[str] = []
 
     def add(delta: int, label: str) -> None:
@@ -592,35 +555,15 @@ def calc_fit(lead: dict, audit: dict, playbook: dict) -> tuple[int, list[str]]:
         if delta != 0:
             signals.append(f"{label} → {'+' if delta > 0 else ''}{delta}")
 
-    telefon = lead.get("telefon")
-    website = lead.get("website")
-    site_durumu = lead.get("site_durumu")
+    if lead.get("telefon"):
+        add(20, "Telefon erişilebilir")
+
     yorum = lead.get("yorum_sayisi") or 0
-    puan = lead.get("puan") or 0
-    son_yorum = lead.get("son_yorum_gun")
-
-    if telefon:
-        add(10, "Telefon erişilebilir")
-    if website:
-        add(5, "Website var")
-    if site_durumu == "zayif":
-        add(15, "Site zayıf (biz çözeriz)")
-
-    if 10 <= yorum <= 80:
+    if 10 <= yorum <= 100:
         add(15, f"Yorum hacmi uygun ({yorum})")
-    elif yorum > 200:
-        add(-10, f"Yorum çok fazla ({yorum})")
 
-    if 3.5 <= puan <= 4.4:
-        add(10, f"Puan bandı uygun ({puan})")
-    elif puan > 4.8:
-        add(-8, f"Zaten çok iyi ({puan})")
-
-    if son_yorum is not None:
-        if son_yorum < 60:
-            add(8, f"Aktif profil ({son_yorum}g)")
-        elif son_yorum > 365:
-            add(-15, f"Ölü profil ({son_yorum}g)")
+    if lead.get("oncelikli_ilce"):
+        add(15, "Öncelikli ilçe")
 
     return max(0, min(score, 100)), signals
 
@@ -676,6 +619,7 @@ def calc_pattern_boosts(lead: dict, audit: dict, playbook: dict) -> tuple[int, l
     if competitor_ads is not None and competitor_ads >= 2 and self_ads is False:
         fire(8, "Rakip reklam basıyor, kendisi yok")
 
+    total = min(total, 20)  # max +20 boost — birden fazla pattern baskıyı önler
     return total, signals
 
 
@@ -750,12 +694,12 @@ def _build_score_layers(
         return total
 
     return {
-        "maps":       _sum(opp_signals, ["Yorum", "Puan", "Son yorum", "GMB"]),
+        "maps":       _sum(opp_signals, ["Yorum", "Puan", "GMB"]),
         "audit":      _sum(opp_signals, ["Audit", "PageSpeed", "SSL"]),
         "conversion": _sum(opp_signals, ["CTA", "WhatsApp", "booking", "Blog", "Website yok", "Site", "Servis", "SSS", "Hakkında", "Before", "Görsel", "Doktor"]),
         "ads":        _sum(opp_signals, ["Ads", "Rakip reklam", "Self ads"]),
         "social":     _sum(intent_signals, ["Instagram", "YouTube", "LinkedIn"]),
-        "intent":     _sum(intent_signals, ["Telefon", "yorum", "Öncelikli", "Rakip reklam aktif", "Website var"]),
+        "intent":     _sum(intent_signals, ["yorum", "Rakip reklam aktif"]),
         "fit":        float(sum(_parse_delta(s)[0] for s in fit_signals)),
         "boost":      float(boost_sum),
     }
@@ -775,9 +719,9 @@ def calculate_final_score(lead: dict, audit: dict, playbook: dict) -> dict:
     weighted = (opportunity * 0.50) + (intent * 0.30) + (fit * 0.20)
     final = round(max(0.0, min(100.0, weighted + boost_sum)), 1)
 
-    if final >= 75:
+    if final >= 80:
         segment = "HOT"
-    elif final >= 55:
+    elif final >= 60:
         segment = "WARM"
     else:
         segment = "LOW"
@@ -872,6 +816,41 @@ def explain_score(result: dict, lead: dict | None = None) -> str:
 # --------------------------------------------------
 # 6. COVERAGE STATS
 # --------------------------------------------------
+
+def apply_hot_limiter(
+    results: list[dict],
+    hot_cap_ratio: float = 0.20,
+) -> list[dict]:
+    """
+    Batch scoring sonrası çalıştır.
+    HOT oranı hot_cap_ratio'yu (varsayılan %20) geçerse,
+    en düşük final_score'lu HOT lead'ler WARM'a düşürülür.
+    _hot_limiter_applied=True işareti eklenir, log yazılır.
+    """
+    ok_results = [r for r in results if r.get("status") == "ok"]
+    total_ok = len(ok_results)
+    if total_ok == 0:
+        return results
+
+    hot_results = [r for r in ok_results if r.get("segment") == "HOT"]
+    max_hot = max(1, int(total_ok * hot_cap_ratio))
+
+    if len(hot_results) <= max_hot:
+        return results
+
+    hot_sorted = sorted(hot_results, key=lambda r: r.get("final_score", 0))
+    to_demote = len(hot_results) - max_hot
+    demote_set = {id(r) for r in hot_sorted[:to_demote]}
+
+    for r in results:
+        if id(r) in demote_set:
+            r["segment"] = "WARM"
+            r["priority"] = SEGMENT_TO_PRIORITY["WARM"]
+            r["_hot_limiter_applied"] = True
+            logger.info("HOT limiter: %s → WARM (final=%.1f)", r.get("isim"), r.get("final_score", 0))
+
+    return results
+
 
 def coverage_stats(leads: list[dict]) -> dict:
     """Kaç lead'de kanal verisi var/yok."""
