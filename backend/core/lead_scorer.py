@@ -179,8 +179,15 @@ def calc_opportunity(lead: dict, audit: dict, playbook: dict) -> tuple[int, list
         add(-5, "Site iyi")
 
     # ── Audit verileri ───────────────────────────────
-    audit_skor = audit.get("genel_skor", 50)
-    pagespeed = audit.get("pagespeed", 60)
+    # audit.get(..., default) None değeri gelince default'u vermez —
+    # bu yüzden explicit None kontrolü. (hiz_skoru None gelebilir: site fetch fail,
+    # genel_skor LLM'den null dönebilir.)
+    audit_skor = audit.get("genel_skor")
+    if audit_skor is None:
+        audit_skor = 50
+    pagespeed = audit.get("pagespeed")
+    if pagespeed is None:
+        pagespeed = 60
     ssl = audit.get("ssl", True)
 
     if audit_skor < 35:
