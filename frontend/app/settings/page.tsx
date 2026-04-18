@@ -73,12 +73,12 @@ export default async function SettingsPage() {
             </Card>
 
             <Card>
-              <CardHeader><CardTitle>Playbook'lar</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Aktif Sektörler</CardTitle></CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
                   {s.playbooks.map((p) => (
-                    <span key={p} className="rounded-md bg-slate-100 px-2.5 py-1 text-sm text-slate-700 font-mono">
-                      {p}
+                    <span key={p} className="rounded-md bg-slate-100 px-2.5 py-1 text-sm text-slate-700">
+                      {p.replace(/_/g, " ")}
                     </span>
                   ))}
                 </div>
