@@ -2,6 +2,7 @@ import os
 import re
 import asyncio
 import logging
+from urllib.parse import urljoin
 
 import requests
 
@@ -29,6 +30,42 @@ FALLBACK_AUDIT = {
 }
 
 _DIGIT_RE = re.compile(r"\d")
+
+# Form varlığını tespit eden genişletilmiş regex'ler
+_FORM_PATTERNS = re.compile(
+    r"<form\b"                                   # standart HTML form
+    r"|class=[\"'][^\"']*(?:wpcf7|wpforms|gform_wrapper|elementor-form|hs-form)"  # WP / HubSpot
+    r"|data-form-id"                             # Wix / builder formları
+    r"|<iframe[^>]+(?:form|iletisim|contact)",   # gömülü iframe form
+    re.I,
+)
+_CONTACT_PAGE_RE = re.compile(
+    r'href=["\']([^"\'#]*(?:iletisim|contact|bize[\-_]ulasin|ulasin)[^"\']*)["\']',
+    re.I,
+)
+
+
+async def _detect_form(base_url: str, html: str) -> bool:
+    """Form var mı? Ana sayfada yoksa iletişim sayfasına da bakar."""
+    if _FORM_PATTERNS.search(html):
+        return True
+    # Ana sayfada bulunamadıysa iletişim linkini bul ve kontrol et
+    m = _CONTACT_PAGE_RE.search(html)
+    if m:
+        contact_path = m.group(1).strip()
+        contact_url = urljoin(base_url, contact_path)
+        if contact_url != base_url:
+            try:
+                resp = await asyncio.to_thread(
+                    requests.get, contact_url, timeout=10,
+                    headers={"User-Agent": "Mozilla/5.0 (AgencyOS)"}, allow_redirects=True,
+                )
+                if _FORM_PATTERNS.search(resp.text[:80_000]):
+                    logger.info("Form iletisim sayfasinda bulundu: %s", contact_url)
+                    return True
+            except Exception as e:
+                logger.debug("Contact page fetch hatasi (%s): %s", contact_url, e)
+    return False
 
 
 async def fetch_site_data(url: str) -> dict:
@@ -87,7 +124,7 @@ async def fetch_site_data(url: str) -> dict:
             data["meta"] = m.group(1).strip()[:300]
         if m := re.search(r"<h1[^>]*>(.*?)</h1>", html, re.I | re.S):
             data["h1"] = re.sub(r"<[^>]+>", "", m.group(1)).strip()[:200]
-        data["form_var"] = bool(re.search(r"<form\b", html, re.I))
+        data["form_var"] = await _detect_form(url, html)
         data["tel_var"] = bool(re.search(r'href=["\']tel:', html, re.I))
     except Exception as e:
         logger.warning("Site fetch hatasi (%s): %s", url, e)

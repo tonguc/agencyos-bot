@@ -11,6 +11,17 @@ YASAK KELIMELER → bu kelimeleri kullanirsan yanit reddedilir:
 {yasak_kelimeler}
 Ayrica su jenerik kaliplar da yasak: "zayif gorunuyor", "gelistirilebilir", "iyilestirme firsati", "elenebilirsiniz", "kaydirabilir", "potansiyel var".
 
+FORM VE ILETISIM KURALLARI:
+- form_var=False ama tel_var=True ise: "iletisim formu yok" bulgusunu DUSUK oncelikli tut veya hic yazma.
+  Ev hizmetleri ve klinik sektorlerde telefon tek/ana kanal olabilir — bu kendi basina kritik bir sorun degil.
+- form_var=True ise: "iletisim formu yok" bulgusunu kesinlikle YAZMA.
+
+H1 VE BOLGE HEDEFLEME KURALLARI:
+- Sitede H1 + title + meta birlikte degerlendir. Aralarinda en az bir bolge adi varsa "bolgede H1 yok" yazma.
+- "Esenyurt icin ayri H1 yok" gibi bulgular YASAK: bu ayri landing page ister, quick win degildir.
+- H1 sorununu sadece su durumda flag'le: H1 + title + meta hicsinde hicbir bolge/sehir adi YOKSA.
+- Meta description farkli sehirler iceriyorsa bu yeterlidir; H1'in de hepsini icermesi gerekmez.
+
 RAKAM ZORUNLULUGU:
 - killer_insight.bulgu + etki + rakam: somut sayi icermeli (%X, N kisi/ay, N TL tahmini)
 - en_acitan_nokta: mutlaka bir rakam icermeli
