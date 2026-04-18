@@ -19,6 +19,20 @@ CHANNEL_FIELDS = [
     "market_ads_pressure",
     "competitor_ads_count",
     "self_ads_visible",
+    "linkedin_url",
+    "linkedin_active_30d",
+    "linkedin_followers",
+    "gmb_photo_count",
+    "gmb_last_photo_days",
+    "gmb_has_description",
+    "gmb_has_qa",
+    "has_cta",
+    "has_whatsapp",
+    "has_online_booking",
+    "has_blog",
+    "last_blog_days",
+    "review_last_30d",
+    "review_last_90d",
 ]
 
 
@@ -163,6 +177,40 @@ def calc_opportunity(lead: dict, audit: dict, playbook: dict) -> tuple[int, list
     elif self_ads_visible is True:
         add(-3, "Self ads görünüyor")
 
+    # --- Google Business profil derinliği ---
+    photo_count: int | None = lead.get("gmb_photo_count")
+    last_photo: int | None = lead.get("gmb_last_photo_days")
+
+    if photo_count is not None:
+        if photo_count < 5:
+            add(6, f"GMB fotoğraf az ({photo_count})")
+        elif photo_count < 15:
+            add(3, f"GMB fotoğraf orta ({photo_count})")
+
+    if last_photo is not None and last_photo > 90:
+        add(4, f"GMB son fotoğraf eski ({last_photo}g)")
+
+    if lead.get("gmb_has_description") is False:
+        add(4, "GMB açıklama yok")
+
+    if lead.get("gmb_has_qa") is False:
+        add(3, "GMB Q&A yok")
+
+    # --- Website conversion gap (sadece website varsa — yoksa zaten +20 alındı) ---
+    if website:
+        if lead.get("has_cta") is False:
+            add(8, "CTA yok")
+        if lead.get("has_whatsapp") is False:
+            add(5, "WhatsApp yok")
+        if lead.get("has_online_booking") is False:
+            add(10, "Online booking yok")
+
+        # TODO: blog sinyali sektör bazlı olmalı (tesisatçı için anlamsız)
+        if lead.get("has_blog") is False:
+            add(4, "Blog yok")
+        elif lead.get("last_blog_days") is not None and lead["last_blog_days"] > 120:
+            add(6, f"Blog eski ({lead['last_blog_days']}g)")
+
     return max(0, min(score, 100)), signals
 
 
@@ -253,6 +301,25 @@ def calc_buyer_intent(lead: dict, audit: dict, playbook: dict) -> tuple[int, lis
             add(round(2 * yt_w), f"YouTube son video: {yt_last_days}g")
         elif yt_last_days < 90:
             add(round(1 * yt_w), f"YouTube son video: {yt_last_days}g")
+
+    # --- LinkedIn aktivite (bonus sinyal, düşük ağırlık) ---
+    if lead.get("linkedin_active_30d") is True:
+        add(10, "LinkedIn aktif (30g)")
+    elif lead.get("linkedin_url"):
+        add(2, "LinkedIn profil var")
+
+    # --- Review velocity (en kritik yeni sinyal) ---
+    rev_30: int | None = lead.get("review_last_30d")
+    rev_90: int | None = lead.get("review_last_90d")
+
+    if rev_30 is not None:
+        if rev_30 >= 5:
+            add(12, f"Son 30g yorum: {rev_30}")
+        elif rev_30 >= 2:
+            add(6, f"Son 30g yorum: {rev_30}")
+
+    if rev_90 is not None and rev_90 >= 10:
+        add(8, f"Son 90g yorum: {rev_90}")
 
     return max(0, min(score, 100)), signals
 
