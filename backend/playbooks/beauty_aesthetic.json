@@ -1,0 +1,110 @@
+{
+  "sektor": "beauty_aesthetic",
+  "display_name": "Estetik Güzellik Merkezi (Lazer, Cilt, Dolgu)",
+  "kpi_listesi": [
+    "aylik yuksek deger musteri",
+    "randevu dolulugu",
+    "instagram etkilesim"
+  ],
+  "icp_filtre": {
+    "yorum_min": 0,
+    "yorum_max": 500,
+    "puan_max": 5.0,
+    "oncelikli_ilceler": [],
+    "site_durumu_kabul": [
+      "yok",
+      "zayif"
+    ],
+    "eleme_kriterleri": []
+  },
+  "hook_mantigi": {
+    "ana_kayip_birimi": "yüksek değerli müşteri",
+    "dusuk_aralik": "5-15 müşteri/ay",
+    "orta_aralik": "15-30 müşteri/ay",
+    "yuksek_aralik": "30-60 müşteri/ay",
+    "varsayilan_guven": 65
+  },
+  "hook_tipleri": {
+    "gap_hook": {
+      "aciklama": "Görsel içerik veya dönüşüm açığı",
+      "sablon": "Yaptığınız işlemleri gören kişiler sizi takip ediyor ama randevuya dönüşmeden çıkıyor olabilir.",
+      "tetikleyici": "lead.website mevcut AND audit.genel_skor < 50"
+    },
+    "data_hook": {
+      "aciklama": "Rakip estetik merkezi verisi",
+      "sablon": "{ilce} bölgesinde {rakip_sayi} estetik merkezi Instagram ve Google'da sizi geçiyor.",
+      "tetikleyici": "audit.reklam_firsati.rakip_durum == aktif"
+    },
+    "money_hook": {
+      "aciklama": "Tahmini aylık kayıp",
+      "sablon": "Bu dönüşüm oranıyla aylık {min}-{max} yüksek değerli müşteri kaçıyor olabilir. (%{guven} güven)",
+      "tetikleyici": "her zaman — fallback"
+    },
+    "tercih_sirasi": [
+      "gap_hook",
+      "data_hook",
+      "money_hook"
+    ]
+  },
+  "audit_kriterleri": [
+    {
+      "id": "oncesi_sonrasi",
+      "soru": "Sitede veya Instagram'da öncesi-sonrası görseller var mı ve yeterince etkileyici mi?",
+      "agirlik": 30
+    },
+    {
+      "id": "instagram",
+      "soru": "Instagram aktif mi, görsel kalitesi yüksek mi ve biyoda randevu linki var mı?",
+      "agirlik": 25
+    },
+    {
+      "id": "booking",
+      "soru": "Online randevu veya WhatsApp hızlı erişim sağlıyor mu?",
+      "agirlik": 25
+    },
+    {
+      "id": "fiyat",
+      "soru": "Hizmet fiyatları veya başlangıç fiyatı görünür mü?",
+      "agirlik": 20
+    }
+  ],
+  "audit_dil_kurallari": {
+    "yasak": [
+      "tespit edildi",
+      "mevcut degil",
+      "onerilir"
+    ],
+    "zorunlu_format": "Sorun → Yüksek değerli müşteri kaybı → Kısa çözüm",
+    "killer_insight_zorunlu": true,
+    "kayip_dili": "yüksek değerli müşteri kaybı — görüyor ama randevuya dönüşmüyor"
+  },
+  "outreach": {
+    "kanal": "Instagram DM veya WhatsApp",
+    "ton": "görsel kanıt vurgular, prestij odaklı, kısa",
+    "giris_yasak": [
+      "Ajansım var",
+      "hizmet sunuyorum",
+      "size ulaşmak istedim"
+    ],
+    "giris_onerilen": [
+      "Instagram sayfanıza baktım",
+      "işlemlerinizi inceledim",
+      "dikkatimi çeken bir nokta var"
+    ]
+  },
+  "killer_insight_ornekleri": [
+    "Öncesi-sonrası fotoğrafı yok — estetik müşterisi bu içeriği görmeden randevu almıyor",
+    "Instagram'da randevu linki veya WhatsApp yok — takipçi var ama dönüşüm yolu kapalı",
+    "Fiyat bilgisi yok — araştıran kişi fiyat gören rakibe gidiyor"
+  ],
+  "feature_weights": {
+    "instagram_signal": 1.2,
+    "blog_signal": 0.2,
+    "content_depth_signal": 0.6,
+    "trust_signal": 1.0,
+    "online_booking_signal": 1.0,
+    "ads_signal": 1.0,
+    "linkedin_signal": 0.1,
+    "youtube_signal": 0.4
+  }
+}

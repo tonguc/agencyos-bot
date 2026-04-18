@@ -36,6 +36,8 @@ CHANNEL_FIELDS = [
     # Real estate signals
     "has_property_listings", "listing_count", "has_price_info",
     "has_photos_quality", "has_video_tour", "has_location_info", "has_call_button",
+    # Beauty signals
+    "has_visual_quality", "has_service_list", "has_instagram_link",
     # Review velocity
     "review_last_30d", "review_last_90d",
     # Update detection
@@ -306,6 +308,24 @@ def calc_opportunity(lead: dict, audit: dict, playbook: dict) -> tuple[int, list
         if lead.get("has_call_button") is False:
             add(5, "Arama butonu yok (yerel emlak)")
 
+    # ── Beauty subsector sinyalleri ──────────────────
+    elif sub_sector == "aesthetic":
+        # Öncesi/sonrası: klinikte de kullanılan sinyal, güzellik için de geçerli
+        if lead.get("has_before_after") is False:
+            add(10, "Before/after yok (estetik güzellik)")
+        if lead.get("has_visual_quality") is False:
+            add(8, "Görsel kalite düşük (estetik güzellik)")
+        if lead.get("has_price_info") is False:
+            add(6, "Fiyat bilgisi yok (estetik güzellik)")
+        # has_online_booking generic bloğu zaten hallediyor (online_booking_signal:1.0)
+
+    elif sub_sector == "routine":
+        if lead.get("has_service_list") is False:
+            add(6, "Hizmet listesi yok (rutin güzellik)")
+        if lead.get("has_price_info") is False:
+            add(5, "Fiyat bilgisi yok (rutin güzellik)")
+        # has_whatsapp generic conversion bloğunda zaten +5 veriyor — tekrar etme
+
     return max(0, min(score, 100)), signals
 
 
@@ -463,6 +483,17 @@ def calc_buyer_intent(lead: dict, audit: dict, playbook: dict) -> tuple[int, lis
         # Aktif ilan = müşteriye dönüşme potansiyeli var demek
         if lead.get("has_property_listings") is True:
             add(5, "Online ilan mevcut")
+
+    # ── Beauty subsector intent sinyalleri ───────────
+    # instagram_post_90d ve review_last_30d generic scorer'da zaten var.
+    # Burada sadece güzelliğe özgü EK sinyal: Instagram linki dönüşüm yolunu açar.
+    elif sub_sector in ("aesthetic", "routine"):
+        ig_w = fw["instagram_signal"]
+        # Instagram profil linki sitede varsa dönüşüm kanalı açık demek
+        if ig_w > 0 and lead.get("has_instagram_link") is True:
+            add(round(3 * ig_w), "Instagram linki mevcut (güzellik)")
+        elif ig_w > 0 and lead.get("has_instagram_link") is False:
+            add(round(-3 * ig_w), "Instagram linki yok (güzellik)")
 
     return max(0, min(score, 100)), signals
 
