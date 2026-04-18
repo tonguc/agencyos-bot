@@ -13,6 +13,7 @@ from core.beauty_subsector import detect_beauty_subsector
 from core.clinic_subsector import detect_clinic_subsector
 from core.close_engine import generate_close_message
 from core.education_subsector import detect_education_subsector
+from core.ev_hizmetleri_subsector import detect_ev_hizmetleri_subsector
 from core.lawyer_subsector import detect_lawyer_subsector
 from core.outreach_writer import write_followup, write_initial_message
 from core.playbook import load_playbook
@@ -34,10 +35,19 @@ _FOLLOWUP_DAY = {1: 2, 2: 4, 3: 7}
 _HOT_PRIORITIES  = {"yuksek"}
 _WARM_PRIORITIES = {"orta"}
 
+_CLINIC_ALIASES = {"plastik_cerrah", "diyetisyen"}
+_EV_HIZ_ALIASES = {"tesisatci", "tesisat", "elektrikci", "elektrik", "boyaci", "tadilat"}
+
 
 def _resolve_playbook(lead_dict: dict) -> dict:
     """Detect sub-sector and load the correct playbook — mirrors audit_service routing."""
     sector = lead_dict.get("sektor") or "klinik"
+
+    # Alias normalizasyonu
+    if sector in _CLINIC_ALIASES:
+        sector = "klinik"
+    elif sector in _EV_HIZ_ALIASES:
+        sector = "ev_hizmetleri"
 
     if sector == "klinik":
         sub = detect_clinic_subsector(lead_dict)
@@ -63,6 +73,11 @@ def _resolve_playbook(lead_dict: dict) -> dict:
         sub = detect_education_subsector(lead_dict)
         lead_dict["sub_sector"] = sub
         return load_playbook(f"education_{sub}")
+
+    if sector == "ev_hizmetleri":
+        sub = detect_ev_hizmetleri_subsector(lead_dict)
+        lead_dict["sub_sector"] = sub
+        return load_playbook(f"ev_hizmetleri_{sub}")
 
     return load_playbook(sector)
 

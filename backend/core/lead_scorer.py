@@ -330,6 +330,21 @@ def calc_opportunity(lead: dict, audit: dict, playbook: dict) -> tuple[int, list
             add(5, "Fiyat bilgisi yok (rutin güzellik)")
         # has_whatsapp generic conversion bloğunda zaten +5 veriyor — tekrar etme
 
+    # ── Ev hizmetleri subsector sinyalleri ──────────────
+    elif sub_sector in ("tesisat", "elektrik"):
+        if lead.get("has_call_button") is False:
+            add(10, f"Arama butonu yok ({sub_sector})")
+        if lead.get("has_location_info") is False:
+            add(5, f"Hizmet bölgesi belirsiz ({sub_sector})")
+
+    elif sub_sector == "tadilat":
+        if lead.get("has_before_after") is False:
+            add(10, "Öncesi-sonrası fotoğraf yok (tadilat)")
+        if lead.get("has_visual_gallery") is False:
+            add(6, "Proje galerisi yok (tadilat)")
+        if lead.get("has_cta_clear") is False:
+            add(6, "Keşif CTA'sı yok (tadilat)")
+
     # ── Education subsector sinyalleri ───────────────
     elif sub_sector == "course":
         if lead.get("has_course_details") is False:
@@ -521,6 +536,15 @@ def calc_buyer_intent(lead: dict, audit: dict, playbook: dict) -> tuple[int, lis
             add(round(3 * ig_w), "Instagram linki mevcut (güzellik)")
         elif ig_w > 0 and lead.get("has_instagram_link") is False:
             add(round(-3 * ig_w), "Instagram linki yok (güzellik)")
+
+    # ── Ev hizmetleri subsector intent sinyalleri ────
+    # Review velocity ev hizmetlerinde karar verme sürecinin tamamı.
+    # Generic rev_30 bloğuna ek: yüksek hız ekstra boost alır.
+    elif sub_sector in ("tesisat", "elektrik", "tadilat"):
+        if rev_30 is not None and rev_30 >= 5:
+            add(6, f"Aktif yorum hızı ({sub_sector})")
+        if lead.get("has_call_button") is True:
+            add(5, f"Arama butonu var ({sub_sector})")
 
     # ── Education subsector intent sinyalleri ────────
     # instagram/youtube/review generic scorer'da feature_weights ile hallediliyor.

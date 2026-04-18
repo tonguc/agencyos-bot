@@ -13,6 +13,7 @@ from core.audit_generator import generate_audit
 from core.beauty_subsector import detect_beauty_subsector
 from core.clinic_subsector import detect_clinic_subsector
 from core.education_subsector import detect_education_subsector
+from core.ev_hizmetleri_subsector import detect_ev_hizmetleri_subsector
 from core.lawyer_subsector import detect_lawyer_subsector
 from core.real_estate_subsector import detect_real_estate_subsector
 from core.hook_engine import select_and_generate_hook
@@ -28,6 +29,10 @@ from services.lead_service import lead_to_core_dict
 
 logger = logging.getLogger(__name__)
 
+# Sektör alias'ları — eski/granüler sektör kodlarını ana sektöre yönlendirir
+_CLINIC_ALIASES  = {"plastik_cerrah", "diyetisyen"}
+_EV_HIZ_ALIASES  = {"tesisatci", "tesisat", "elektrikci", "elektrik", "boyaci", "tadilat"}
+
 
 async def run_audit(lead_id: uuid.UUID, db: AsyncSession) -> Audit:
     """Run full audit pipeline for a lead. Returns saved Audit ORM instance."""
@@ -38,33 +43,51 @@ async def run_audit(lead_id: uuid.UUID, db: AsyncSession) -> Audit:
     sector = lead.sector or "klinik"
     lead_dict = lead_to_core_dict(lead)
 
+    # Alias normalizasyonu
+    if sector in _CLINIC_ALIASES:
+        sector = "klinik"
+    elif sector in _EV_HIZ_ALIASES:
+        sector = "ev_hizmetleri"
+
     # Alt sektör tespiti — playbook seçimini etkiler
     if sector == "klinik":
         subsector = detect_clinic_subsector(lead_dict)
         lead_dict["clinic_subsector"] = subsector
         playbook = load_playbook(f"clinic_{subsector}")
         logger.info("Clinic subsector: lead=%s subsector=%s", str(lead_id)[:8], subsector)
+
     elif sector == "avukat":
         subsector = detect_lawyer_subsector(lead_dict)
         lead_dict["sub_sector"] = subsector
         playbook = load_playbook(f"lawyer_{subsector}")
         logger.info("Lawyer subsector: lead=%s subsector=%s", str(lead_id)[:8], subsector)
+
     elif sector == "emlak":
         subsector = detect_real_estate_subsector(lead_dict)
         lead_dict["sub_sector"] = subsector
         playbook = load_playbook(f"real_estate_{subsector}")
         logger.info("Real estate subsector: lead=%s subsector=%s", str(lead_id)[:8], subsector)
+
     elif sector == "guzellik":
         subsector = detect_beauty_subsector(lead_dict)
         lead_dict["sub_sector"] = subsector
         playbook = load_playbook(f"beauty_{subsector}")
         logger.info("Beauty subsector: lead=%s subsector=%s", str(lead_id)[:8], subsector)
+
     elif sector == "egitim":
         subsector = detect_education_subsector(lead_dict)
         lead_dict["sub_sector"] = subsector
         playbook = load_playbook(f"education_{subsector}")
         logger.info("Education subsector: lead=%s subsector=%s", str(lead_id)[:8], subsector)
+
+    elif sector == "ev_hizmetleri":
+        subsector = detect_ev_hizmetleri_subsector(lead_dict)
+        lead_dict["sub_sector"] = subsector
+        playbook = load_playbook(f"ev_hizmetleri_{subsector}")
+        logger.info("Ev hizmetleri subsector: lead=%s subsector=%s", str(lead_id)[:8], subsector)
+
     else:
+        # kadin_dogum ve bilinmeyen sektörler doğrudan playbook'larına gider
         playbook = load_playbook(sector)
 
     audit_result = await generate_audit(lead_dict, playbook)
@@ -76,7 +99,6 @@ async def run_audit(lead_id: uuid.UUID, db: AsyncSession) -> Audit:
 
     audit = await AuditRepository(db).create(
         lead_id=lead_id,
-        # raw site data
         site_speed=site_data.get("hiz_skoru"),
         site_title=site_data.get("title"),
         site_meta=site_data.get("meta"),
@@ -84,9 +106,7 @@ async def run_audit(lead_id: uuid.UUID, db: AsyncSession) -> Audit:
         has_form=site_data.get("form_var"),
         has_tel=site_data.get("tel_var"),
         has_ssl=site_data.get("ssl"),
-        # full result
         result=audit_result,
-        # denormalized
         general_score=audit_result.get("genel_skor"),
         ux_score=skorlar.get("ux"),
         seo_score=skorlar.get("seo"),
@@ -100,7 +120,6 @@ async def run_audit(lead_id: uuid.UUID, db: AsyncSession) -> Audit:
         hook_text=hook["hook"],
     )
 
-    # Website güncelleme tespiti (sitemap/blog/header/footer)
     update_info = await detect_website_update(lead.website or "")
     lead_dict["last_website_update_days"] = update_info["last_update_days"]
     lead_dict["website_update_confidence"] = update_info["confidence"]

@@ -1,0 +1,95 @@
+{
+  "sektor": "ev_hizmetleri_tesisat",
+  "display_name": "Sıhhi Tesisatçı",
+  "kpi_listesi": [
+    "aylik acil cagri sayisi",
+    "aylik is sayisi",
+    "google maps gorünurlugu"
+  ],
+  "icp_filtre": {
+    "yorum_min": 0,
+    "yorum_max": 500,
+    "puan_max": 5.0,
+    "oncelikli_ilceler": [],
+    "site_durumu_kabul": ["yok", "zayif"],
+    "eleme_kriterleri": []
+  },
+  "hook_mantigi": {
+    "ana_kayip_birimi": "iş",
+    "dusuk_aralik": "10-20 iş/ay",
+    "orta_aralik": "20-50 iş/ay",
+    "yuksek_aralik": "50-100 iş/ay",
+    "varsayilan_guven": 70
+  },
+  "hook_tipleri": {
+    "gap_hook": {
+      "aciklama": "Acil aramada görünmüyor",
+      "sablon": "'{ilce} tesisatçı' aramasında görünmüyorsunuz — acil durumda müşteri sizi bulamıyor.",
+      "tetikleyici": "lead.website mevcut AND audit.genel_skor < 50"
+    },
+    "data_hook": {
+      "aciklama": "Rakip tesisatçı verisi",
+      "sablon": "{ilce} bölgesinde {rakip_sayi} tesisatçı Google'da sizi geçiyor — acil aramalar onlara gidiyor.",
+      "tetikleyici": "audit.reklam_firsati.rakip_durum == aktif"
+    },
+    "money_hook": {
+      "aciklama": "Tahmini aylık kayıp",
+      "sablon": "Bu görünürlükle aylık {min}-{max} iş kaçıyor olabilir. (%{guven} güven)",
+      "tetikleyici": "her zaman — fallback"
+    },
+    "tercih_sirasi": ["gap_hook", "data_hook", "money_hook"]
+  },
+  "audit_kriterleri": [
+    {
+      "id": "maps_telefon",
+      "soru": "Google Maps profilinde telefon numarası açık ve arama butonu çalışıyor mu?",
+      "agirlik": 35
+    },
+    {
+      "id": "lokal_seo",
+      "soru": "İlçe + tesisatçı aramasında ilk sayfada görünüyor mu?",
+      "agirlik": 30
+    },
+    {
+      "id": "mobil_hiz",
+      "soru": "Site mobilde hızlı yükleniyor ve tıklanabilir telefon butonu var mı?",
+      "agirlik": 20
+    },
+    {
+      "id": "yorum",
+      "soru": "Yorum sayısı 20+ ve puan 4.4+ mi?",
+      "agirlik": 15
+    }
+  ],
+  "audit_dil_kurallari": {
+    "yasak": ["tespit edildi", "mevcut degil", "onerilir"],
+    "zorunlu_format": "Sorun → Kaçan iş → Kısa çözüm",
+    "killer_insight_zorunlu": true,
+    "kayip_dili": "iş kaybı — acil durumda görünmüyor, rakip alıyor"
+  },
+  "outreach": {
+    "kanal": "WhatsApp veya telefon",
+    "ton": "pratik, direkt, zaman odaklı — 'her gün kaçan iş' dili",
+    "giris_yasak": ["Ajansım var", "hizmet sunuyorum", "size ulaşmak istedim"],
+    "giris_onerilen": [
+      "Google'daki profilinize baktım",
+      "fark ettim ki",
+      "dikkatimi çekti"
+    ]
+  },
+  "killer_insight_ornekleri": [
+    "Google Maps'te telefon numarası yok — acil durumda müşteri sizi arayamıyor",
+    "'Beşiktaş tesisatçı' aramasında görünmüyor — acil aramalar rakiplere gidiyor",
+    "Sitede '7/24 hizmet' veya 'hızlı yanıt' bilgisi yok — müşteri güven verene gidiyor"
+  ],
+  "feature_weights": {
+    "blog_signal": 0.1,
+    "content_depth_signal": 0.2,
+    "instagram_signal": 0.3,
+    "youtube_signal": 0.0,
+    "trust_signal": 1.2,
+    "online_booking_signal": 0.6,
+    "ads_signal": 1.2,
+    "linkedin_signal": 0.0
+  }
+}

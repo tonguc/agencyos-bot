@@ -1,0 +1,95 @@
+{
+  "sektor": "ev_hizmetleri_elektrik",
+  "display_name": "Elektrikçi",
+  "kpi_listesi": [
+    "aylik acil cagri sayisi",
+    "aylik tesisat isi sayisi",
+    "google maps gorünurlugu"
+  ],
+  "icp_filtre": {
+    "yorum_min": 0,
+    "yorum_max": 500,
+    "puan_max": 5.0,
+    "oncelikli_ilceler": [],
+    "site_durumu_kabul": ["yok", "zayif"],
+    "eleme_kriterleri": []
+  },
+  "hook_mantigi": {
+    "ana_kayip_birimi": "iş",
+    "dusuk_aralik": "8-15 iş/ay",
+    "orta_aralik": "15-35 iş/ay",
+    "yuksek_aralik": "35-60 iş/ay",
+    "varsayilan_guven": 70
+  },
+  "hook_tipleri": {
+    "gap_hook": {
+      "aciklama": "Acil aramada görünmüyor",
+      "sablon": "'{ilce} elektrikçi' aramasında görünmüyorsunuz — acil arıza anında müşteri rakibe gidiyor.",
+      "tetikleyici": "lead.website mevcut AND audit.genel_skor < 50"
+    },
+    "data_hook": {
+      "aciklama": "Rakip elektrikçi verisi",
+      "sablon": "{ilce} bölgesinde {rakip_sayi} elektrikçi Google'da sizi geçiyor ve Google Ads yapıyor.",
+      "tetikleyici": "audit.reklam_firsati.rakip_durum == aktif"
+    },
+    "money_hook": {
+      "aciklama": "Tahmini aylık kayıp",
+      "sablon": "Bu görünürlükle aylık {min}-{max} iş kaçıyor olabilir. (%{guven} güven)",
+      "tetikleyici": "her zaman — fallback"
+    },
+    "tercih_sirasi": ["gap_hook", "data_hook", "money_hook"]
+  },
+  "audit_kriterleri": [
+    {
+      "id": "telefon_cta",
+      "soru": "Telefon numarası açık, tıklanabilir ve '7/24 hizmet' vurgusu var mı?",
+      "agirlik": 35
+    },
+    {
+      "id": "lokal_seo",
+      "soru": "İlçe + elektrikçi aramasında ilk sayfada görünüyor mu?",
+      "agirlik": 30
+    },
+    {
+      "id": "mobil",
+      "soru": "Site mobilde hızlı yükleniyor ve acil hizmet bilgisi göze çarpıyor mu?",
+      "agirlik": 20
+    },
+    {
+      "id": "yorum",
+      "soru": "Yorum sayısı 15+ ve puan 4.3+ mi?",
+      "agirlik": 15
+    }
+  ],
+  "audit_dil_kurallari": {
+    "yasak": ["tespit edildi", "mevcut degil", "onerilir"],
+    "zorunlu_format": "Sorun → Kaçan iş → Kısa çözüm",
+    "killer_insight_zorunlu": true,
+    "kayip_dili": "iş kaybı — acil arızada görünmüyor, rakip alıyor"
+  },
+  "outreach": {
+    "kanal": "WhatsApp veya telefon",
+    "ton": "pratik, direkt, 'her gün kaçan acil iş' dili",
+    "giris_yasak": ["Ajansım var", "hizmet sunuyorum", "size ulaşmak istedim"],
+    "giris_onerilen": [
+      "Google'daki profilinize baktım",
+      "fark ettim ki",
+      "dikkatimi çekti"
+    ]
+  },
+  "killer_insight_ornekleri": [
+    "'Kadıköy elektrikçi' aramasında 3. sayfadasınız — acil arızalar rakibe gidiyor",
+    "Sitede telefon butonu yok — mobilden arayan müşteri başka sayfaya gidiyor",
+    "Google Maps'te '7/24 hizmet' yazmıyor — acil aramada rakip öne çıkıyor"
+  ],
+  "feature_weights": {
+    "blog_signal": 0.1,
+    "content_depth_signal": 0.2,
+    "instagram_signal": 0.3,
+    "youtube_signal": 0.0,
+    "trust_signal": 1.2,
+    "online_booking_signal": 0.5,
+    "ads_signal": 1.2,
+    "linkedin_signal": 0.0
+  }
+}
