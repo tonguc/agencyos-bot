@@ -99,7 +99,7 @@ export default function JobsPage() {
                       </td>
                       <td className="px-4 py-3">
                         <button
-                          onClick={() => handleDelete(job.id)}
+                          onClick={(e) => { e.stopPropagation(); handleDelete(job.id); }}
                           disabled={deleting === job.id}
                           className="text-xs text-red-500 hover:text-red-700 disabled:opacity-40"
                         >
