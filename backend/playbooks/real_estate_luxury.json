@@ -1,0 +1,110 @@
+{
+  "sektor": "real_estate_luxury",
+  "display_name": "Lüks Gayrimenkul ve Prestij Portföy",
+  "kpi_listesi": [
+    "yuksek deger satis sayisi",
+    "portfoy gorunurlugu",
+    "instagram takipci + etkilesim"
+  ],
+  "icp_filtre": {
+    "yorum_min": 0,
+    "yorum_max": 400,
+    "puan_max": 5.0,
+    "oncelikli_ilceler": [],
+    "site_durumu_kabul": [
+      "yok",
+      "zayif"
+    ],
+    "eleme_kriterleri": []
+  },
+  "hook_mantigi": {
+    "ana_kayip_birimi": "yüksek değerli müşteri",
+    "dusuk_aralik": "2-5 müşteri/ay",
+    "orta_aralik": "5-12 müşteri/ay",
+    "yuksek_aralik": "12-25 müşteri/ay",
+    "varsayilan_guven": 60
+  },
+  "hook_tipleri": {
+    "gap_hook": {
+      "aciklama": "Görsel içerik veya portföy görünürlük açığı",
+      "sablon": "Yüksek değerli gayrimenkul arayan kişiler sizi görmeden karar veriyor olabilir — bu da ciddi fırsat kaybı yaratıyor.",
+      "tetikleyici": "lead.website mevcut AND audit.genel_skor < 50"
+    },
+    "data_hook": {
+      "aciklama": "Rakip portföy verisi",
+      "sablon": "{ilce} bölgesinde {rakip_sayi} lüks portföy danışmanı Instagram ve Google'da sizi geçiyor.",
+      "tetikleyici": "audit.reklam_firsati.rakip_durum == aktif"
+    },
+    "money_hook": {
+      "aciklama": "Tahmini aylık fırsat kaybı",
+      "sablon": "Bu görünürlükle aylık {min}-{max} yüksek değerli müşteri kaçıyor olabilir. (%{guven} güven)",
+      "tetikleyici": "her zaman — fallback"
+    },
+    "tercih_sirasi": [
+      "gap_hook",
+      "data_hook",
+      "money_hook"
+    ]
+  },
+  "audit_kriterleri": [
+    {
+      "id": "gorsel",
+      "soru": "Portföyde profesyonel fotoğraf ve video tur var mı?",
+      "agirlik": 30
+    },
+    {
+      "id": "instagram",
+      "soru": "Instagram'da aktif, yüksek kaliteli içerik paylaşılıyor mu?",
+      "agirlik": 25
+    },
+    {
+      "id": "portfoy",
+      "soru": "İlanlar online olarak görünür ve güncel mi?",
+      "agirlik": 25
+    },
+    {
+      "id": "iletisim",
+      "soru": "Hızlı iletişim için WhatsApp veya form kolay bulunuyor mu?",
+      "agirlik": 20
+    }
+  ],
+  "audit_dil_kurallari": {
+    "yasak": [
+      "tespit edildi",
+      "mevcut degil",
+      "onerilir"
+    ],
+    "zorunlu_format": "Sorun → Yüksek değerli müşteri kaybı → Kısa çözüm",
+    "killer_insight_zorunlu": true,
+    "kayip_dili": "yüksek değerli müşteri kaybı — görünmeden karar veriliyor"
+  },
+  "outreach": {
+    "kanal": "Instagram DM veya WhatsApp",
+    "ton": "prestij odaklı, görsel kanıt vurgular, kısa ve etkileyici",
+    "giris_yasak": [
+      "Ajansım var",
+      "hizmet sunuyorum",
+      "size ulaşmak istedim"
+    ],
+    "giris_onerilen": [
+      "portföyünüzü inceledim",
+      "Instagram sayfanıza baktım",
+      "dikkatimi çeken bir nokta var"
+    ]
+  },
+  "killer_insight_ornekleri": [
+    "Video tur yok — lüks gayrimenkul araştıran kişi görsel karar veriyor, siteden çıkıyor",
+    "Instagram'daki son paylaşım 3 ay önce — yüksek değerli alıcı aktif danışmanı tercih ediyor",
+    "Portföyde fiyat bilgisi yok — araştıran kişi rakip siteye geçiyor"
+  ],
+  "feature_weights": {
+    "instagram_signal": 1.2,
+    "content_depth_signal": 0.6,
+    "blog_signal": 0.3,
+    "linkedin_signal": 0.4,
+    "trust_signal": 1.0,
+    "online_booking_signal": 0.6,
+    "ads_signal": 1.0,
+    "youtube_signal": 0.6
+  }
+}

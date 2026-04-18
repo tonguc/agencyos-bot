@@ -1,0 +1,110 @@
+{
+  "sektor": "education_course",
+  "display_name": "Kurs, Dil Okulu ve Sınav Hazırlık",
+  "kpi_listesi": [
+    "aylik kayit sayisi",
+    "form dolduran aday",
+    "online gorunurluk"
+  ],
+  "icp_filtre": {
+    "yorum_min": 0,
+    "yorum_max": 500,
+    "puan_max": 5.0,
+    "oncelikli_ilceler": [],
+    "site_durumu_kabul": [
+      "yok",
+      "zayif"
+    ],
+    "eleme_kriterleri": []
+  },
+  "hook_mantigi": {
+    "ana_kayip_birimi": "kayıt",
+    "dusuk_aralik": "5-15 kayıt/ay",
+    "orta_aralik": "15-40 kayıt/ay",
+    "yuksek_aralik": "40-80 kayıt/ay",
+    "varsayilan_guven": 65
+  },
+  "hook_tipleri": {
+    "gap_hook": {
+      "aciklama": "İçerik veya güven eksikliği",
+      "sablon": "Kursa ilgi duyan kişiler, detay ve güven sinyali göremediği için kayıt olmadan çıkıyor olabilir.",
+      "tetikleyici": "lead.website mevcut AND audit.genel_skor < 50"
+    },
+    "data_hook": {
+      "aciklama": "Rakip kurs verisi",
+      "sablon": "{ilce} bölgesinde {rakip_sayi} kurs merkezi Google'da sizi geçiyor ve müfredat + başarı hikayesiyle güven inşa ediyor.",
+      "tetikleyici": "audit.reklam_firsati.rakip_durum == aktif"
+    },
+    "money_hook": {
+      "aciklama": "Tahmini aylık kayıp",
+      "sablon": "Bu dönüşüm oranıyla aylık {min}-{max} potansiyel kayıt kaçıyor olabilir. (%{guven} güven)",
+      "tetikleyici": "her zaman — fallback"
+    },
+    "tercih_sirasi": [
+      "gap_hook",
+      "data_hook",
+      "money_hook"
+    ]
+  },
+  "audit_kriterleri": [
+    {
+      "id": "kurs_detay",
+      "soru": "Kurs detay sayfası var mı? Müfredat, süre, seviye açık mı?",
+      "agirlik": 30
+    },
+    {
+      "id": "guven",
+      "soru": "Öğrenci başarı hikayeleri veya sınav sonuçları görünür mü?",
+      "agirlik": 25
+    },
+    {
+      "id": "fiyat",
+      "soru": "Fiyat veya kayıt bilgisi kolay bulunuyor mu?",
+      "agirlik": 25
+    },
+    {
+      "id": "cta",
+      "soru": "Net bir kayıt CTA'sı veya WhatsApp hattı var mı?",
+      "agirlik": 20
+    }
+  ],
+  "audit_dil_kurallari": {
+    "yasak": [
+      "tespit edildi",
+      "mevcut degil",
+      "onerilir"
+    ],
+    "zorunlu_format": "Sorun → Kayıt kaybı → Kısa çözüm",
+    "killer_insight_zorunlu": true,
+    "kayip_dili": "kayıt kaybı — ilgi var ama detay ve güven göremeden çıkıyor"
+  },
+  "outreach": {
+    "kanal": "WhatsApp veya e-posta",
+    "ton": "güven veren, somut veri gösterir, kayıt kolaylığını vurgular",
+    "giris_yasak": [
+      "Ajansım var",
+      "hizmet sunuyorum",
+      "size ulaşmak istedim"
+    ],
+    "giris_onerilen": [
+      "web sitenizi inceledim",
+      "kurs sayfanıza baktım",
+      "dikkatimi çeken bir nokta var"
+    ]
+  },
+  "killer_insight_ornekleri": [
+    "Sitede müfredat yok — karar vermek isteyen aday hangi seviyeye uyduğunu bilemiyor",
+    "Başarı hikayesi veya sınav sonucu görseli yok — rakip kurs 12 öğrenci başarısını paylaşmış",
+    "Kayıt formu 4 tıklama gerektiriyor — ilgili aday formdan önce çıkıyor"
+  ],
+  "feature_weights": {
+    "blog_signal": 1.0,
+    "content_depth_signal": 1.2,
+    "instagram_signal": 0.8,
+    "youtube_signal": 0.6,
+    "trust_signal": 1.2,
+    "online_booking_signal": 0.8,
+    "ads_signal": 1.0,
+    "linkedin_signal": 0.3
+  }
+}

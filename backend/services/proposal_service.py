@@ -8,7 +8,7 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.playbook import load_playbook
+from core.playbook import load_playbook_for_sector
 from core.proposal_generator import generate_proposal
 from models.activity_log import ActivityEvent
 from models.proposal import Proposal
@@ -27,7 +27,7 @@ async def generate_proposal_for_lead(lead_id: uuid.UUID, db: AsyncSession) -> Pr
     if not lead:
         raise ValueError(f"Lead bulunamadi: {lead_id}")
 
-    playbook = load_playbook(lead.sector or "klinik")
+    playbook = load_playbook_for_sector(lead.sector or "klinik")
     lead_dict = lead_to_core_dict(lead)
 
     audit = await AuditRepository(db).get_latest_for_lead(lead_id)

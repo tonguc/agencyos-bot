@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.lead_collector import collect_google_maps
 from core.icp_filter import filter_leads
 from core.lead_scorer import calculate_final_score
-from core.playbook import load_playbook
+from core.playbook import load_playbook, load_playbook_for_sector
 from models.activity_log import ActivityEvent
 from repositories.lead import LeadRepository
 from services.activity import log_event
@@ -45,7 +45,7 @@ async def collect_and_save(
     db: AsyncSession,
 ) -> dict:
     """Scrape leads → filter → score → save to DB. Returns summary dict."""
-    playbook = load_playbook(sector)
+    playbook = load_playbook_for_sector(sector)
     raw = await collect_google_maps(sector, city, district, limit=limit)
     if not raw:
         return {"saved": 0, "stats": {}, "error": "Apify sonuc dondurmedi"}

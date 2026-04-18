@@ -13,6 +13,16 @@ logger = logging.getLogger(__name__)
 APIFY_ACTOR = "compass~crawler-google-places"
 APIFY_RUN_URL = f"https://api.apify.com/v2/acts/{APIFY_ACTOR}/run-sync-get-dataset-items"
 
+_SECTOR_SEARCH_TERMS: dict[str, str] = {
+    "klinik":        "klinik muayenehane",
+    "avukat":        "avukat hukuk bürosu",
+    "emlak":         "emlak danışmanı",
+    "guzellik":      "güzellik salonu kuaför",
+    "egitim":        "eğitim kursu dil okulu",
+    "ev_hizmetleri": "tesisatçı",
+    "kadin_dogum":   "kadın doğum uzmanı",
+}
+
 
 async def collect_google_maps(sektor: str, sehir: str, ilce: str, limit: int = 30) -> list[dict]:
     token = os.getenv("APIFY_API_TOKEN")
@@ -20,14 +30,15 @@ async def collect_google_maps(sektor: str, sehir: str, ilce: str, limit: int = 3
         logger.error("APIFY_API_TOKEN .env'de tanımlı değil — lead toplama atlandı")
         return []
 
+    search_term = _SECTOR_SEARCH_TERMS.get(sektor, sektor)
     location = ", ".join(p for p in [ilce, sehir, "Turkey"] if p)
     logger.info(
         "Google Maps taraması başlıyor: arama='%s' konum='%s' limit=%d",
-        sektor, location, limit,
+        search_term, location, limit,
     )
 
     payload = {
-        "searchStringsArray": [sektor],
+        "searchStringsArray": [search_term],
         "locationQuery": location,
         "maxCrawledPlacesPerSearch": limit,
         "language": "tr",
@@ -46,19 +57,19 @@ async def collect_google_maps(sektor: str, sehir: str, ilce: str, limit: int = 3
             response.raise_for_status()
             raw_leads = response.json()
         except requests.RequestException as e:
-            logger.exception(f"Apify API çağrısı başarısız ({sektor} @ {location}): {e}")
+            logger.exception(f"Apify API çağrısı başarısız ({search_term} @ {location}): {e}")
             return []
         except ValueError as e:
-            logger.exception(f"Apify yanıtı JSON olarak ayrıştırılamadı ({sektor} @ {location}): {e}")
+            logger.exception(f"Apify yanıtı JSON olarak ayrıştırılamadı ({search_term} @ {location}): {e}")
             return []
 
     if not isinstance(raw_leads, list):
-        logger.error(f"Apify beklenmedik yanıt döndü ({sektor} @ {location}): tip={type(raw_leads).__name__}")
+        logger.error(f"Apify beklenmedik yanıt döndü ({search_term} @ {location}): tip={type(raw_leads).__name__}")
         return []
 
-    logger.info(f"{len(raw_leads)} ham lead alındı: '{sektor} @ {location}'")
+    logger.info(f"{len(raw_leads)} ham lead alındı: '{search_term} @ {location}'")
     enriched = [enrich_lead(lead) for lead in raw_leads]
-    logger.info(f"{len(enriched)} lead zenginleştirildi: '{sektor} @ {location}'")
+    logger.info(f"{len(enriched)} lead zenginleştirildi: '{search_term} @ {location}'")
     return enriched
 
 

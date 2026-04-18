@@ -20,8 +20,47 @@ def load_playbook(sector: str) -> dict:
 
 
 def list_playbooks() -> list[str]:
-    """Return available sector names."""
+    """Return available sector names (all, including subsectors)."""
     d = settings.PLAYBOOKS_DIR
     if not os.path.isdir(d):
         return []
     return [f[:-5] for f in os.listdir(d) if f.endswith(".json")]
+
+
+# Canonical top-level sectors shown in the UI dropdown.
+# Order matters — displayed as-is.
+TOP_LEVEL_SECTORS = [
+    "klinik",
+    "avukat",
+    "emlak",
+    "guzellik",
+    "egitim",
+    "ev_hizmetleri",
+    "kadin_dogum",
+]
+
+
+def list_top_level_sectors() -> list[str]:
+    """Return only the user-facing top-level sector codes."""
+    return TOP_LEVEL_SECTORS
+
+
+# Default subsector playbook used at collection time (before subsector detection).
+# Audit/funnel stages re-detect the actual subsector from the lead data.
+_DEFAULT_PLAYBOOK: dict[str, str] = {
+    "klinik":        "clinic_general",
+    "avukat":        "lawyer_litigation",
+    "emlak":         "real_estate_local",
+    "guzellik":      "beauty_routine",
+    "egitim":        "education_course",
+    "ev_hizmetleri": "ev_hizmetleri_tesisat",
+}
+
+
+def load_playbook_for_sector(sector: str) -> dict:
+    """
+    Load a playbook for a top-level sector.
+    Falls back to a default subsector when the sector has no standalone playbook.
+    """
+    resolved = _DEFAULT_PLAYBOOK.get(sector, sector)
+    return load_playbook(resolved)

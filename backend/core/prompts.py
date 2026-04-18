@@ -23,6 +23,24 @@ DERINLIK KURALLARI:
 - hizli_kazanimlar: 2-3 madde, max 1 haftada uygulanabilir quick win
 
 ===========================
+BU SEKTORDE ODAKLANILACAK KPI'LAR
+===========================
+{kpi_listesi}
+
+===========================
+SEKTORE OZGU DEGERLENDIR KRITERLERI (agirlikli — yuksek agirlik = daha kritik)
+===========================
+{audit_kriterleri}
+
+===========================
+ZORUNLU CIKTI FORMATI
+===========================
+{zorunlu_format}
+
+KAYIP DILI — bulgulari bu cercevede yaz:
+{kayip_dili}
+
+===========================
 SEKTORE OZGU TARZ ORNEKLERI (ICERIK DEGIL, TARZ KOPYALANACAK)
 ===========================
 {killer_ornekleri}
@@ -160,9 +178,22 @@ FOLLOWUP_PROMPT_LAST = (
 
 def build_audit_prompt(lead: dict, playbook: dict, site: dict) -> str:
     dil = playbook.get("audit_dil_kurallari", {})
+
+    kriteler = playbook.get("audit_kriterleri", [])
+    audit_kriterleri_str = "\n".join(
+        f"- [Agirlik {k['agirlik']}] {k['soru']}"
+        for k in kriteler
+    ) or "(genel kriterler gecerli)"
+
+    kpi_str = ", ".join(playbook.get("kpi_listesi", [])) or "(genel)"
+
     return AUDIT_PROMPT.format(
         display_name=playbook["display_name"],
-        yasak_kelimeler=dil.get("yasak", []),
+        yasak_kelimeler=", ".join(dil.get("yasak", [])) or "(yok)",
+        kpi_listesi=kpi_str,
+        audit_kriterleri=audit_kriterleri_str,
+        zorunlu_format=dil.get("zorunlu_format", "Sorun → Kayip etkisi → Kisa cozum"),
+        kayip_dili=dil.get("kayip_dili", "musteri kaybi"),
         killer_ornekleri="\n".join(f"- {x}" for x in playbook.get("killer_insight_ornekleri", [])),
         isim=lead.get("isim") or "",
         adres=lead.get("adres") or "",
@@ -231,3 +262,84 @@ def build_followup_prompt(lead: dict, gun: int, onceki: str, playbook: dict) -> 
         onceki=(onceki or "")[:400],
         isim=lead.get("isim") or "",
     )
+
+
+# ---------------------------------------------------------------------------
+# Full Sales Funnel prompts
+# ---------------------------------------------------------------------------
+
+INITIAL_MESSAGE_PROMPT = """Sen {display_name} sektorunde is gelistirme uzmanisin.
+Kural: ajans dili yasak. Her cumle somut gozlem icerecek.
+
+LEAD: {isim} | {adres}
+KANAL: {kanal}
+KILLER INSIGHT: {killer_bulgu} [{killer_rakam}]
+KISISEL GOZLEM: {kisisel_insight}
+HOOK: {hook_cumlesi}
+
+FORMAT (kesinlikle 4 cumle):
+1. Kisisel giris — neden bu kişiye yazildigi hissettirmeli
+2. Spesifik gozlem — killer insight veya kisisel_insight'tan
+3. Kayip/firsat — somut ifade, rakam varsa kullan
+4. Dusuk surtuenmeli CTA — "isterseniz 2-3 madde paylasayim" tarzinda
+
+YASAK: "ajansim var", "hizmet sunuyorum", "size ulasiyorum", jenerik kalip.
+Sadece mesaj metnini don. Preamble, markdown, tirnak isareti kullanma."""
+
+
+REPLY_RESPONSE_PROMPT = """Lead bir mesaja cevap verdi. Niyete gore kisa, kisisel yanit uret.
+
+LEAD: {isim}
+NIYET: {intent}
+KILLER INSIGHT: {killer_bulgu}
+EN ACITAN NOKTA: {en_acitan}
+
+NIYET KURALLARI:
+- positive  → direk gorusmeye cek, 10-15 dk teklifi, zaman sor. Maks 2 cumle.
+- curious   → kisaca acikla + somut ornek ver + gorusme teklif et. Maks 3 cumle.
+- price     → fiyati verme; once bulgulari gormek daha dogru oldugunu soylen,
+              neden her isletmede farkli oldugunu 1 cumleyle acikla. Maks 2 cumle.
+
+YASAK: "yardimci olabilirim", "hizmet sunuyoruz", uzun paragraflar.
+Sadece yanit metnini don."""
+
+
+CLOSE_PROMPT = """Gorusmeye cekmeyi hedefleyen kisa bir kapanis mesaji yaz.
+
+LEAD: {isim}
+
+KURALLAR:
+- Maksimum 2 cumle
+- Net ve dusuk surtuenmeli
+- Alternatifli zaman teklifi kullan (ornek: "yarin mi, persembe mi?")
+- Baski yok, dogal ton
+Sadece mesaj metnini don."""
+
+
+def build_initial_message_prompt(lead: dict, audit: dict, hook: dict, playbook: dict) -> str:
+    out = playbook["outreach"]
+    killer = audit.get("killer_insight") or {}
+    return INITIAL_MESSAGE_PROMPT.format(
+        display_name=playbook["display_name"],
+        isim=lead.get("isim") or "",
+        adres=lead.get("adres") or "",
+        kanal=out["kanal"],
+        killer_bulgu=killer.get("bulgu", ""),
+        killer_rakam=killer.get("rakam", ""),
+        kisisel_insight=audit.get("kisisel_insight", ""),
+        hook_cumlesi=hook.get("hook", ""),
+    )
+
+
+def build_reply_response_prompt(intent: str, lead: dict, audit: dict) -> str:
+    killer = audit.get("killer_insight") or {}
+    return REPLY_RESPONSE_PROMPT.format(
+        isim=lead.get("isim") or "",
+        intent=intent,
+        killer_bulgu=killer.get("bulgu", ""),
+        en_acitan=audit.get("en_acitan_nokta", ""),
+    )
+
+
+def build_close_prompt(lead: dict) -> str:
+    return CLOSE_PROMPT.format(isim=lead.get("isim") or "")

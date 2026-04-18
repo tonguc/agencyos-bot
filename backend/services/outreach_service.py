@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.hook_engine import select_and_generate_hook
 from core.outreach_writer import write_outreach, write_followup
-from core.playbook import load_playbook
+from core.playbook import load_playbook_for_sector
 from models.activity_log import ActivityEvent
 from models.outreach import OutreachMessage
 from repositories.audit import AuditRepository
@@ -29,7 +29,7 @@ async def generate_outreach(lead_id: uuid.UUID, db: AsyncSession) -> OutreachMes
     if not lead:
         raise ValueError(f"Lead bulunamadi: {lead_id}")
 
-    playbook = load_playbook(lead.sector or "klinik")
+    playbook = load_playbook_for_sector(lead.sector or "klinik")
     lead_dict = lead_to_core_dict(lead)
 
     audit = await AuditRepository(db).get_latest_for_lead(lead_id)
@@ -85,7 +85,7 @@ async def generate_followup(lead_id: uuid.UUID, db: AsyncSession) -> str:
     lead = await LeadRepository(db).get(lead_id)
     if not lead:
         raise ValueError(f"Lead bulunamadi: {lead_id}")
-    playbook = load_playbook(lead.sector or "klinik")
+    playbook = load_playbook_for_sector(lead.sector or "klinik")
     outreach = await OutreachRepository(db).get_latest_for_lead(lead_id)
     prev_msg = ""
     if outreach and outreach.sent_version:

@@ -1,0 +1,110 @@
+{
+  "sektor": "beauty_routine",
+  "display_name": "Kuaför, Güzellik Salonu ve Rutin Bakım",
+  "kpi_listesi": [
+    "aylik randevu sayisi",
+    "tekrar musteri orani",
+    "online gorunurluk"
+  ],
+  "icp_filtre": {
+    "yorum_min": 0,
+    "yorum_max": 500,
+    "puan_max": 5.0,
+    "oncelikli_ilceler": [],
+    "site_durumu_kabul": [
+      "yok",
+      "zayif"
+    ],
+    "eleme_kriterleri": []
+  },
+  "hook_mantigi": {
+    "ana_kayip_birimi": "müşteri",
+    "dusuk_aralik": "10-25 müşteri/ay",
+    "orta_aralik": "25-60 müşteri/ay",
+    "yuksek_aralik": "60-120 müşteri/ay",
+    "varsayilan_guven": 65
+  },
+  "hook_tipleri": {
+    "gap_hook": {
+      "aciklama": "Hizmet bilgisi veya iletişim açığı",
+      "sablon": "Sizi arayan kişiler, net hizmet veya fiyat bilgisi bulamadığı için başka işletmelere yöneliyor olabilir.",
+      "tetikleyici": "lead.website mevcut AND audit.genel_skor < 50"
+    },
+    "data_hook": {
+      "aciklama": "Rakip salon verisi",
+      "sablon": "{ilce} bölgesinde {rakip_sayi} salon Google'da sizi geçiyor ve online randevu alıyor.",
+      "tetikleyici": "audit.reklam_firsati.rakip_durum == aktif"
+    },
+    "money_hook": {
+      "aciklama": "Tahmini aylık kayıp",
+      "sablon": "Bu görünürlükle aylık {min}-{max} müşteri kaçıyor olabilir. (%{guven} güven)",
+      "tetikleyici": "her zaman — fallback"
+    },
+    "tercih_sirasi": [
+      "gap_hook",
+      "data_hook",
+      "money_hook"
+    ]
+  },
+  "audit_kriterleri": [
+    {
+      "id": "maps",
+      "soru": "Google Maps profili aktif, fotoğraflı ve telefon görünür mü?",
+      "agirlik": 30
+    },
+    {
+      "id": "hizmet",
+      "soru": "Sunulan hizmetler ve fiyat aralığı açık mı?",
+      "agirlik": 25
+    },
+    {
+      "id": "iletisim",
+      "soru": "WhatsApp veya telefon hızlı randevu sağlıyor mu?",
+      "agirlik": 25
+    },
+    {
+      "id": "instagram",
+      "soru": "Instagram'da düzenli içerik paylaşılıyor mu?",
+      "agirlik": 20
+    }
+  ],
+  "audit_dil_kurallari": {
+    "yasak": [
+      "tespit edildi",
+      "mevcut degil",
+      "onerilir"
+    ],
+    "zorunlu_format": "Sorun → Müşteri kaybı → Kısa çözüm",
+    "killer_insight_zorunlu": true,
+    "kayip_dili": "potansiyel müşteri kaybı — net bilgi olmadığı için başka salona gidiyor"
+  },
+  "outreach": {
+    "kanal": "WhatsApp veya Instagram DM",
+    "ton": "sıcak, pratik, randevu kolaylığını vurgular",
+    "giris_yasak": [
+      "Ajansım var",
+      "hizmet sunuyorum",
+      "size ulaşmak istedim"
+    ],
+    "giris_onerilen": [
+      "Google'daki profilinize baktım",
+      "salonunuzu inceledim",
+      "dikkatimi çeken bir nokta var"
+    ]
+  },
+  "killer_insight_ornekleri": [
+    "Sitede hizmet listesi yok — arayan kişi ne yapıldığını göremeden rakip salona geçiyor",
+    "WhatsApp linki yok — randevu almak isteyen kişi telefon numarasını arayıp bulamıyor",
+    "'Kadıköy kuaför' aramasında 3. sayfadasınız — bu aramayı ayda 1500+ kişi yapıyor"
+  ],
+  "feature_weights": {
+    "instagram_signal": 1.0,
+    "blog_signal": 0.0,
+    "content_depth_signal": 0.4,
+    "trust_signal": 0.8,
+    "online_booking_signal": 0.6,
+    "ads_signal": 0.8,
+    "linkedin_signal": 0.0,
+    "youtube_signal": 0.2
+  }
+}
