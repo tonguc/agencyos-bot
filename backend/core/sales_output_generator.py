@@ -35,24 +35,44 @@ _SEKTOR_DIL: dict[str, dict[str, str]] = {
     "restoran":      {"service": "müşteri",  "call": "rezervasyon",           "unit": "masa"},
 }
 
-_PROMPT = """Teknik audit ciktisini IKI FARKLI satis mesajina cevir.
+_PROMPT = """Teknik audit ciktisini IKI FARKLI satis mesajina ve 3 alternatif giris cumlesine cevir.
 
-SHORT MESSAGE KURALLARI (EN KRITIK):
-- Tam olarak 4 cumle. Fazlasi yasak.
-- 400-500 karakter arasi
-- YAPI: kisisel giris (isim/bolge) → spesifik gozlem (audit'ten) → musteri kaybi etkisi → dusuk surtuenmeli CTA
-- KESINLIKLE KULLANMA: SEO, UX, meta, H1, PageSpeed, teknik terim, "optimizasyon", "gorunurluk artirma"
-- KULLAN: "musteri sizi bulamadan gidiyor", "sizi arayan kisi", "karar rakibe kayiyor", "talep size gelmeden baska yere gidiyor"
+=== TON (KESINLIKLE UYULACAK) ===
+- Kisa ve keskin cumle (7-12 kelime). Uzun paragraflar yasak.
+- Aktif ses. Pasif kip yasak. ("goruldu", "tespit edildi" → yasak)
+- Ingilizce terim yok. SEO/UX/PageSpeed/meta/H1 asla yazma.
+- Ozguven var, baski yok. Bulguyu paylas, ittirme.
+- Her cumle somut gozlem icermeli — genel kalip yasak.
+- Muhatabi "siz/sizi/sizin" diye hitap et (samimi ama saygin).
 
-FULL MESSAGE KURALLARI:
-- 8-12 satir, sadece \\n ile ayr
-- Baslik KULLANMA, emoji max 3 adet
-- YAPI: giris → talep blogu → "3 kritik nokta:" listesi (mutlaka 3 madde - ile) → icgoru → cozum cercevesi (3 madde - ile) → CTA
-- Teknik kelime yok, her cumle farkli olmali
-- Ornek akis:
-  "[isim] icin biraz daha detayli baktim.\\n\\n[bolge/sektor talep aciklamasi]\\n\\n3 kritik nokta:\\n- ...\\n- ...\\n- ...\\n\\n[icgoru cumle]\\n\\nBu genelde birkas net degisiklikle toparlanabiliyor:\\n- ...\\n- ...\\n- ...\\n\\n[CTA]"
+=== SHORT MESSAGE (WhatsApp/SMS) ===
+- Tam 3 cumle. Fazlasi yasak.
+- 300-400 karakter.
+- YAPI: kisisel giris (isim + 1 somut olumlu gozlem) → spesifik sorun (audit'ten) → dusuk surtuenmeli CTA
+- CTA ornekleri: "10 dakikada gosterebilirim", "iki madde paylasayim ister misiniz", "yarin mi uygun, persembe mi"
+- KESINLIKLE KULLANMA: "hizmet sunuyorum", "ajansim", "optimizasyon", "yardimci olabilirim"
+- KULLAN: "sizi arayan kisi", "karar rakibe kayiyor", "talep size gelmeden gidiyor", "masalarinizin X'i"
 
-SEKTORE OZGU DIL ({sektor}): {sektor_dil}
+=== FULL MESSAGE (e-posta/detayli mesaj) ===
+- 8-12 satir. Sadece \\n ile ayir. Baslik/emoji yasak.
+- 800-1000 karakter.
+- YAPI:
+  [isim] icin detayli baktim. → [bolge/sektor talep cumle] →
+  "3 kritik nokta:" → - madde1 → - madde2 → - madde3 →
+  [icgoru: kisisel_insight'tan] →
+  "Bu genelde birkas degisiklikle toparlanabiliyor:" →
+  - cozum1 → - cozum2 → - cozum3 →
+  [CTA: alternatif zaman teklifi]
+- Her madde (-) somut, farkli angle. Tekrar etme.
+
+=== ACILIS ALTERNATIFLERI ===
+- 3 farkli giris cumlesi. Her biri max 1 cumle.
+- V1: somut rakam ile baslar (puan veya tahmini kisi sayisi)
+- V2: bolge/arama davranisi ile baslar
+- V3: karsilastirma/tespitle baslar ("Son donemde birka {sektor} baktigimda...")
+- Hicbiri "size ulasiyorum", "gorunurluk" veya teknik terim icermemeli.
+
+=== SEKTORE OZGU DIL ({sektor}): {sektor_dil} ===
 
 LEAD: {isim} | {adres} | Sektor: {sektor}
 
@@ -64,17 +84,19 @@ UX sorunlari: {ux_hatalar}
 Donusum engelleri: {donusum_engelleri}
 Lead kalitesi: {lead_kalitesi} | Urgency: {urgency}
 
-DONUSTURMELER:
-"Form yok" → "musteri sizi aramadan cikabiliyor"
-"Hiz dusuk" → "site yavas acilinca musteri gitmis oluyor"
+DONUSTURMELER (teknik → satis dili):
+"Form yok" → "{service} sizi aramadan cikabiliyor"
+"Hiz dusuk" → "site yavas acilinca {service} gitmis oluyor"
 "Tel link yok" → "sizi aramak isteyen bir tiklama fazla yapmak zorunda"
 "Yorumlar yok" → "Maps'teki guven sitede kayboluyor"
+"Web sitesi yok" → "Google Maps disinda sizi bulamiyorlar"
 
 CIKTI: Sadece valid JSON. Preamble yok, markdown yok, kod blogu yok. Ilk karakter {{ olmali.
 {{
-  "short_message": "4 cumle. Tek blok. Hic baslik/format yok. Direkt gonderilebilir.",
-  "full_message": "Cok satirli metin. Sadece \\n satirlari. Hic baslik yok.",
-  "meta": {{"sector": "{sektor}", "tone": "direkt"}}
+  "short_message": "3 cumle. 300-400 karakter. Direkt gonderilebilir.",
+  "full_message": "Cok satirli metin. Sadece \\n satirlari. Baslik/emoji yok.",
+  "acilis_alternatifleri": ["rakam ile", "bolge/arama ile", "karsilastirma ile"],
+  "meta": {{"sector": "{sektor}", "tone": "keskin-ozguveli"}}
 }}"""
 
 
@@ -92,9 +114,14 @@ def _build_prompt(lead: dict, audit: dict, playbook: dict) -> str:
     ux = audit.get("ux_hatalar") or []
     donusum = audit.get("donusum_engelleri") or []
 
+    top = sector.split("_")[0] if "_" in sector else sector
+    dil = _SEKTOR_DIL.get(sector) or _SEKTOR_DIL.get(top) or {}
+
     return _PROMPT.format(
         sektor=sector,
         sektor_dil=_sektor_dil_str(sector),
+        service=dil.get("service", "müşteri"),
+        call=dil.get("call", "iletişim"),
         isim=lead.get("isim") or "",
         adres=lead.get("adres") or "",
         killer_bulgu=killer.get("bulgu", ""),
@@ -109,12 +136,12 @@ def _build_prompt(lead: dict, audit: dict, playbook: dict) -> str:
 
 
 def _auto_trim_short(text: str) -> str:
-    """500 karakter aşıyorsa en uzun cümleyi çıkar."""
-    if len(text) <= 500:
+    """450 karakter aşıyorsa en uzun cümleyi çıkar."""
+    if len(text) <= 450:
         return text
     sentences = re.split(r"(?<=[.!?])\s+", text.strip())
     if len(sentences) <= 1:
-        return text[:500]
+        return text[:450]
     longest = max(range(len(sentences)), key=lambda i: len(sentences[i]))
     sentences.pop(longest)
     return " ".join(sentences)
@@ -124,7 +151,7 @@ def validate_sales_messages(output: dict) -> dict:
     """
     Returns {'valid': bool, 'issues': list[str]}
 
-    SHORT: ≤4 cümle, ≤500 karakter, teknik kelime yok, CTA var
+    SHORT: ≤3 cümle, 300-400 karakter, teknik kelime yok, CTA var
     FULL: ≥6 satır, ≥3 madde (-), CTA var
     """
     issues = []
@@ -132,10 +159,10 @@ def validate_sales_messages(output: dict) -> dict:
     full = output.get("full_message", "")
 
     sentence_count = len(re.split(r"(?<=[.!?])\s+", short.strip()))
-    if sentence_count > 4:
-        issues.append(f"short_message 4 cümleden fazla ({sentence_count} cümle)")
-    if len(short) > 500:
-        issues.append(f"short_message 500 karakterden uzun ({len(short)})")
+    if sentence_count > 3:
+        issues.append(f"short_message 3 cümleden fazla ({sentence_count} cümle)")
+    if len(short) > 450:
+        issues.append(f"short_message 450 karakterden uzun ({len(short)})")
     if _BLACKLIST.search(short):
         issues.append("short_message teknik kelime içeriyor")
     if not _CTA_SIGNALS.search(short):
@@ -186,7 +213,7 @@ async def generate_sales_output(lead: dict, audit: dict, playbook: dict) -> dict
             output = _fallback_output(lead, audit)
             break
 
-        if output.get("short_message") and len(output["short_message"]) > 500:
+        if output.get("short_message") and len(output["short_message"]) > 450:
             output["short_message"] = _auto_trim_short(output["short_message"])
 
         validation = validate_sales_messages(output)
