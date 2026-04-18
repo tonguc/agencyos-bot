@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/utils";
@@ -9,12 +10,13 @@ import type { Job } from "@/types";
 
 const typeLabel: Record<string, string> = {
   generate_audit: "Audit",
-  generate_outreach: "Outreach",
-  generate_proposal: "Teklif",
-  collect_leads: "Lead Topla",
+  generate_outreach: "Mesaj Yaz",
+  generate_proposal: "Teklif Oluştur",
+  collect_leads: "Aday Tarama",
 };
 
 export default function JobsPage() {
+  const router = useRouter();
   const [jobs, setJobs] = useState<Job[] | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
 
@@ -70,7 +72,15 @@ export default function JobsPage() {
                   const saved = job.result?.saved as number | undefined;
                   const avgScore = job.result?.avg_score as number | undefined;
                   return (
-                    <tr key={job.id} className="hover:bg-slate-50">
+                    <tr
+                      key={job.id}
+                      onClick={() => {
+                        const sector = job.payload?.sector as string | undefined;
+                        if (job.type === "collect_leads" && sector) router.push(`/leads?sector=${sector}`);
+                        else if (job.payload?.lead_id) router.push(`/leads/${job.payload.lead_id}`);
+                      }}
+                      className="hover:bg-blue-50 cursor-pointer transition-colors"
+                    >
                       <td className="px-4 py-3 font-medium text-slate-800">
                         {typeLabel[job.type] ?? job.type}
                       </td>

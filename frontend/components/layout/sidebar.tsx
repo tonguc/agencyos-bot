@@ -15,9 +15,9 @@ import {
 const nav = [
   { href: "/", label: "Gösterge", icon: BarChart3 },
   { href: "/pipeline", label: "Pipeline", icon: BriefcaseBusiness },
-  { href: "/leads", label: "Lead'ler", icon: Users },
-  { href: "/scrape", label: "Lead Topla", icon: Search },
-  { href: "/jobs", label: "İşler", icon: Zap },
+  { href: "/leads", label: "Adaylar", icon: Users },
+  { href: "/scrape", label: "Yeni Tarama", icon: Search },
+  { href: "/jobs", label: "Görevler", icon: Zap },
   { href: "/settings", label: "Ayarlar", icon: Settings },
 ];
 
