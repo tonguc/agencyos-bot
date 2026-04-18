@@ -1,0 +1,67 @@
+{
+  "sektor": "tesisatci",
+  "display_name": "Tesisatçı ve Su Tesisatı",
+  "kpi_listesi": ["aylik is sayisi", "online gorunurluk", "acil cagri orani"],
+
+  "icp_filtre": {
+    "yorum_min": 0,
+    "yorum_max": 500,
+    "puan_max": 5.0,
+    "oncelikli_ilceler": [],
+    "site_durumu_kabul": ["yok", "zayif"],
+    "eleme_kriterleri": []
+  },
+
+  "hook_mantigi": {
+    "ana_kayip_birimi": "is",
+    "dusuk_aralik": "10-20 is/ay",
+    "orta_aralik": "20-50 is/ay",
+    "yuksek_aralik": "50-100 is/ay",
+    "varsayilan_guven": 70
+  },
+
+  "hook_tipleri": {
+    "data_hook": {
+      "aciklama": "Rakip tesisatci verisi",
+      "sablon": "{ilce} bolgesinde {rakip_sayi} tesisatci Google'da sizi geciyor — acil aramalarin tamami onlara gidiyor.",
+      "tetikleyici": "audit.reklam_firsati.rakip_durum == aktif"
+    },
+    "gap_hook": {
+      "aciklama": "Gorunurluk acigi",
+      "sablon": "'{ilce} tesisatci' aramasinda gorunmuyorsunuz — acil durumda musteri sizi bulamiyor.",
+      "tetikleyici": "lead.website mevcut AND audit.genel_skor < 50"
+    },
+    "money_hook": {
+      "aciklama": "Tahmini aylik kayip",
+      "sablon": "Bu gorunurlukle aylik {min}-{max} is kaciyor olabilir. (%{guven} guven)",
+      "tetikleyici": "her zaman — fallback"
+    },
+    "tercih_sirasi": ["gap_hook", "data_hook", "money_hook"]
+  },
+
+  "audit_kriterleri": [
+    {"id": "maps",   "soru": "Google Maps profili aktif ve telefon numarasi gorunur mu?", "agirlik": 35},
+    {"id": "seo",    "soru": "Ilce + tesisatci aramasinda ilk sayfada mi?", "agirlik": 30},
+    {"id": "hiz",    "soru": "Site mobilde hizli yükleniyor ve telefon butonu var mi?", "agirlik": 20},
+    {"id": "yorum",  "soru": "Yorum sayisi 20+ ve puan 4.4+ mi?", "agirlik": 15}
+  ],
+
+  "audit_dil_kurallari": {
+    "yasak": ["tespit edildi", "mevcut degil", "onerilir"],
+    "zorunlu_format": "Sorun → Kayip etkisi → Kisa cozum",
+    "killer_insight_zorunlu": true
+  },
+
+  "outreach": {
+    "kanal": "WhatsApp veya telefon",
+    "ton": "pratik, direkt, zaman odakli",
+    "giris_yasak": ["Ajansim var", "hizmet sunuyorum", "size ulasmak istedim"],
+    "giris_onerilen": ["Google'daki profilinize baktim", "fark ettim ki", "dikkatimi cekti"]
+  },
+
+  "killer_insight_ornekleri": [
+    "Google Maps'te telefon numarasi yok — acil durumda musteri sizi arayamiyor",
+    "'Besiktas tesisatci' aramasinda gozukmuyor — acil aramalar rakiplere gidiyor",
+    "Sitede 'hizli yanit' veya '7/24' bilgisi yok — musteri guven verene gidiyor"
+  ]
+}

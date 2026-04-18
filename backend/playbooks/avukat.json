@@ -1,0 +1,68 @@
+{
+  "sektor": "avukat",
+  "display_name": "Avukat ve Hukuk Bürosu",
+  "kpi_listesi": ["aylik yeni musteri sayisi", "online gorunurluk", "danisma talebi"],
+
+  "icp_filtre": {
+    "yorum_min": 0,
+    "yorum_max": 300,
+    "puan_max": 5.0,
+    "oncelikli_ilceler": [],
+    "site_durumu_kabul": ["yok", "zayif"],
+    "eleme_kriterleri": []
+  },
+
+  "hook_mantigi": {
+    "ana_kayip_birimi": "musteri",
+    "dusuk_aralik": "3-8 musteri/ay",
+    "orta_aralik": "8-20 musteri/ay",
+    "yuksek_aralik": "20-40 musteri/ay",
+    "varsayilan_guven": 60
+  },
+
+  "hook_tipleri": {
+    "data_hook": {
+      "aciklama": "Rakip hukuk burosu verisi",
+      "sablon": "{ilce} bolgesinde {rakip_sayi} hukuk burosu Google'da sizi geciyor.",
+      "tetikleyici": "audit.reklam_firsati.rakip_durum == aktif"
+    },
+    "gap_hook": {
+      "aciklama": "Arama gorunurlugu acigi",
+      "sablon": "'{ilce} avukat' aramasinda gorunmuyorsunuz — potansiyel musteriler rakiplere gidiyor.",
+      "tetikleyici": "lead.website mevcut AND audit.genel_skor < 50"
+    },
+    "money_hook": {
+      "aciklama": "Tahmini aylik kayip",
+      "sablon": "Bu gorunurlukle aylik {min}-{max} musteri kaciyor olabilir. (%{guven} guven)",
+      "tetikleyici": "her zaman — fallback"
+    },
+    "tercih_sirasi": ["gap_hook", "data_hook", "money_hook"]
+  },
+
+  "audit_kriterleri": [
+    {"id": "seo",   "soru": "Ilce + uzmanlik alani aramasinda ilk sayfada mi?", "agirlik": 30},
+    {"id": "site",  "soru": "Sitede uzmanlik alanlari ve iletisim net mi?", "agirlik": 25},
+    {"id": "maps",  "soru": "Google Maps profili eksiksiz ve aktif mi?", "agirlik": 20},
+    {"id": "guven", "soru": "Site profesyonel gorunum ve SSL var mi?", "agirlik": 15},
+    {"id": "yorum", "soru": "Yorum sayisi 10+ ve puan 4.4+ mi?", "agirlik": 10}
+  ],
+
+  "audit_dil_kurallari": {
+    "yasak": ["tespit edildi", "mevcut degil", "onerilir"],
+    "zorunlu_format": "Sorun → Kayip etkisi → Kisa cozum",
+    "killer_insight_zorunlu": true
+  },
+
+  "outreach": {
+    "kanal": "LinkedIn veya e-posta",
+    "ton": "profesyonel, saygi gosterir, somut veri sunar",
+    "giris_yasak": ["Ajansim var", "hizmet sunuyorum", "size ulasmak istedim"],
+    "giris_onerilen": ["web sitenize baktim", "dijital varliginizi inceledim", "dikkatimi cekti"]
+  },
+
+  "killer_insight_ornekleri": [
+    "Sitede uzmanlik alanlari belirtilmemis — ziyaretci hangi konuda yardim alacagini bilmiyor",
+    "'Sisli bosanma avukati' aramasinda gozukmuyor — bu arami ayda 500+ kisi yapiyor",
+    "Google Maps profili foto yok — rakipler tam profille ilk sirada"
+  ]
+}
