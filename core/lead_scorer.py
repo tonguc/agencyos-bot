@@ -346,6 +346,26 @@ def calculate_final_score(lead: dict, audit: dict, playbook: dict) -> dict:
     opportunity, opp_signals = calc_opportunity(lead, audit, playbook)
     intent, intent_signals = calc_buyer_intent(lead, audit, playbook)
 
+    # score_breakdown: sinyal kategorilerine göre katkı özeti (score_debugger için)
+    def _sum_signals(signals: list[str], keywords: list[str]) -> float:
+        total = 0.0
+        for s in signals:
+            if any(k in s for k in keywords):
+                try:
+                    total += float(s.split("→")[-1].strip().replace("+", ""))
+                except ValueError:
+                    pass
+        return total
+
+    score_breakdown = {
+        "maps":       _sum_signals(opp_signals, ["Yorum", "Puan", "Son yorum", "GMB"]),
+        "audit":      _sum_signals(opp_signals, ["Audit", "PageSpeed", "SSL"]),
+        "conversion": _sum_signals(opp_signals, ["CTA", "WhatsApp", "booking", "Blog", "Website yok", "Site"]),
+        "ads":        _sum_signals(opp_signals, ["Ads", "Rakip reklam", "Self ads"]),
+        "social":     _sum_signals(intent_signals, ["Instagram", "YouTube", "LinkedIn"]),
+        "intent":     _sum_signals(intent_signals, ["Telefon", "yorum", "Öncelikli", "Rakip reklam aktif"]),
+    }
+
     final = round((opportunity * 0.65) + (intent * 0.35), 1)
 
     if final >= 80:
@@ -365,6 +385,7 @@ def calculate_final_score(lead: dict, audit: dict, playbook: dict) -> dict:
         "segment": segment,
         "priority": SEGMENT_TO_PRIORITY[segment],
         "signals": {"opportunity": opp_signals, "intent": intent_signals},
+        "score_breakdown": score_breakdown,
     }
 
     logger.info(
