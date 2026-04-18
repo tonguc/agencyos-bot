@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.audit_generator import generate_audit
 from core.hook_engine import select_and_generate_hook
-from core.opportunity_scorer import score_opportunity_with_audit
+from core.lead_scorer import calculate_final_score
 from core.playbook import load_playbook
 from models.activity_log import ActivityEvent
 from models.audit import Audit
@@ -65,17 +65,17 @@ async def run_audit(lead_id: uuid.UUID, db: AsyncSession) -> Audit:
         hook_text=hook["hook"],
     )
 
-    refined = score_opportunity_with_audit(
-        base_score=lead.opportunity_score or 50,
-        audit_result=audit_result,
-        site_data=site_data,
-    )
-    await LeadRepository(db).update(
-        lead,
-        status="Audit",
-        opportunity_score=refined["skor"],
-        priority=refined["oncelik"],
-    )
+    audit_for_scorer = {
+        **audit_result,
+        "pagespeed": site_data.get("hiz_skoru"),
+        "ssl": site_data.get("ssl"),
+    }
+    refined = calculate_final_score(lead_dict, audit_for_scorer, playbook)
+    update_fields: dict = {"status": "Audit"}
+    if refined["status"] == "ok":
+        update_fields["opportunity_score"] = int(refined["final_score"])
+        update_fields["priority"] = refined["priority"]
+    await LeadRepository(db).update(lead, **update_fields)
     await log_event(db, event=ActivityEvent.AUDIT_COMPLETED,
                     lead_id=lead_id, data={"audit_id": str(audit.id),
                                            "score": audit_result.get("genel_skor")})

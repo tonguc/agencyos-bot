@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.lead_collector import collect_google_maps
 from core.icp_filter import filter_leads
-from core.opportunity_scorer import score_opportunity
+from core.lead_scorer import calculate_final_score
 from core.playbook import load_playbook
 from models.activity_log import ActivityEvent
 from repositories.lead import LeadRepository
@@ -56,7 +56,10 @@ async def collect_and_save(
 
     scores = []
     for lead_data in filtered["nitelikli"]:
-        score = score_opportunity(lead_data)
+        score = calculate_final_score(lead_data, {}, playbook)
+        if score["status"] == "rejected":
+            logger.warning("Final scorer eledi (scrape): %s | %s", lead_data.get("isim"), score["reason"])
+            continue
         await repo.create(
             name=lead_data.get("isim") or "",
             sector=sector,
@@ -69,11 +72,11 @@ async def collect_and_save(
             source_data=lead_data,
             google_rating=lead_data.get("puan"),
             review_count=lead_data.get("yorum_sayisi"),
-            opportunity_score=score["skor"],
-            priority=score["oncelik"],
+            opportunity_score=int(score["final_score"]),
+            priority=score["priority"],
             status="Yeni",
         )
-        scores.append(score["skor"])
+        scores.append(score["final_score"])
         saved += 1
 
     avg_score = round(sum(scores) / len(scores), 1) if scores else 0

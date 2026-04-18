@@ -1,6 +1,7 @@
 import logging
 from collections import Counter
 
+from core.lead_scorer import hard_filter
 from core.utils import ICP_STRICT_MODE
 
 logger = logging.getLogger(__name__)
@@ -18,6 +19,13 @@ def filter_leads(leads: list[dict], playbook: dict) -> dict:
     elendi: list[dict] = []
 
     for lead in leads:
+        blocked, block_reason = hard_filter(lead, playbook)
+        if blocked:
+            isim = lead.get("isim") or "<isimsiz>"
+            elendi.append({"lead": lead, "neden": block_reason})
+            logger.warning("Hard filter elendi: %s | %s", isim, block_reason)
+            continue
+
         gecti, neden = _check_single_lead(lead, filtre)
         isim = lead.get("isim") or "<isimsiz>"
         if gecti:
