@@ -9,7 +9,7 @@ interface Props {
   onToggle: (s: SearchSegment | null) => void;
 }
 
-const ORDER: SearchSegment[] = ["hot", "warm", "ok", "low"];
+const ORDER: SearchSegment[] = ["hot", "warm", "review", "ok", "low"];
 
 export function SummaryBar({ summary, active, onToggle }: Props) {
   return (

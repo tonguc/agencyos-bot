@@ -102,7 +102,7 @@ export interface AppSettings {
 }
 
 // ── Search ─────────────────────────────────────────────────────────────
-export type SearchSegment = "hot" | "warm" | "ok" | "low";
+export type SearchSegment = "hot" | "warm" | "ok" | "low" | "review";
 
 export interface SearchParsedQuery {
   raw_query: string;
@@ -137,6 +137,7 @@ export interface SearchSummary {
   warm: number;
   ok: number;
   low: number;
+  review: number;
   total: number;
 }
 

@@ -5,7 +5,8 @@ Pipeline:
   query → parse_search_query → collect_by_query (Apify) → enrich
        → if sector matched → playbook + icp_filter + scoring (skipped on miss)
        → normalize results for the UI
-       → group into HOT / WARM / OK / LOW segments
+       → group into HOT / WARM / REVIEW / OK / LOW segments
+         (REVIEW: scorer tarafindan dusuk confidence / celisik sinyal ile isaretlenen)
 
 Note: Search results are NOT persisted to DB. The user can later trigger a
 real scrape from the same query to save them.
@@ -24,7 +25,18 @@ from core.query_parser import parse_search_query
 logger = logging.getLogger(__name__)
 
 
-def _segment(score: int | None) -> str:
+# CRM segment (lead_scorer) → search UI segment (lowercase).
+# REVIEW = düşük confidence / çelişkili sinyal / zombie risk.
+_CRM_TO_SEARCH_SEGMENT = {
+    "HOT":    "hot",
+    "WARM":   "warm",
+    "LOW":    "low",
+    "REVIEW": "review",
+}
+
+
+def _segment_from_score(score: int | None) -> str:
+    """Unscored veya rejected leadler icin threshold tabanli fallback."""
     if score is None:
         return "low"
     if score >= 70:
@@ -38,6 +50,19 @@ def _segment(score: int | None) -> str:
 
 def _normalize_lead(lead: dict, score_info: dict | None) -> dict:
     score = int(score_info["final_score"]) if score_info and score_info.get("status") == "ok" else None
+
+    # Scorer zaten karar verdiyse (HOT/WARM/LOW/REVIEW) onu kullan —
+    # REVIEW sadece burada dogru yansitilir. Scorelanmamis leadlerde threshold fallback.
+    crm_seg = score_info.get("segment") if score_info and score_info.get("status") == "ok" else None
+    segment = _CRM_TO_SEARCH_SEGMENT.get(crm_seg) if crm_seg else None
+    if segment is None:
+        segment = _segment_from_score(score)
+
+    reason = (
+        score_info.get("reason_summary") or score_info.get("reason")
+        if score_info else "sektör eşleşmedi"
+    )
+
     return {
         "name":          lead.get("isim") or "",
         "address":       lead.get("adres") or "",
@@ -51,9 +76,9 @@ def _normalize_lead(lead: dict, score_info: dict | None) -> dict:
         "maps_url":      lead.get("maps_url"),
         "site_status":   lead.get("site_durumu"),
         "score":         score,
-        "segment":       _segment(score),
+        "segment":       segment,
         "priority":      score_info.get("priority") if score_info else None,
-        "reason":        score_info.get("reason") if score_info else "sektör eşleşmedi",
+        "reason":        reason,
     }
 
 
@@ -74,7 +99,7 @@ async def run_search(query: str, limit: int = 25) -> dict:
         return {
             "parsed": parsed,
             "results": [],
-            "summary": {"hot": 0, "warm": 0, "ok": 0, "low": 0, "total": 0},
+            "summary": {"hot": 0, "warm": 0, "ok": 0, "low": 0, "review": 0, "total": 0},
             "filter_stats": None,
             "error": "Boş sorgu",
         }
@@ -91,7 +116,7 @@ async def run_search(query: str, limit: int = 25) -> dict:
         return {
             "parsed": parsed,
             "results": [],
-            "summary": {"hot": 0, "warm": 0, "ok": 0, "low": 0, "total": 0},
+            "summary": {"hot": 0, "warm": 0, "ok": 0, "low": 0, "review": 0, "total": 0},
             "filter_stats": None,
             "error": "Sonuç bulunamadı",
         }
@@ -125,16 +150,17 @@ async def run_search(query: str, limit: int = 25) -> dict:
     results.sort(key=lambda r: (r["score"] is None, -(r["score"] or 0)))
 
     summary = {
-        "hot":   sum(1 for r in results if r["segment"] == "hot"),
-        "warm":  sum(1 for r in results if r["segment"] == "warm"),
-        "ok":    sum(1 for r in results if r["segment"] == "ok"),
-        "low":   sum(1 for r in results if r["segment"] == "low"),
-        "total": len(results),
+        "hot":    sum(1 for r in results if r["segment"] == "hot"),
+        "warm":   sum(1 for r in results if r["segment"] == "warm"),
+        "ok":     sum(1 for r in results if r["segment"] == "ok"),
+        "low":    sum(1 for r in results if r["segment"] == "low"),
+        "review": sum(1 for r in results if r["segment"] == "review"),
+        "total":  len(results),
     }
 
     logger.info(
-        "Search: q=%r sector=%s results=%d hot=%d warm=%d",
-        query, parsed["sector"], summary["total"], summary["hot"], summary["warm"],
+        "Search: q=%r sector=%s results=%d hot=%d warm=%d review=%d",
+        query, parsed["sector"], summary["total"], summary["hot"], summary["warm"], summary["review"],
     )
 
     return {

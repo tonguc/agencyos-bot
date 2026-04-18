@@ -11,10 +11,11 @@ interface Props {
 }
 
 const PIN_COLORS: Record<string, string> = {
-  hot:  "#ef4444",
-  warm: "#f59e0b",
-  ok:   "#3b82f6",
-  low:  "#94a3b8",
+  hot:    "#ef4444",
+  warm:   "#f59e0b",
+  ok:     "#3b82f6",
+  low:    "#94a3b8",
+  review: "#a855f7",
 };
 
 export function MapView({ results, selectedIdx, onSelect }: Props) {
@@ -100,7 +101,7 @@ export function MapView({ results, selectedIdx, onSelect }: Props) {
       </svg>
 
       <div className="absolute bottom-3 left-3 flex flex-wrap gap-2 bg-white/90 backdrop-blur px-2.5 py-1.5 rounded-lg border border-slate-200 shadow-sm">
-        {(["hot", "warm", "ok", "low"] as const).map((seg) => (
+        {(["hot", "warm", "review", "ok", "low"] as const).map((seg) => (
           <span key={seg} className="inline-flex items-center gap-1 text-[10px] text-slate-600">
             <span className={`h-2 w-2 rounded-full ${SEGMENT_COLORS[seg].dot}`} />
             {SEGMENT_LABELS[seg]}
