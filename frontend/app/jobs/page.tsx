@@ -97,7 +97,12 @@ export default function JobsPage() {
                       <td className="px-4 py-3 text-slate-400 text-xs">
                         {job.started_at ? formatDateTime(job.started_at) : formatDateTime(job.created_at)}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 text-right">
+                        {job.status === "failed" && job.error_message && (
+                          <span className="mr-3 text-xs text-red-500 font-mono max-w-xs truncate inline-block align-middle" title={job.error_message}>
+                            {job.error_message.slice(0, 60)}{job.error_message.length > 60 ? "…" : ""}
+                          </span>
+                        )}
                         <button
                           onClick={(e) => { e.stopPropagation(); handleDelete(job.id); }}
                           disabled={deleting === job.id}
