@@ -102,7 +102,7 @@
     "Google Maps 'Kadikoy botoks' aramasinda 5. sayfada — rakip merkezler ilk 3te"
   ],
   "feature_weights": {
-    "blog_signal": 0.6,
+    "blog_signal": 0.8,
     "content_depth_signal": 0.8,
     "linkedin_signal": 0.1,
     "youtube_signal": 0.5,
