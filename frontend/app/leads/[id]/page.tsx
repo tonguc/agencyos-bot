@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScoreBar } from "@/components/ui/score-bar";
 import { formatDateTime } from "@/lib/utils";
 import { LeadActions } from "./lead-actions";
+import { SalesOutputCard } from "./sales-output-card";
 import type { Audit, Lead, OutreachMessage, Proposal } from "@/types";
 import Link from "next/link";
 
@@ -43,13 +44,8 @@ export default async function LeadDetailPage({ params }: Props) {
 
   const result = audit?.result as Record<string, unknown> | null;
   const salesOutput = result?.sales_output as {
-    headline?: string;
-    demand_block?: string;
-    top_3_problems?: string[];
-    insight_block?: string;
-    solution_block?: string[];
-    cta_block?: string;
-    full_text?: string;
+    short_message?: string;
+    full_message?: string;
   } | null | undefined;
 
   return (
@@ -201,71 +197,9 @@ export default async function LeadDetailPage({ params }: Props) {
           </Card>
         )}
 
-        {/* Satış Özeti */}
-        {salesOutput && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Satış Özeti</CardTitle>
-              <p className="text-xs text-slate-400 mt-0.5">Müşteriye gönderilecek versiyon</p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Headline */}
-              {salesOutput.headline && (
-                <p className="font-semibold text-slate-800 text-base">{salesOutput.headline}</p>
-              )}
-
-              {/* Demand block */}
-              {salesOutput.demand_block && (
-                <p className="text-sm text-slate-600 leading-relaxed">{salesOutput.demand_block}</p>
-              )}
-
-              {/* Top 3 problems */}
-              {salesOutput.top_3_problems && salesOutput.top_3_problems.length > 0 && (
-                <div className="rounded-lg bg-red-50 border border-red-100 p-4 space-y-2">
-                  <p className="text-xs font-semibold text-red-500 uppercase tracking-wide">3 Kritik Nokta</p>
-                  {salesOutput.top_3_problems.map((p, i) => (
-                    <p key={i} className="text-sm text-red-900">{p}</p>
-                  ))}
-                </div>
-              )}
-
-              {/* Insight block */}
-              {salesOutput.insight_block && (
-                <div className="rounded-lg bg-amber-50 border border-amber-100 p-4">
-                  <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">İçgörü</p>
-                  <p className="text-sm text-amber-900 leading-relaxed">{salesOutput.insight_block}</p>
-                </div>
-              )}
-
-              {/* Solution block */}
-              {salesOutput.solution_block && salesOutput.solution_block.length > 0 && (
-                <div className="space-y-1">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Çözüm Çerçevesi</p>
-                  {salesOutput.solution_block.map((s, i) => (
-                    <p key={i} className="text-sm text-slate-600">• {s}</p>
-                  ))}
-                </div>
-              )}
-
-              {/* CTA */}
-              {salesOutput.cta_block && (
-                <div className="rounded-lg bg-blue-50 border border-blue-200 p-4">
-                  <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-1">CTA</p>
-                  <p className="text-sm text-blue-900 leading-relaxed">{salesOutput.cta_block}</p>
-                </div>
-              )}
-
-              {/* Full text copy area */}
-              {salesOutput.full_text && (
-                <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Tam Metin</p>
-                  <pre className="whitespace-pre-wrap text-xs text-slate-600 bg-slate-50 rounded-lg p-4 leading-relaxed border border-slate-100 font-sans">
-                    {salesOutput.full_text}
-                  </pre>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        {/* Satış Mesajı */}
+        {salesOutput && (salesOutput.short_message || salesOutput.full_message) && (
+          <SalesOutputCard output={salesOutput} />
         )}
 
         {/* Outreach */}
