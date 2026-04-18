@@ -1,8 +1,9 @@
 import { Header } from "@/components/layout/header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import type { Lead } from "@/types";
+import { HotLeads } from "./hot-leads";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const KEY = process.env.NEXT_PUBLIC_API_KEY ?? "changeme";
@@ -83,40 +84,7 @@ export default async function PipelinePage() {
         )}
 
         {/* Hot leads */}
-        {hotLeads.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Öne Çıkan Lead&apos;ler</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <ul className="divide-y divide-slate-100">
-                {hotLeads.map((lead) => (
-                  <li key={lead.id}>
-                    <Link
-                      href={`/leads/${lead.id}`}
-                      className="flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition-colors"
-                    >
-                      <div>
-                        <p className="font-medium text-slate-800 text-sm">{lead.name}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">
-                          {lead.sector} · {lead.city}
-                          {lead.google_rating ? ` · ⭐ ${lead.google_rating}` : ""}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="text-right">
-                          <p className="text-xs text-slate-500">Fırsat</p>
-                          <p className="font-bold text-slate-800 text-sm">{lead.opportunity_score ?? "—"}</p>
-                        </div>
-                        <Badge value={lead.status} />
-                      </div>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-        )}
+        <HotLeads initial={hotLeads} />
       </div>
     </div>
   );
