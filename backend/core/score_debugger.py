@@ -8,7 +8,8 @@ katman ağırlıklarını analiz eder. Mevcut scoring mantığına dokunmaz.
 from statistics import mean, median
 from typing import List
 
-BREAKDOWN_KEYS = ["maps", "audit", "conversion", "intent", "ads", "social", "fit", "boost"]
+BREAKDOWN_KEYS = ["maps", "audit", "conversion", "intent", "ads", "social", "boost"]
+# fit_multiplier float değer — toplam değil, ayrıca raporlanır
 
 INFLATION_THRESHOLDS = {
     "hot_ratio_warn": 0.25,
@@ -27,11 +28,12 @@ def summarize_score_distribution(results: List[dict]) -> dict:
     ok_results = [r for r in results if r.get("status") == "ok"]
     rejected = len(results) - len(ok_results)
 
-    final_scores = [r["final_score"] for r in ok_results]
+    final_scores  = [r["final_score"] for r in ok_results]
     opportunities = [r["opportunity"] for r in ok_results]
-    intents = [r["buyer_intent"] for r in ok_results]
+    intents       = [r["buyer_intent"] for r in ok_results]
+    confidences   = [r["data_confidence"] for r in ok_results if "data_confidence" in r]
 
-    seg_counts: dict[str, int] = {"HOT": 0, "WARM": 0, "LOW": 0, "REJECTED": rejected}
+    seg_counts: dict[str, int] = {"HOT": 0, "WARM": 0, "LOW": 0, "REVIEW": 0, "REJECTED": rejected}
     for r in ok_results:
         seg = r.get("segment", "LOW")
         seg_counts[seg] = seg_counts.get(seg, 0) + 1
@@ -46,8 +48,9 @@ def summarize_score_distribution(results: List[dict]) -> dict:
         "median_final": round(median(final_scores), 1) if final_scores else 0,
         "min_final": round(min(final_scores), 1) if final_scores else 0,
         "max_final": round(max(final_scores), 1) if final_scores else 0,
-        "mean_opportunity": round(mean(opportunities), 1) if opportunities else 0,
-        "mean_intent": round(mean(intents), 1) if intents else 0,
+        "mean_opportunity":  round(mean(opportunities), 1) if opportunities else 0,
+        "mean_intent":       round(mean(intents), 1) if intents else 0,
+        "mean_confidence":   round(mean(confidences), 2) if confidences else None,
         "high_score_count": sum(1 for s in final_scores if s >= 90),
         "segment_counts": seg_counts,
         "segment_ratio": seg_ratio,
@@ -100,16 +103,22 @@ def find_top_score_drivers(results: List[dict]) -> dict:
     breakdown_totals: dict[str, list[float]] = {k: [] for k in BREAKDOWN_KEYS}
     has_breakdown = False
 
+    fit_muls: list[float] = []
     for r in results:
         bd = r.get("score_layers") or r.get("score_breakdown")
         if isinstance(bd, dict):
             has_breakdown = True
             for k in BREAKDOWN_KEYS:
                 if k in bd:
-                    breakdown_totals[k].append(bd[k])
+                    breakdown_totals[k].append(float(bd[k]))
+            if "fit_multiplier" in bd:
+                fit_muls.append(float(bd["fit_multiplier"]))
 
     if has_breakdown:
-        return {k: round(mean(v), 1) if v else 0.0 for k, v in breakdown_totals.items()}
+        out = {k: round(mean(v), 1) if v else 0.0 for k, v in breakdown_totals.items()}
+        if fit_muls:
+            out["fit_multiplier_avg"] = round(mean(fit_muls), 3)
+        return out
 
     opps = [r.get("opportunity", 0) for r in results]
     intents = [r.get("buyer_intent", 0) for r in results]
@@ -186,7 +195,7 @@ def format_score_debug_report(summary: dict, inflation: dict, suggestions: List[
         f"Ort. Intent      : {summary.get('mean_intent', '-')}\n"
         f"\nSegment dagilimi:\n"
         f"{seg_line('HOT')}\n{seg_line('WARM')}\n"
-        f"{seg_line('LOW')}\n{seg_line('REJECTED')}\n"
+        f"{seg_line('REVIEW')}\n{seg_line('LOW')}\n{seg_line('REJECTED')}\n"
         f"\nEn guclu skor suruculeri:\n{driver_lines}\n"
         f"\nEnflasyon riski: {inflation['inflation_risk'].upper()}\n"
         f"Nedenler:\n{reasons_text}\n"

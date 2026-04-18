@@ -1,25 +1,37 @@
 """
-Lead Scorer — 4-boyutlu scoring pipeline.
+Lead Scorer — 5 katmanlı karar motoru.
 
-  Hard Filter        → elenenler (anlamsız lead'ler)
-  Opportunity  (0-100) → problemin büyüklüğü (biz ne kadar fark yaratabiliriz?)
-  Buyer Intent (0-100) → alıcı şimdi satın alır mı? (aktiflik, reklam baskısı)
-  Fit          (0-100) → ICP uyumu (boyut, erişilebilirlik, canlılık)
-  Pattern Boost        → çoklu sinyal kombinasyonları (IG aktif + booking yok gibi)
+  Hard Filter          → elenenler (kurumsal, ölü, telefonsuz)
+  Opportunity  (0-100) → "Biz bu işletme için ne kadar fark yaratabiliriz?"
+  Buyer Intent (0-100) → "Bu işletme şu an satın alma modunda mı?"
+  Fit Multiplier (0.81–1.00) → "Bu lead ICP bandımızda mı?" — additive değil,
+                                 final skora uygulanan kalifikasyon çarpanı
+  Pattern Boost  (0-20) → birden fazla sinyalin birlikte tetiklediği bonus
 
-final = 0.50·opportunity + 0.30·intent + 0.20·fit + pattern_boost   (0-100 cap)
+Formül:
+  combined = 0.65·opportunity + 0.35·intent
+  final    = min(100, combined × fit_multiplier + pattern_boost)
 
-Segmentler: HOT (≥75) | WARM (≥55) | LOW (<55)
+Routing (score'dan bağımsız, lead'e özgü):
+  REVIEW → zombie risk, düşük confidence, çoklu çelişki
+  HOT    → final≥80, confidence≥0.60, çelişki yok  → generate_full_audit
+  WARM   → final≥60 VEYA skor iyi ama confidence/çelişki var → generate_light_audit
+  LOW    → final<60 → archive_only
 
-lead["score_breakdown"] → sıralı string listesi (ör. "+12 IG aktif + booking yok")
-lead["score_layers"]   → debugger için eski katmanlı dict (maps/audit/conversion…)
-lead["signals"]        → her boyutun tam sinyal listesi (audit için)
+lead["score_breakdown"] → sıralı string listesi ("+20 Website yok", ...)
+lead["score_layers"]    → debugger için katmanlı dict
+lead["data_confidence"] → veri bütünlüğü puanı (0.0–1.0)
+lead["contradictions"]  → çelişkili sinyal uyarıları listesi
+lead["action"]          → generate_full_audit | generate_light_audit |
+                           manual_review | archive_only
 
-Tüm sinyal ağırlıkları playbook["feature_weights"] üzerinden gelir.
-weight = 0.0 → sinyal tamamen kapalı
-weight < 1.0 → etki azaltılmış
-weight = 1.0 → tam etki
-weight > 1.0 → sektörde ekstra kritik sinyal
+Sinyal sahipliği (double-count yoktur):
+  opportunity → website, yorum<10 veya >100, puan, audit, GMB, conversion gaps,
+                site eski (>180g), ads pressure, sektöre özgü conversion
+  intent      → son_yorum, review velocity, IG/YT/LI aktivitesi,
+                site güncel (<60g), rakip reklam, sektöre özgü aktivite
+  fit_mul     → yorum 10-100 (ICP boyut), oncelikli_ilce, sektor_fit
+  pattern     → sinyal kombinasyon bonus'ları (IG aktif + booking yok vb.)
 """
 
 import logging
@@ -71,9 +83,10 @@ DEFAULT_FEATURE_WEIGHTS = {
 }
 
 SEGMENT_TO_PRIORITY = {
-    "HOT": "yuksek",
-    "WARM": "orta",
-    "LOW": "dusuk",
+    "HOT":    "yuksek",
+    "WARM":   "orta",
+    "LOW":    "dusuk",
+    "REVIEW": "orta",   # CRM'de WARM önceliği, UI'da özel göster
 }
 
 
@@ -139,9 +152,15 @@ def calc_opportunity(lead: dict, audit: dict, playbook: dict) -> tuple[int, list
     website = lead.get("website")
     site_durumu = lead.get("site_durumu")
 
-    # yorum <10 = az (opportunity); yorum 10-100 = uygun boyut → fit'te sayılır
+    # yorum sinyal tablosu (fit_multiplier ile örtüşmez — farklı semantik):
+    #   <10   → büyük gap (az yorum = fırsatımız var)   [opportunity]
+    #   10-30 → orta gap (hâlâ büyüme alanı var)        [opportunity, zayıf]
+    #   10-100→ ICP boyut bandı uygun                   [fit_multiplier]
+    #   >100  → gap küçüyor (kalabalık profil)           [opportunity]
     if yorum < 10:
         add(15, f"Yorum az ({yorum})")
+    elif yorum < 30:
+        add(5, f"Yorum az-orta ({yorum})")
     elif yorum > 100:
         add(-8, f"Yorum çok ({yorum})")
 
@@ -465,6 +484,15 @@ def calc_buyer_intent(lead: dict, audit: dict, playbook: dict) -> tuple[int, lis
     if rev_90 is not None and rev_90 >= 10:
         add(8, f"Son 90g yorum: {rev_90}")
 
+    # ── Website yatırım sinyali (intent) ────────────────
+    # SADECE <60 koşulu burada. Opportunity'de >180 koşulu var — örtüşmez.
+    # "Son 60 günde güncelledi" → dijital yatırım yapıyor → satın alma ihtimali yüksek.
+    update_days = lead.get("last_website_update_days")
+    update_conf = lead.get("website_update_confidence") or 0.0
+    if update_days is not None and update_conf >= 0.4:
+        if update_days < 60:
+            add(8, f"Site yatırımı yapılmış ({update_days}g)")
+
     # ── Clinic subsector intent sinyalleri ───────────
     if sub == "aesthetic":
         # Estetik hasta Instagram'dan karar veriyor — düşük aktiflik = düşük intent
@@ -535,37 +563,47 @@ def calc_buyer_intent(lead: dict, audit: dict, playbook: dict) -> tuple[int, lis
 
 
 # --------------------------------------------------
-# 4. FIT SCORE (0–100)
+# 4. FIT MULTIPLIER (0.81–1.00)
 # --------------------------------------------------
 
-def calc_fit(lead: dict, audit: dict, playbook: dict) -> tuple[int, list[str]]:
+def calc_fit_multiplier(lead: dict, playbook: dict) -> tuple[float, list[str]]:
     """
-    ICP erişilebilirlik ve boyut uyumu.
-    Sinyal sahipliği (opportunity/intent ile örtüşme yok):
-      telefon       → sadece burada (intent'ten kaldırıldı)
-      yorum 10-100  → sadece burada (opportunity <10 ve >100 ile aralık örtüşmez)
-      oncelikli_ilce→ sadece burada (intent'ten taşındı)
+    ICP kalifikasyon çarpanı. Additive boyut değil — combined skora uygulanır.
+
+    Neden çarpan, neden additive değil:
+      Telefon, hard_filter garantisi → tüm kabul edilen lead'lerde var.
+      Constant signal = discrimination yok = additive'de sabit enflasyon.
+      Çarpan olarak: iyi fit skoru ceza vermez, kötü fit hafifçe düşürür.
+
+    Sinyal sahipliği (opportunity/intent ile örtüşmez):
+      yorum 10-100 : ICP boyut bandı. Opp <10 (gap) ve >100 (büyük) ile aralık ayrı.
+                     Semantik fark: "Doğru büyüklükte mi?" ≠ "Ne kadar gap var?"
+      oncelikli_ilce: bizim hedefleme tercihimiz, alıcı sinyali değil.
+      sektor_fit    : playbook preferred_sectors eşleşmesi.
     """
-    score = 30
+    modifier = 0.88   # baz: ortalama ICP fit
     signals: list[str] = []
 
-    def add(delta: int, label: str) -> None:
-        nonlocal score
-        score += delta
-        if delta != 0:
-            signals.append(f"{label} → {'+' if delta > 0 else ''}{delta}")
-
-    if lead.get("telefon"):
-        add(20, "Telefon erişilebilir")
-
     yorum = lead.get("yorum_sayisi") or 0
+
     if 10 <= yorum <= 100:
-        add(15, f"Yorum hacmi uygun ({yorum})")
+        modifier += 0.06
+        signals.append(f"Yorum hacmi ICP bandında ({yorum})")
+    elif yorum < 5:
+        modifier -= 0.04   # çok küçük = yüksek churn riski
+        signals.append(f"Çok küçük işletme ({yorum} yorum)")
 
     if lead.get("oncelikli_ilce"):
-        add(15, "Öncelikli ilçe")
+        modifier += 0.05
+        signals.append("Öncelikli ilçe")
 
-    return max(0, min(score, 100)), signals
+    sektor = lead.get("sektor") or lead.get("sector") or ""
+    preferred = playbook.get("preferred_sectors", [])
+    if preferred and sektor and sektor in preferred:
+        modifier += 0.04
+        signals.append(f"Hedef sektör ({sektor})")
+
+    return min(1.00, modifier), signals
 
 
 # --------------------------------------------------
@@ -624,7 +662,114 @@ def calc_pattern_boosts(lead: dict, audit: dict, playbook: dict) -> tuple[int, l
 
 
 # --------------------------------------------------
-# 6. FINAL SCORE
+# 6. CONFIDENCE
+# --------------------------------------------------
+
+def calc_confidence(lead: dict, audit: dict) -> float:
+    """
+    Veri bütünlüğü puanı (0.0–1.0).
+    Skoru değil routing kararını etkiler. Düşük confidence → REVIEW.
+
+    Kritik (0.50): puanlama için zorunlu temel veriler
+    Zenginleştirme (0.35): sinyal kalitesini artıran veriler
+    Audit (0.15): harici analiz verisi
+    """
+    CRITICAL = ["yorum_sayisi", "puan", "website", "son_yorum_gun", "telefon"]
+    ENRICH   = [
+        "instagram_post_90d", "review_last_30d", "has_cta",
+        "has_online_booking", "has_whatsapp", "gmb_photo_count",
+    ]
+    AUDIT_F  = ["genel_skor", "pagespeed"]
+
+    c = sum(1 for f in CRITICAL if lead.get(f) is not None) / len(CRITICAL)
+    e = sum(1 for f in ENRICH   if lead.get(f) is not None) / len(ENRICH)
+    a = sum(1 for f in AUDIT_F  if audit.get(f) is not None) / len(AUDIT_F)
+
+    return round(0.50 * c + 0.35 * e + 0.15 * a, 2)
+
+
+# --------------------------------------------------
+# 7. CONTRADICTION DETECTION
+# --------------------------------------------------
+
+def detect_contradictions(lead: dict, opp: int, intent: int) -> list[str]:
+    """
+    Çelişkili sinyal kombinasyonlarını tespit eder.
+    "Zombie risk" tek başına REVIEW tetikler.
+    Diğerleri confidence ile birlikte değerlendirilir.
+    """
+    flags: list[str] = []
+    yorum = lead.get("yorum_sayisi") or 0
+    puan  = lead.get("puan") or 0
+    website = lead.get("website")
+
+    # Zombie: büyük gap var ama çok düşük alıcı sinyali → kapalı/pasif olabilir
+    # intent base=50; <45 demek neredeyse hiç pozitif sinyal yok demek
+    if opp > 70 and intent < 45:
+        flags.append("Büyük gap var ama alıcı sinyali yok — zombie risk")
+
+    # Güçlü Maps + web yok: muhtemelen scraper hatası, gerçek gap değil
+    if yorum > 80 and puan > 4.3 and not website:
+        flags.append("Güçlü Maps profili ama website yok — scraper doğrulansın")
+
+    # Çok aktif + zaten güçlü: bize ihtiyacı yok
+    if intent > 75 and opp < 25:
+        flags.append("Yüksek aktivite ama dijital açık küçük — düşük değer")
+
+    # Mükemmel puan + büyük gap iddiası çelişiyor
+    if puan > 4.7 and opp > 65:
+        flags.append("Puan çok yüksek ama yüksek gap skoru — çelişkili sinyal")
+
+    return flags
+
+
+# --------------------------------------------------
+# 8. ROUTING
+# --------------------------------------------------
+
+def route_decision(
+    final: float,
+    confidence: float,
+    contradictions: list[str],
+) -> tuple[str, str, str]:
+    """
+    Segment + action + reason_summary.
+
+    Batch'ten bağımsız — aynı lead her zaman aynı kararı alır.
+    Öncelik sırası:
+      1. Zombie risk → REVIEW (confidence bağımsız)
+      2. Düşük confidence → REVIEW
+      3. Çoklu çelişki + orta confidence → REVIEW
+      4. HOT: yüksek skor + güvenilir data + temiz sinyal
+      5. WARM: skor iyi ama data veya çelişki sorunu var / skor orta
+      6. LOW: zayıf skor
+    """
+    has_zombie = any("zombie" in c for c in contradictions)
+
+    if has_zombie:
+        return "REVIEW", "manual_review", "Alıcı sinyali yok — zombie risk"
+
+    if confidence < 0.40:
+        return "REVIEW", "manual_review", f"Veri yetersiz (confidence={confidence:.2f})"
+
+    if len(contradictions) >= 2 and confidence < 0.65:
+        return "REVIEW", "manual_review", contradictions[0]
+
+    if final >= 80 and confidence >= 0.60 and not contradictions:
+        return "HOT", "generate_full_audit", "Güçlü fırsat — tam audit"
+
+    if final >= 80:
+        reason = contradictions[0] if contradictions else f"Confidence düşük ({confidence:.2f})"
+        return "WARM", "generate_light_audit", reason
+
+    if final >= 60:
+        return "WARM", "generate_light_audit", "Orta fırsat — hafif audit"
+
+    return "LOW", "archive_only", "Yeterli sinyal yok"
+
+
+# --------------------------------------------------
+# 9. FINAL SCORE
 # --------------------------------------------------
 
 _SIGNAL_DELTA_RE = re.compile(r"→\s*([+-]?\d+)\s*$")
@@ -680,10 +825,10 @@ def _build_breakdown_list(
 def _build_score_layers(
     opp_signals: list[str],
     intent_signals: list[str],
-    fit_signals: list[str],
+    fit_mul: float,
     boost_sum: int,
 ) -> dict:
-    """Debugger için eski katmanlı dict — score_debugger.py bunu okuyor."""
+    """Debugger için katmanlı özet — score_debugger.py bunu okuyor."""
 
     def _sum(signals: list[str], keywords: list[str]) -> float:
         total = 0.0
@@ -694,69 +839,85 @@ def _build_score_layers(
         return total
 
     return {
-        "maps":       _sum(opp_signals, ["Yorum", "Puan", "GMB"]),
-        "audit":      _sum(opp_signals, ["Audit", "PageSpeed", "SSL"]),
-        "conversion": _sum(opp_signals, ["CTA", "WhatsApp", "booking", "Blog", "Website yok", "Site", "Servis", "SSS", "Hakkında", "Before", "Görsel", "Doktor"]),
-        "ads":        _sum(opp_signals, ["Ads", "Rakip reklam", "Self ads"]),
-        "social":     _sum(intent_signals, ["Instagram", "YouTube", "LinkedIn"]),
-        "intent":     _sum(intent_signals, ["yorum", "Rakip reklam aktif"]),
-        "fit":        float(sum(_parse_delta(s)[0] for s in fit_signals)),
-        "boost":      float(boost_sum),
+        "maps":           _sum(opp_signals, ["Yorum", "Puan", "GMB"]),
+        "audit":          _sum(opp_signals, ["Audit", "PageSpeed", "SSL"]),
+        "conversion":     _sum(opp_signals, ["CTA", "WhatsApp", "booking", "Blog", "Website yok", "Site", "Servis", "SSS", "Hakkında", "Before", "Görsel", "Doktor"]),
+        "ads":            _sum(opp_signals, ["Ads", "Rakip reklam", "Self ads"]),
+        "social":         _sum(intent_signals, ["Instagram", "YouTube", "LinkedIn"]),
+        "intent":         _sum(intent_signals, ["yorum", "Rakip reklam aktif", "Site yatırımı"]),
+        "fit_multiplier": round(fit_mul, 3),
+        "boost":          float(boost_sum),
     }
 
 
 def calculate_final_score(lead: dict, audit: dict, playbook: dict) -> dict:
-    """Full scoring pipeline. audit can be {} at scrape time."""
+    """
+    5 katmanlı karar motoru — audit={} ile scrape anında çalışır.
+
+    Formül: combined = 0.65·opp + 0.35·intent
+            final    = min(100, combined × fit_multiplier + pattern_boost)
+    """
     is_blocked, reason = hard_filter(lead, playbook)
     if is_blocked:
         return {"status": "rejected", "reason": reason}
 
-    opportunity, opp_signals = calc_opportunity(lead, audit, playbook)
-    intent, intent_signals = calc_buyer_intent(lead, audit, playbook)
-    fit, fit_signals = calc_fit(lead, audit, playbook)
-    boost_sum, boost_signals = calc_pattern_boosts(lead, audit, playbook)
+    opportunity, opp_signals     = calc_opportunity(lead, audit, playbook)
+    intent,      intent_signals  = calc_buyer_intent(lead, audit, playbook)
+    fit_mul,     fit_signals     = calc_fit_multiplier(lead, playbook)
+    boost_sum,   boost_signals   = calc_pattern_boosts(lead, audit, playbook)
+    confidence                   = calc_confidence(lead, audit)
 
-    weighted = (opportunity * 0.50) + (intent * 0.30) + (fit * 0.20)
-    final = round(max(0.0, min(100.0, weighted + boost_sum)), 1)
+    combined = (opportunity * 0.65) + (intent * 0.35)
+    final    = round(max(0.0, min(100.0, combined * fit_mul + boost_sum)), 1)
 
-    if final >= 80:
-        segment = "HOT"
-    elif final >= 60:
-        segment = "WARM"
-    else:
-        segment = "LOW"
+    contradictions              = detect_contradictions(lead, opportunity, intent)
+    segment, action, reason_sum = route_decision(final, confidence, contradictions)
 
     fw = _fw(playbook)
     active_weights = {k: v for k, v in fw.items() if v != 1.0}
 
     score_breakdown = _build_breakdown_list(opp_signals, intent_signals, fit_signals, boost_signals)
-    score_layers = _build_score_layers(opp_signals, intent_signals, fit_signals, boost_sum)
+    score_layers    = _build_score_layers(opp_signals, intent_signals, fit_mul, boost_sum)
 
     result = {
-        "status": "ok",
-        "opportunity": opportunity,
-        "buyer_intent": intent,
-        "fit": fit,
-        "pattern_boost": boost_sum,
-        "final_score": final,
-        "segment": segment,
-        "priority": SEGMENT_TO_PRIORITY[segment],
+        "status":         "ok",
+        "opportunity":    opportunity,
+        "buyer_intent":   intent,
+        "fit_multiplier": round(fit_mul, 3),
+        "pattern_boost":  boost_sum,
+        "final_score":    final,
+        "data_confidence": confidence,
+        "segment":        segment,
+        "action":         action,
+        "reason_summary": reason_sum,
+        "priority":       SEGMENT_TO_PRIORITY[segment],
+        "contradictions": contradictions,
         "signals": {
             "opportunity": opp_signals,
-            "intent": intent_signals,
-            "fit": fit_signals,
-            "pattern": boost_signals,
+            "intent":      intent_signals,
+            "fit":         fit_signals,
+            "pattern":     boost_signals,
         },
         "score_breakdown": score_breakdown,
-        "score_layers": score_layers,
-        "active_weights": active_weights,
+        "score_layers":    score_layers,
+        "active_weights":  active_weights,
         "clinic_subsector": lead.get("clinic_subsector"),
     }
 
+    pre_mul  = round(combined, 1)
+    post_mul = round(combined * fit_mul, 1)
+    zombie   = any("zombie" in c for c in contradictions)
+
     logger.info(
-        "Score: %s | final=%.1f segment=%s opp=%d intent=%d fit=%d boost=%d subsector=%s",
-        lead.get("isim"), final, segment, opportunity, intent, fit, boost_sum,
-        lead.get("clinic_subsector", "-"),
+        "Score: %s | final=%.1f seg=%s action=%s | "
+        "opp=%d intent=%d | "
+        "pre_mul=%.1f fit=%.3f post_mul=%.1f boost=%d | "
+        "conf=%.2f zombie=%s review_reason=%s",
+        lead.get("isim"), final, segment, action,
+        opportunity, intent,
+        pre_mul, fit_mul, post_mul, boost_sum,
+        confidence, zombie,
+        (reason_sum if segment == "REVIEW" else "-"),
     )
     return result
 
@@ -769,16 +930,23 @@ def explain_score(result: dict, lead: dict | None = None) -> str:
     if result["status"] == "rejected":
         return f"ELENDI: {result['reason']}"
 
-    boost = result.get("pattern_boost", 0)
+    opp     = result.get("opportunity", 0)
+    intent  = result.get("buyer_intent", 0)
+    fit_mul = result.get("fit_multiplier", 1.0)
+    boost   = result.get("pattern_boost", 0)
+    combined = round(opp * 0.65 + intent * 0.35, 1)
+    conf    = result.get("data_confidence", "?")
+
     lines = [
-        f"Skor: {result['final_score']} ({result['segment']})",
-        f"  = 0.50·{result['opportunity']} + 0.30·{result['buyer_intent']} + 0.20·{result.get('fit', 0)} + {boost:+d} boost",
-        "",
-        f"Opportunity : {result['opportunity']}",
-        f"Buyer Intent: {result['buyer_intent']}",
-        f"Fit         : {result.get('fit', 0)}",
-        f"Pattern Boost: {boost:+d}",
+        f"Skor: {result['final_score']} ({result['segment']}) → {result.get('action', '?')}",
+        f"  = ({opp}×0.65 + {intent}×0.35 = {combined}) × {fit_mul} + {boost:+d} boost",
+        f"Confidence : {conf}  |  Reason: {result.get('reason_summary', '')}",
     ]
+
+    contradictions = result.get("contradictions", [])
+    if contradictions:
+        lines.append("\n⚠ Çelişkiler:")
+        lines.extend(f"  • {c}" for c in contradictions)
 
     sub = result.get("clinic_subsector")
     if sub:
@@ -790,8 +958,11 @@ def explain_score(result: dict, lead: dict | None = None) -> str:
         lines.extend(f"  {s}" for s in breakdown)
 
     signals = result.get("signals", {})
+    if signals.get("fit"):
+        lines.append(f"\nFit çarpanı ({fit_mul}×) sinyalleri:")
+        lines.extend(f"  {s}" for s in signals["fit"])
     if signals.get("pattern"):
-        lines.append("\nPattern boost sinyalleri:")
+        lines.append("\nPattern boostlar:")
         lines.extend(f"  {s}" for s in signals["pattern"])
     if signals.get("opportunity"):
         lines.append("\nOpportunity sinyalleri:")
@@ -799,16 +970,12 @@ def explain_score(result: dict, lead: dict | None = None) -> str:
     if signals.get("intent"):
         lines.append("\nIntent sinyalleri:")
         lines.extend(f"  {s}" for s in signals["intent"])
-    if signals.get("fit"):
-        lines.append("\nFit sinyalleri:")
-        lines.extend(f"  {s}" for s in signals["fit"])
 
     active_w = result.get("active_weights", {})
     if active_w:
-        lines.append("\nSektör ağırlıkları (1.0'dan farklı):")
+        lines.append("\nSektör ağırlıkları:")
         for k, v in active_w.items():
-            status = "KAPALI" if v == 0.0 else f"x{v}"
-            lines.append(f"  {k}: {status}")
+            lines.append(f"  {k}: {'KAPALI' if v == 0.0 else f'x{v}'}")
 
     return "\n".join(lines)
 
@@ -822,11 +989,19 @@ def apply_hot_limiter(
     hot_cap_ratio: float = 0.20,
 ) -> list[dict]:
     """
-    Batch scoring sonrası çalıştır.
-    HOT oranı hot_cap_ratio'yu (varsayılan %20) geçerse,
-    en düşük final_score'lu HOT lead'ler WARM'a düşürülür.
-    _hot_limiter_applied=True işareti eklenir, log yazılır.
+    DEPRECATED — route_decision() + REVIEW segment ile değiştirildi.
+
+    Batch-relative etiketleme üretir: aynı lead, bulunduğu batch'e göre
+    HOT veya WARM alabilir. Bu CRM güvenini ve explain edilebilirliği bozar.
+    Sadece acil rollback senaryosunda kullan.
+
+    Yeni sistem: her lead confidence + contradiction tabanlı olarak
+    route_decision() ile batch-bağımsız karar alır.
     """
+    logger.warning(
+        "apply_hot_limiter() çağrıldı — DEPRECATED. "
+        "route_decision() ile confidence-tabanlı REVIEW segmenti kullanın."
+    )
     ok_results = [r for r in results if r.get("status") == "ok"]
     total_ok = len(ok_results)
     if total_ok == 0:
