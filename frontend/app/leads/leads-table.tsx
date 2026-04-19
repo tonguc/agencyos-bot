@@ -22,6 +22,11 @@ const SECTOR_LABELS: Record<string, string> = {
 
 const PIPELINE_STATUSES = ["Yeni", "Audit", "Mesaj", "Cevap", "Demo", "Teklif", "Kapandi", "Soguk"];
 
+const STATUS_DISPLAY: Record<string, string> = {
+  Kapandi: "Kapandı",
+  Soguk:   "Soğuk",
+};
+
 function scoreStyle(v: number) {
   if (v >= 70) return "text-hot";
   if (v >= 40) return "text-warm";
@@ -228,7 +233,7 @@ export function LeadsTable() {
                                   {lead.opportunity_score}
                                 </span>
                               ) : (
-                                <span className="text-dim">—</span>
+                                <span className="text-dim font-mono">—</span>
                               )}
                             </td>
                             <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
@@ -240,7 +245,7 @@ export function LeadsTable() {
                                 style={{ background: "#0d1324", color: "#7a8aa8" }}
                               >
                                 {PIPELINE_STATUSES.map((s) => (
-                                  <option key={s} value={s}>{s}</option>
+                                  <option key={s} value={s}>{STATUS_DISPLAY[s] ?? s}</option>
                                 ))}
                               </select>
                             </td>

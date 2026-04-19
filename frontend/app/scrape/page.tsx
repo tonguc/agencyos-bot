@@ -5,7 +5,6 @@ import {
   Stethoscope, Scale, Home, Sparkles, GraduationCap, Wrench, Baby, Utensils,
 } from "lucide-react";
 import { Header } from "@/components/layout/header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { scrapeApi } from "@/lib/api";
@@ -36,14 +35,14 @@ const CITIES: Record<string, string[]> = {
 const LIMIT_PRESETS = [5, 10, 15, 20, 25];
 
 const SECTORS = [
-  { key: "klinik",        label: "Klinik",          sub: "Muayenehane, Poliklinik",        Icon: Stethoscope, color: "text-blue-600",   bg: "bg-blue-50",   ring: "ring-blue-400" },
-  { key: "avukat",        label: "Avukat",           sub: "Hukuk Bürosu, Danışmanlık",      Icon: Scale,        color: "text-violet-600", bg: "bg-violet-50", ring: "ring-violet-400" },
-  { key: "emlak",         label: "Emlak",            sub: "Gayrimenkul, Danışman",          Icon: Home,         color: "text-emerald-600",bg: "bg-emerald-50",ring: "ring-emerald-400" },
-  { key: "guzellik",      label: "Güzellik",         sub: "Kuaför, Lazer, Estetik",         Icon: Sparkles,     color: "text-pink-600",   bg: "bg-pink-50",   ring: "ring-pink-400" },
-  { key: "egitim",        label: "Eğitim",           sub: "Kurs, Dil Okulu, Koçluk",        Icon: GraduationCap,color: "text-amber-600",  bg: "bg-amber-50",  ring: "ring-amber-400" },
-  { key: "ev_hizmetleri", label: "Ev Hizmetleri",   sub: "Tesisat, Elektrik, Tadilat",     Icon: Wrench,       color: "text-orange-600", bg: "bg-orange-50", ring: "ring-orange-400" },
-  { key: "kadin_dogum",   label: "Kadın Doğum",      sub: "Jinekoloji, Gebelik",            Icon: Baby,         color: "text-rose-600",   bg: "bg-rose-50",   ring: "ring-rose-400" },
-  { key: "restoran",      label: "Restoran",          sub: "Lokanta, Kafe, Bistro",          Icon: Utensils,     color: "text-yellow-600", bg: "bg-yellow-50", ring: "ring-yellow-400" },
+  { key: "klinik",        label: "Klinik",         sub: "Muayenehane, Poliklinik",   Icon: Stethoscope,  color: "#38bdf8" },
+  { key: "avukat",        label: "Avukat",          sub: "Hukuk Bürosu, Danışmanlık", Icon: Scale,         color: "#a774ff" },
+  { key: "emlak",         label: "Emlak",           sub: "Gayrimenkul, Danışman",     Icon: Home,          color: "#34d399" },
+  { key: "guzellik",      label: "Güzellik",        sub: "Kuaför, Lazer, Estetik",    Icon: Sparkles,      color: "#f472b6" },
+  { key: "egitim",        label: "Eğitim",          sub: "Kurs, Dil Okulu, Koçluk",   Icon: GraduationCap, color: "#ffb648" },
+  { key: "ev_hizmetleri", label: "Ev Hizmetleri",   sub: "Tesisat, Elektrik, Tadilat",Icon: Wrench,        color: "#fb923c" },
+  { key: "kadin_dogum",   label: "Kadın Doğum",     sub: "Jinekoloji, Gebelik",       Icon: Baby,          color: "#f43f5e" },
+  { key: "restoran",      label: "Restoran",        sub: "Lokanta, Kafe, Bistro",     Icon: Utensils,      color: "#facc15" },
 ];
 
 function SearchableDropdown({
@@ -84,14 +83,18 @@ function SearchableDropdown({
         className="cursor-pointer"
       />
       {open && !disabled && (
-        <div className="absolute z-50 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg max-h-56 overflow-y-auto">
+        <div className="absolute z-50 mt-1 w-full border border-stroke bg-panel shadow-xl max-h-56 overflow-y-auto">
           {filtered.length === 0 ? (
-            <div className="px-3 py-2 text-sm text-slate-400">Sonuç yok</div>
+            <div className="px-3 py-2 font-mono text-[10px] text-dim">Sonuç yok</div>
           ) : filtered.map((o) => (
             <button
               key={o}
               type="button"
-              className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-50 ${value === o ? "bg-blue-50 text-blue-700 font-medium" : "text-slate-700"}`}
+              className={`w-full text-left px-3 py-2 font-mono text-[11px] transition-colors ${
+                value === o
+                  ? "bg-accent/10 text-accent"
+                  : "text-muted hover:bg-panel-high hover:text-bright"
+              }`}
               onClick={() => { onChange(o); setOpen(false); setSearch(""); }}
             >
               {labelMap?.[o] ?? o}
@@ -152,111 +155,128 @@ export default function ScrapePage() {
     <div className="flex flex-col flex-1">
       <Header title="Lead Topla" description="Google Maps'ten yeni lead'ler topla" />
       <div className="p-6 max-w-2xl">
-        <Card>
-          <CardHeader><CardTitle>Yeni Tarama</CardTitle></CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-2">Sektör</label>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-                  {SECTORS.map(({ key, label, sub, Icon, color, bg, ring }) => {
-                    const selected = sector === key;
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => setSector(key)}
-                        className={`flex flex-col items-center gap-1.5 rounded-xl border-2 p-3 text-center transition-all ${
-                          selected
-                            ? `border-current ring-2 ${ring} ${color} ${bg}`
-                            : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50"
-                        }`}
-                      >
-                        <Icon className={`h-6 w-6 ${selected ? color : "text-slate-400"}`} strokeWidth={1.5} />
-                        <span className={`text-xs font-semibold leading-tight ${selected ? color : "text-slate-700"}`}>
-                          {label}
-                        </span>
-                        <span className="text-[10px] leading-tight text-slate-400">{sub}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
 
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Şehir</label>
-                <SearchableDropdown
-                  options={cities}
-                  value={city}
-                  onChange={handleCityChange}
-                  placeholder="Şehir seçin veya yazın..."
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">
-                  İlçe <span className="text-slate-400">(opsiyonel)</span>
-                </label>
-                <SearchableDropdown
-                  options={districts}
-                  value={district}
-                  onChange={setDistrict}
-                  placeholder={city ? "İlçe seçin..." : "Önce şehir seçin"}
-                  disabled={!city}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-2">Limit</label>
-                <div className="flex gap-2 flex-wrap items-center">
-                  {LIMIT_PRESETS.map((v) => (
-                    <button
-                      key={v}
-                      type="button"
-                      onClick={() => handleLimitPreset(v)}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
-                        limit === v && !customLimit
-                          ? "bg-blue-600 text-white border-blue-600"
-                          : "bg-white text-slate-600 border-slate-200 hover:border-blue-300"
-                      }`}
+          {/* Sektör */}
+          <div>
+            <p className="font-mono text-[9px] text-dim tracking-[0.25em] uppercase mb-3">▸ Sektör Seç</p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {SECTORS.map(({ key, label, sub, Icon, color }) => {
+                const selected = sector === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setSector(key)}
+                    className="flex flex-col items-center gap-1.5 border p-3 text-center transition-all"
+                    style={
+                      selected
+                        ? {
+                            borderColor: color,
+                            backgroundColor: `${color}12`,
+                            boxShadow: `0 0 12px ${color}25`,
+                          }
+                        : {
+                            borderColor: "#1c2742",
+                            backgroundColor: "#0d1324",
+                          }
+                    }
+                  >
+                    <Icon
+                      className="h-5 w-5"
+                      strokeWidth={1.5}
+                      style={{ color: selected ? color : "#4a5876" }}
+                    />
+                    <span
+                      className="text-xs font-mono font-semibold leading-tight tracking-wide"
+                      style={{ color: selected ? color : "#e6edf7" }}
                     >
-                      {v}
-                    </button>
-                  ))}
-                  <Input
-                    type="number"
-                    min={1}
-                    max={100}
-                    value={customLimit}
-                    onChange={(e) => handleCustomLimit(e.target.value)}
-                    placeholder="Manuel"
-                    className="w-24 text-sm"
-                  />
-                </div>
-              </div>
+                      {label}
+                    </span>
+                    <span className="font-mono text-[9px] leading-tight text-dim">{sub}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-              <Button
-                type="submit"
-                loading={loading}
-                disabled={!sector || !city}
-                className="w-full"
-              >
-                Taramayı Başlat
-              </Button>
-            </form>
+          {/* Şehir */}
+          <div>
+            <p className="font-mono text-[9px] text-dim tracking-[0.25em] uppercase mb-2">▸ Şehir</p>
+            <SearchableDropdown
+              options={cities}
+              value={city}
+              onChange={handleCityChange}
+              placeholder="Şehir seçin veya yazın..."
+            />
+          </div>
 
-            {result && (
-              <div className="mt-4 rounded-lg bg-green-50 border border-green-200 p-3 text-sm text-green-700">
-                İş kuyruğa alındı. Job ID: <span className="font-mono">{result.job_id.slice(0, 8)}</span>
-              </div>
-            )}
-            {error && (
-              <div className="mt-4 rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">
-                {error}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+          {/* İlçe */}
+          <div>
+            <p className="font-mono text-[9px] text-dim tracking-[0.25em] uppercase mb-2">
+              ▸ İlçe <span className="text-dim/50">(opsiyonel)</span>
+            </p>
+            <SearchableDropdown
+              options={districts}
+              value={district}
+              onChange={setDistrict}
+              placeholder={city ? "İlçe seçin..." : "Önce şehir seçin"}
+              disabled={!city}
+            />
+          </div>
+
+          {/* Limit */}
+          <div>
+            <p className="font-mono text-[9px] text-dim tracking-[0.25em] uppercase mb-3">▸ Limit</p>
+            <div className="flex gap-2 flex-wrap items-center">
+              {LIMIT_PRESETS.map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => handleLimitPreset(v)}
+                  className={`font-mono text-[10px] uppercase tracking-wider px-3 py-1.5 border transition-all ${
+                    limit === v && !customLimit
+                      ? "bg-accent/10 border-accent text-accent"
+                      : "border-stroke text-muted hover:border-stroke-2 hover:text-bright"
+                  }`}
+                >
+                  {v}
+                </button>
+              ))}
+              <Input
+                type="number"
+                min={1}
+                max={100}
+                value={customLimit}
+                onChange={(e) => handleCustomLimit(e.target.value)}
+                placeholder="Manuel"
+                className="w-24"
+              />
+            </div>
+          </div>
+
+          <Button
+            type="submit"
+            loading={loading}
+            disabled={!sector || !city}
+            className="w-full"
+            size="lg"
+          >
+            Taramayı Başlat
+          </Button>
+        </form>
+
+        {result && (
+          <div className="mt-4 border border-ok/40 bg-ok/5 p-3 font-mono text-[11px] text-ok">
+            İş kuyruğa alındı. Job ID:{" "}
+            <span className="font-bold">{result.job_id.slice(0, 8)}</span>
+          </div>
+        )}
+        {error && (
+          <div className="mt-4 border border-hot/40 bg-hot/5 p-3 font-mono text-[11px] text-hot">
+            {error}
+          </div>
+        )}
       </div>
     </div>
   );

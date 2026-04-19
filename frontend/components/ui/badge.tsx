@@ -19,6 +19,13 @@ const variants: Record<string, string> = {
   dusuk:     "text-dim border-dim/50",
   sicak:     "text-hot border-hot/50 bg-hot/5",
   ilik:      "text-warm border-warm/50 bg-warm/5",
+  önerilen:  "text-ok border-ok/50 bg-ok/5",
+  gönderildi:"text-accent border-accent/50 bg-accent/5",
+};
+
+const DISPLAY: Record<string, string> = {
+  kapandi:   "Kapandı",
+  soguk:     "Soğuk",
 };
 
 interface BadgeProps {
@@ -36,7 +43,7 @@ export function Badge({ value, className }: BadgeProps) {
         className
       )}
     >
-      {value}
+      {DISPLAY[key] ?? value}
     </span>
   );
 }
