@@ -50,6 +50,8 @@ class LeadRepository(BaseRepository[Lead]):
         self,
         *,
         sector: str | None = None,
+        city: str | None = None,
+        district: str | None = None,
         status: str | None = None,
         priority: str | None = None,
         search: str | None = None,
@@ -62,6 +64,12 @@ class LeadRepository(BaseRepository[Lead]):
         if sector:
             stmt = stmt.where(Lead.sector == sector)
             count_stmt = count_stmt.where(Lead.sector == sector)
+        if city:
+            stmt = stmt.where(Lead.city == city)
+            count_stmt = count_stmt.where(Lead.city == city)
+        if district:
+            stmt = stmt.where(Lead.district == district)
+            count_stmt = count_stmt.where(Lead.district == district)
         if status:
             stmt = stmt.where(Lead.status == status)
             count_stmt = count_stmt.where(Lead.status == status)

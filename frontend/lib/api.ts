@@ -37,6 +37,8 @@ async function request<T>(
 export const leadsApi = {
   list: (params?: {
     sector?: string;
+    city?: string;
+    district?: string;
     status?: string;
     priority?: string;
     search?: string;
@@ -45,6 +47,8 @@ export const leadsApi = {
   }) => {
     const q = new URLSearchParams();
     if (params?.sector) q.set("sector", params.sector);
+    if (params?.city) q.set("city", params.city);
+    if (params?.district) q.set("district", params.district);
     if (params?.status) q.set("status", params.status);
     if (params?.priority) q.set("priority", params.priority);
     if (params?.search) q.set("search", params.search);

@@ -240,7 +240,13 @@ export default function OpportunitiesPage() {
                             {job.status === "completed" && saved > 0 && (
                               <button
                                 type="button"
-                                onClick={() => { if (sector) router.push(`/leads?sector=${sector}`); }}
+                                onClick={() => {
+                                  if (!sector) return;
+                                  const q = new URLSearchParams({ sector });
+                                  if (city) q.set("city", city);
+                                  if (district) q.set("district", district);
+                                  router.push(`/leads?${q.toString()}`);
+                                }}
                                 className="font-mono text-[9px] uppercase tracking-wider px-3 py-1.5 border border-accent/50 text-accent hover:bg-accent/10 transition-all whitespace-nowrap"
                               >
                                 Lead&apos;leri Gör

@@ -37,6 +37,8 @@ export function LeadsTable() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const urlSector = searchParams.get("sector") ?? "";
+  const urlCity = searchParams.get("city") ?? "";
+  const urlDistrict = searchParams.get("district") ?? "";
 
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,7 +55,13 @@ export function LeadsTable() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await leadsApi.list({ limit: 500, search: search || undefined });
+      const data = await leadsApi.list({
+        limit: 500,
+        sector: urlSector || undefined,
+        city: urlCity || undefined,
+        district: urlDistrict || undefined,
+        search: search || undefined,
+      });
       setLeads(data.items);
       if (!urlSector && data.items.length > 0) {
         const latest = data.items.reduce((a, b) =>
@@ -66,7 +74,14 @@ export function LeadsTable() {
     } finally {
       setLoading(false);
     }
-  }, [search, urlSector]);
+  }, [search, urlSector, urlCity, urlDistrict]);
+
+  function clearLocationFilter() {
+    const q = new URLSearchParams(searchParams.toString());
+    q.delete("city");
+    q.delete("district");
+    router.push(`/leads${q.toString() ? `?${q.toString()}` : ""}`);
+  }
 
   useEffect(() => { load(); }, [load]);
 
@@ -137,7 +152,7 @@ export function LeadsTable() {
   return (
     <div className="p-6 space-y-4">
       {/* Filters */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <Input
           className="w-72"
           placeholder="İsim, sektör veya şehir ara..."
@@ -155,6 +170,17 @@ export function LeadsTable() {
         >
           Yüksek Skor (70+)
         </button>
+        {(urlCity || urlDistrict) && (
+          <button
+            type="button"
+            onClick={clearLocationFilter}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[9px] font-mono tracking-[0.2em] uppercase border border-accent/60 bg-accent/10 text-accent rounded-sm hover:bg-accent/20 transition-all"
+            title="Konum filtresini kaldır"
+          >
+            <span>📍 {urlCity}{urlDistrict ? ` / ${urlDistrict}` : ""}</span>
+            <span className="text-accent/70">✕</span>
+          </button>
+        )}
       </div>
 
       {loading ? (
