@@ -10,17 +10,23 @@ import { formatDate } from "@/lib/utils";
 import type { Lead } from "@/types";
 
 const SECTOR_LABELS: Record<string, string> = {
-  klinik: "Klinik / Muayenehane",
-  avukat: "Avukat / Hukuk Bürosu",
-  emlak: "Emlak / Gayrimenkul",
-  guzellik: "Güzellik / Kuaför",
-  egitim: "Eğitim / Kurs",
+  klinik:        "Klinik / Muayenehane",
+  avukat:        "Avukat / Hukuk Bürosu",
+  emlak:         "Emlak / Gayrimenkul",
+  guzellik:      "Güzellik / Kuaför",
+  egitim:        "Eğitim / Kurs",
   ev_hizmetleri: "Ev Hizmetleri",
-  kadin_dogum: "Kadın Doğum Uzmanı",
-  restoran: "Restoran / Lokanta",
+  kadin_dogum:   "Kadın Doğum Uzmanı",
+  restoran:      "Restoran / Lokanta",
 };
 
 const PIPELINE_STATUSES = ["Yeni", "Audit", "Mesaj", "Cevap", "Demo", "Teklif", "Kapandi", "Soguk"];
+
+function scoreStyle(v: number) {
+  if (v >= 70) return "text-hot";
+  if (v >= 40) return "text-warm";
+  return "text-dim";
+}
 
 export function LeadsTable() {
   const router = useRouter();
@@ -125,6 +131,7 @@ export function LeadsTable() {
 
   return (
     <div className="p-6 space-y-4">
+      {/* Filters */}
       <div className="flex items-center gap-3">
         <Input
           className="w-72"
@@ -135,10 +142,10 @@ export function LeadsTable() {
         <button
           type="button"
           onClick={() => setHighScoreOnly((v) => !v)}
-          className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+          className={`px-3 py-1.5 text-[9px] font-mono tracking-[0.2em] uppercase border rounded-sm transition-all ${
             highScoreOnly
-              ? "bg-green-600 text-white border-green-600"
-              : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+              ? "bg-hot/10 text-hot border-hot/60"
+              : "bg-transparent text-muted border-stroke hover:border-stroke-2 hover:text-bright"
           }`}
         >
           Yüksek Skor (70+)
@@ -146,84 +153,105 @@ export function LeadsTable() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-16"><Spinner className="text-slate-400 h-6 w-6" /></div>
+        <div className="flex justify-center py-16">
+          <Spinner className="text-muted h-5 w-5" />
+        </div>
       ) : sectors.length === 0 ? (
-        <p className="text-sm text-slate-400 text-center py-16">Aday bulunamadı.</p>
+        <p className="font-mono text-[11px] text-dim text-center py-16 tracking-wider">
+          Aday bulunamadı.
+        </p>
       ) : (
         <div className="space-y-3">
           {sectors.map(([sector, items]) => {
             const isOpen = openSectors.has(sector);
             const label = SECTOR_LABELS[sector] ?? sector;
             return (
-              <div key={sector} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+              <div key={sector} className="border border-stroke bg-panel overflow-hidden">
+                {/* Sector header */}
                 <button
                   type="button"
                   onClick={() => toggleSector(sector)}
-                  className="w-full flex items-center justify-between px-5 py-4 bg-slate-50 hover:bg-slate-100 transition-colors border-b border-slate-200"
+                  className="w-full flex items-center justify-between px-5 py-4 bg-panel-high hover:bg-stroke/30 transition-colors border-b border-stroke"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-base font-bold text-slate-900 tracking-tight">{label}</span>
-                    <span className="text-xs font-semibold bg-white border border-slate-200 text-slate-500 px-2.5 py-0.5 rounded-full">
-                      {items.length} aday
+                    <span className="font-mono font-bold text-bright text-xs tracking-wider uppercase">
+                      {label}
+                    </span>
+                    <span className="font-mono text-[9px] border border-stroke-2 text-muted px-2 py-0.5 tracking-wider">
+                      {items.length} ADAY
                     </span>
                   </div>
-                  <span className="text-slate-400 text-xs font-medium">{isOpen ? "Kapat ▲" : "Göster ▼"}</span>
+                  <span className="font-mono text-[9px] text-dim tracking-wider">
+                    {isOpen ? "KAPAT ▲" : "GÖSTER ▼"}
+                  </span>
                 </button>
 
                 {isOpen && (
                   <div className="overflow-auto">
-                    <table className="min-w-full text-sm">
+                    <table className="min-w-full">
                       <thead>
-                        <tr className="bg-white border-b border-slate-100">
+                        <tr className="border-b border-stroke">
                           {["İsim", "Şehir / İlçe", "Google", "Skor", "Durum", "Tarih", "", ""].map((h, i) => (
-                            <th key={i} className="px-4 py-2.5 text-left text-xs font-medium text-slate-400 uppercase tracking-wide whitespace-nowrap">
+                            <th
+                              key={i}
+                              className="px-4 py-2.5 text-left font-mono text-[9px] text-dim uppercase tracking-[0.2em] whitespace-nowrap"
+                            >
                               {h}
                             </th>
                           ))}
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-50">
+                      <tbody className="divide-y divide-stroke">
                         {items.map((lead) => (
                           <tr
                             key={lead.id}
                             onClick={() => router.push(`/leads/${lead.id}`)}
-                            className="hover:bg-blue-50 cursor-pointer transition-colors"
+                            className="hover:bg-panel-high cursor-pointer transition-colors"
                           >
                             <td className="px-4 py-3">
-                              <span className="font-medium text-slate-900">{lead.name}</span>
-                              {lead.phone && <p className="text-xs text-slate-400 mt-0.5">{lead.phone}</p>}
+                              <span className="font-medium text-bright text-sm">{lead.name}</span>
+                              {lead.phone && (
+                                <p className="font-mono text-[10px] text-dim mt-0.5">{lead.phone}</p>
+                              )}
                             </td>
-                            <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                            <td className="px-4 py-3 font-mono text-[11px] text-muted whitespace-nowrap">
                               {lead.city}{lead.district ? ` / ${lead.district}` : ""}
                             </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-slate-600">
-                              {lead.google_rating ? `⭐ ${lead.google_rating} (${lead.review_count})` : "—"}
+                            <td className="px-4 py-3 font-mono text-[11px] text-muted whitespace-nowrap">
+                              {lead.google_rating
+                                ? `⭐ ${lead.google_rating} (${lead.review_count})`
+                                : "—"}
                             </td>
                             <td className="px-4 py-3">
                               {lead.opportunity_score != null ? (
-                                <span className={`font-bold ${lead.opportunity_score >= 70 ? "text-green-600" : lead.opportunity_score >= 40 ? "text-orange-500" : "text-slate-500"}`}>
+                                <span className={`font-mono font-bold text-sm ${scoreStyle(lead.opportunity_score)}`}>
                                   {lead.opportunity_score}
                                 </span>
-                              ) : "—"}
+                              ) : (
+                                <span className="text-dim">—</span>
+                              )}
                             </td>
                             <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                               <select
                                 value={lead.status}
                                 onChange={(e) => handleStatusChange(e, lead)}
                                 disabled={updatingStatus === lead.id}
-                                className="text-xs border border-slate-200 rounded-md px-2 py-1 bg-white text-slate-700 cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50"
+                                className="font-mono text-[9px] border border-stroke rounded-sm px-2 py-1 tracking-wider uppercase cursor-pointer focus:outline-none focus:border-accent disabled:opacity-50"
+                                style={{ background: "#0d1324", color: "#7a8aa8" }}
                               >
                                 {PIPELINE_STATUSES.map((s) => (
                                   <option key={s} value={s}>{s}</option>
                                 ))}
                               </select>
                             </td>
-                            <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">{formatDate(lead.created_at)}</td>
+                            <td className="px-4 py-3 font-mono text-[10px] text-dim whitespace-nowrap">
+                              {formatDate(lead.created_at)}
+                            </td>
                             <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                               <button
                                 onClick={(e) => handleAudit(e, lead.id)}
                                 disabled={auditingId === lead.id}
-                                className="text-xs px-2.5 py-1 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 disabled:opacity-50 whitespace-nowrap"
+                                className="font-mono text-[9px] uppercase tracking-wider px-2.5 py-1 border border-accent/50 text-accent hover:bg-accent/10 disabled:opacity-40 transition-all whitespace-nowrap"
                               >
                                 {auditingId === lead.id ? "..." : "Audit Başlat"}
                               </button>
@@ -232,7 +260,7 @@ export function LeadsTable() {
                               <button
                                 onClick={(e) => handleDelete(e, lead.id)}
                                 disabled={deletingId === lead.id}
-                                className="text-slate-300 hover:text-red-400 disabled:opacity-40 transition-colors p-1 rounded"
+                                className="font-mono text-[10px] text-dim hover:text-hot disabled:opacity-40 transition-colors p-1"
                                 title="Kaldır"
                               >
                                 {deletingId === lead.id ? "…" : "✕"}

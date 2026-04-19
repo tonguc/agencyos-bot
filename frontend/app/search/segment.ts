@@ -8,10 +8,13 @@ export const SEGMENT_LABELS: Record<SearchSegment, string> = {
   review: "Gözden Geçir",
 };
 
-export const SEGMENT_COLORS: Record<SearchSegment, { dot: string; bg: string; text: string; border: string; ring: string }> = {
-  hot:    { dot: "bg-red-500",    bg: "bg-red-50",    text: "text-red-700",    border: "border-red-200",    ring: "ring-red-400" },
-  warm:   { dot: "bg-amber-500",  bg: "bg-amber-50",  text: "text-amber-700",  border: "border-amber-200",  ring: "ring-amber-400" },
-  ok:     { dot: "bg-blue-500",   bg: "bg-blue-50",   text: "text-blue-700",   border: "border-blue-200",   ring: "ring-blue-400" },
-  low:    { dot: "bg-slate-400",  bg: "bg-slate-50",  text: "text-slate-600",  border: "border-slate-200",  ring: "ring-slate-400" },
-  review: { dot: "bg-purple-500", bg: "bg-purple-50", text: "text-purple-700", border: "border-purple-200", ring: "ring-purple-400" },
+export const SEGMENT_COLORS: Record<
+  SearchSegment,
+  { color: string; dot: string; text: string; border: string }
+> = {
+  hot:    { color: "#ff3b4a", dot: "bg-hot",    text: "text-hot",    border: "border-hot" },
+  warm:   { color: "#ffb648", dot: "bg-warm",   text: "text-warm",   border: "border-warm" },
+  ok:     { color: "#34d399", dot: "bg-ok",     text: "text-ok",     border: "border-ok" },
+  low:    { color: "#64748b", dot: "bg-low",    text: "text-low",    border: "border-low" },
+  review: { color: "#a774ff", dot: "bg-review", text: "text-review", border: "border-review" },
 };

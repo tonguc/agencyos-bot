@@ -17,13 +17,13 @@ export function SummaryBar({ summary, active, onToggle }: Props) {
       <button
         type="button"
         onClick={() => onToggle(null)}
-        className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-colors ${
+        className={`font-mono text-[9px] tracking-[0.2em] uppercase px-3 py-1.5 border rounded-sm transition-all ${
           active === null
-            ? "bg-slate-900 text-white border-slate-900"
-            : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+            ? "bg-accent/10 text-accent border-accent"
+            : "bg-transparent text-muted border-stroke hover:border-stroke-2 hover:text-bright"
         }`}
       >
-        Hepsi · {summary.total}
+        HEPSI · {summary.total}
       </button>
       {ORDER.map((seg) => {
         const c = SEGMENT_COLORS[seg];
@@ -34,13 +34,16 @@ export function SummaryBar({ summary, active, onToggle }: Props) {
             key={seg}
             type="button"
             onClick={() => onToggle(isActive ? null : seg)}
-            className={`text-xs font-medium px-3 py-1.5 rounded-full border inline-flex items-center gap-2 transition-colors ${
+            className={`font-mono text-[9px] tracking-[0.2em] uppercase px-3 py-1.5 border rounded-sm inline-flex items-center gap-2 transition-all ${
               isActive
-                ? `${c.bg} ${c.text} ${c.border} ring-2 ${c.ring}`
-                : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                ? `${c.text} ${c.border} bg-panel-high`
+                : "text-muted border-stroke hover:border-stroke-2 hover:text-bright"
             }`}
           >
-            <span className={`h-2 w-2 rounded-full ${c.dot}`} />
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${c.dot}`}
+              style={isActive ? { boxShadow: `0 0 5px ${c.color}` } : undefined}
+            />
             {SEGMENT_LABELS[seg]} · {count}
           </button>
         );
