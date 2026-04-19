@@ -14,6 +14,7 @@ interface Props {
   hasOutreach: boolean;
   hasProposal: boolean;
   proposalId?: string;
+  hasSalesOutput?: boolean;
 }
 
 interface RunningJob {
@@ -21,7 +22,7 @@ interface RunningJob {
   label: string;
 }
 
-export function LeadActions({ leadId, hasAudit, hasOutreach, hasProposal, proposalId }: Props) {
+export function LeadActions({ leadId, hasAudit, hasOutreach, hasProposal, proposalId, hasSalesOutput }: Props) {
   const router = useRouter();
   const [runningJob, setRunningJob] = useState<RunningJob | null>(null);
   const [jobData, setJobData] = useState<Job | null>(null);
@@ -67,6 +68,21 @@ export function LeadActions({ leadId, hasAudit, hasOutreach, hasProposal, propos
       startPolling(res.job_id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Hata oluştu");
+    }
+  }
+
+  const [salesLoading, setSalesLoading] = useState(false);
+
+  async function handleRefreshSales() {
+    setError(null);
+    setSalesLoading(true);
+    try {
+      await auditApi.refreshSalesOutput(leadId);
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Satış mesajı yenilenemedi");
+    } finally {
+      setSalesLoading(false);
     }
   }
 
@@ -128,6 +144,18 @@ export function LeadActions({ leadId, hasAudit, hasOutreach, hasProposal, propos
         {proposalId && (
           <Button size="sm" variant="outline" loading={pdfLoading} onClick={downloadPdf}>
             PDF İndir ↓
+          </Button>
+        )}
+        {hasAudit && (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy || salesLoading}
+            loading={salesLoading}
+            onClick={handleRefreshSales}
+            title="Satış mesajını yeni promptla yeniden yaz (audit tekrar çalışmaz)"
+          >
+            Satış Mesajını Yenile
           </Button>
         )}
       </div>

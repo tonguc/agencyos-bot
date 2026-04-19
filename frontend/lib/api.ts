@@ -84,6 +84,12 @@ export const auditApi = {
     request<JobResponse>(`/api/leads/${leadId}/audit`, { method: "POST" }),
 
   get: (leadId: string) => request<Audit>(`/api/leads/${leadId}/audit`),
+
+  refreshSalesOutput: (leadId: string) =>
+    request<{ sales_output: Record<string, unknown> }>(
+      `/api/leads/${leadId}/sales-output`,
+      { method: "POST" }
+    ),
 };
 
 // ── Outreach ───────────────────────────────────────────────────────────
