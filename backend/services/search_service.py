@@ -63,22 +63,31 @@ def _normalize_lead(lead: dict, score_info: dict | None) -> dict:
         if score_info else "sektör eşleşmedi"
     )
 
+    # Score breakdown: en etkili sinyaller (UI'da madde madde gösterilir)
+    if score_info and score_info.get("status") == "ok":
+        breakdown: list[str] = score_info.get("score_breakdown") or []
+    elif score_info and score_info.get("status") == "rejected":
+        breakdown = [f"Elendi: {score_info.get('reason', '?')}"]
+    else:
+        breakdown = []
+
     return {
-        "name":          lead.get("isim") or "",
-        "address":       lead.get("adres") or "",
-        "phone":         lead.get("telefon"),
-        "website":       lead.get("website"),
-        "google_rating": lead.get("puan") or None,
-        "review_count":  lead.get("yorum_sayisi") or 0,
-        "category":      lead.get("kategori"),
-        "lat":           lead.get("enlem"),
-        "lng":           lead.get("boylam"),
-        "maps_url":      lead.get("maps_url"),
-        "site_status":   lead.get("site_durumu"),
-        "score":         score,
-        "segment":       segment,
-        "priority":      score_info.get("priority") if score_info else None,
-        "reason":        reason,
+        "name":           lead.get("isim") or "",
+        "address":        lead.get("adres") or "",
+        "phone":          lead.get("telefon"),
+        "website":        lead.get("website"),
+        "google_rating":  lead.get("puan") or None,
+        "review_count":   lead.get("yorum_sayisi") or 0,
+        "category":       lead.get("kategori"),
+        "lat":            lead.get("enlem"),
+        "lng":            lead.get("boylam"),
+        "maps_url":       lead.get("maps_url"),
+        "site_status":    lead.get("site_durumu"),
+        "score":          score,
+        "segment":        segment,
+        "priority":       score_info.get("priority") if score_info else None,
+        "reason":         reason,
+        "score_breakdown": breakdown,
     }
 
 

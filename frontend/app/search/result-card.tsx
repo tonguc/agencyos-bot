@@ -1,14 +1,19 @@
 "use client";
 
+import { useState } from "react";
 import { ExternalLink, Globe, MapPin, MessageSquare, Phone } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { SearchResultItem } from "@/types";
+import { leadsApi } from "@/lib/api";
 import { SEGMENT_COLORS, SEGMENT_LABELS } from "./segment";
 
 interface Props {
   lead: SearchResultItem;
   selected: boolean;
   onSelect: () => void;
+  sector?: string | null;
+  city?: string | null;
+  district?: string | null;
 }
 
 function whatsappLink(phone: string | null): string | null {
@@ -17,15 +22,47 @@ function whatsappLink(phone: string | null): string | null {
   return digits ? `https://wa.me/${digits}` : null;
 }
 
-export function ResultCard({ lead, selected, onSelect }: Props) {
+function signalIcon(s: string): string {
+  if (s.startsWith("+") || s.match(/^Elendi/)) return "▲";
+  if (s.startsWith("-")) return "▼";
+  return "•";
+}
+
+function signalColor(s: string): string {
+  if (s.startsWith("+")) return "text-ok";
+  if (s.startsWith("-")) return "text-hot";
+  if (s.startsWith("Elendi")) return "text-hot";
+  return "text-muted";
+}
+
+export function ResultCard({ lead, selected, onSelect, sector, city, district }: Props) {
   const c = SEGMENT_COLORS[lead.segment];
   const wa = whatsappLink(lead.phone);
   const router = useRouter();
+  const [saving, setSaving] = useState(false);
 
-  function handleClick() {
+  async function handleClick() {
     if (lead.lead_id) {
       router.push(`/leads/${lead.lead_id}`);
-    } else {
+      return;
+    }
+    // Save to DB first, then navigate to detail page
+    setSaving(true);
+    try {
+      const created = await leadsApi.create({
+        name: lead.name,
+        sector: sector || "genel",
+        city: city || "bilinmiyor",
+        district: district || "",
+        address: lead.address || undefined,
+        phone: lead.phone || undefined,
+        website: lead.website || undefined,
+        google_rating: lead.google_rating ?? undefined,
+        review_count: lead.review_count ?? undefined,
+      });
+      router.push(`/leads/${created.id}`);
+    } catch {
+      setSaving(false);
       onSelect();
     }
   }
@@ -40,7 +77,7 @@ export function ResultCard({ lead, selected, onSelect }: Props) {
       }}
       className={`group relative border bg-panel cursor-pointer transition-all ${
         selected ? "border-stroke-2 bg-panel-high" : "border-stroke hover:border-stroke-2"
-      }`}
+      } ${saving ? "opacity-60 pointer-events-none" : ""}`}
       style={
         selected
           ? { borderLeftWidth: "3px", borderLeftColor: c.color, boxShadow: `0 0 20px ${c.color}18` }
@@ -57,10 +94,7 @@ export function ResultCard({ lead, selected, onSelect }: Props) {
           </div>
           <div className="flex flex-col items-end shrink-0">
             {lead.score !== null ? (
-              <span
-                className="text-xl font-mono font-bold"
-                style={{ color: c.color }}
-              >
+              <span className="text-xl font-mono font-bold" style={{ color: c.color }}>
                 {lead.score}
               </span>
             ) : (
@@ -72,8 +106,13 @@ export function ResultCard({ lead, selected, onSelect }: Props) {
             >
               {SEGMENT_LABELS[lead.segment]}
             </span>
-            {lead.lead_id && (
-              <span className="text-[8px] font-mono text-accent mt-1 tracking-wider">DETAY →</span>
+            {saving && (
+              <span className="text-[8px] font-mono text-accent mt-1 animate-pulse">kaydediliyor…</span>
+            )}
+            {!saving && (
+              <span className="text-[8px] font-mono text-dim mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                {lead.lead_id ? "DETAY →" : "KAYDET & AÇ →"}
+              </span>
             )}
           </div>
         </div>
@@ -93,59 +132,73 @@ export function ResultCard({ lead, selected, onSelect }: Props) {
               </span>
             )}
             {lead.website ? (
-              <span className="flex items-center gap-1 text-muted">
-                <Globe className="h-3 w-3" /> site var
-              </span>
+              <span className="flex items-center gap-1 text-muted"><Globe className="h-3 w-3" /> site var</span>
             ) : (
-              <span className="flex items-center gap-1 text-dim">
-                <Globe className="h-3 w-3" /> site yok
-              </span>
+              <span className="flex items-center gap-1 text-dim"><Globe className="h-3 w-3" /> site yok</span>
             )}
             {lead.phone && (
-              <span className="flex items-center gap-1 text-muted">
-                <Phone className="h-3 w-3" /> tel
-              </span>
+              <span className="flex items-center gap-1 text-muted"><Phone className="h-3 w-3" /> tel</span>
             )}
           </div>
         </div>
 
         {selected && (
-          <div className="mt-3 pt-3 border-t border-stroke flex flex-wrap items-center gap-2">
-            {lead.maps_url && (
-              <a
-                href={lead.maps_url}
-                target="_blank"
-                rel="noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wider px-2.5 py-1 border border-stroke-2 text-muted hover:text-bright hover:border-accent transition-all"
-              >
-                <ExternalLink className="h-3 w-3" /> Maps
-              </a>
-            )}
-            {lead.website && (
-              <a
-                href={lead.website}
-                target="_blank"
-                rel="noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wider px-2.5 py-1 border border-stroke-2 text-muted hover:text-bright hover:border-accent transition-all"
-              >
-                <Globe className="h-3 w-3" /> Site
-              </a>
-            )}
-            {wa && (
-              <a
-                href={wa}
-                target="_blank"
-                rel="noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wider px-2.5 py-1 border border-ok/50 text-ok hover:bg-ok/10 transition-all"
-              >
-                <MessageSquare className="h-3 w-3" /> WhatsApp
-              </a>
-            )}
-            {lead.reason && (
-              <span className="text-[10px] font-mono text-dim">{lead.reason}</span>
+          <div className="mt-3 pt-3 border-t border-stroke space-y-3">
+            {/* Action buttons */}
+            <div className="flex flex-wrap items-center gap-2">
+              {lead.maps_url && (
+                <a
+                  href={lead.maps_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wider px-2.5 py-1 border border-stroke-2 text-muted hover:text-bright hover:border-accent transition-all"
+                >
+                  <ExternalLink className="h-3 w-3" /> Maps
+                </a>
+              )}
+              {lead.website && (
+                <a
+                  href={lead.website}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wider px-2.5 py-1 border border-stroke-2 text-muted hover:text-bright hover:border-accent transition-all"
+                >
+                  <Globe className="h-3 w-3" /> Site
+                </a>
+              )}
+              {wa && (
+                <a
+                  href={wa}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wider px-2.5 py-1 border border-ok/50 text-ok hover:bg-ok/10 transition-all"
+                >
+                  <MessageSquare className="h-3 w-3" /> WhatsApp
+                </a>
+              )}
+            </div>
+
+            {/* Score breakdown */}
+            {lead.score_breakdown?.length > 0 ? (
+              <div className="space-y-0.5">
+                <p className="font-mono text-[8px] text-dim uppercase tracking-[0.15em] mb-1">Neden bu skor?</p>
+                {lead.score_breakdown.map((s, i) => (
+                  <div key={i} className={`flex items-start gap-1.5 font-mono text-[9px] ${signalColor(s)}`}>
+                    <span className="shrink-0">{signalIcon(s)}</span>
+                    <span>{s.replace(/^[+-]?\d+\s*/, "").replace(/^Elendi:\s*/, "")}</span>
+                    {s.match(/^([+-]\d+)/) && (
+                      <span className="ml-auto shrink-0 font-bold">{s.match(/^([+-]\d+)/)?.[1]}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="font-mono text-[9px] text-dim">
+                {lead.reason || "Detaylı analiz için kaydet ve audit başlat."}
+              </p>
             )}
           </div>
         )}

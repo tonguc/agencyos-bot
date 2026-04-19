@@ -157,6 +157,9 @@ export function SearchClient() {
                       lead={r}
                       selected={selectedIdx === i}
                       onSelect={() => setSelectedIdx(selectedIdx === i ? null : i)}
+                      sector={parsed?.sector}
+                      city={parsed?.city}
+                      district={parsed?.district}
                     />
                   ))
                 )}
