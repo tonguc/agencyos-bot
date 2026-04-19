@@ -20,7 +20,8 @@ _BLACKLIST = re.compile(
 
 _CTA_SIGNALS = re.compile(
     r"(isterseniz|gösterebilirim|konuşalım|görüşelim|ulaşın|yazın|çağrı|"
-    r"dakikada|uygun|yarın|perşembe|pazartesi|zaman|toplantı)",
+    r"dakikada|uygun|yarın|perşembe|pazartesi|zaman|toplantı|"
+    r"atabilirim|bakabiliriz|paylaşayım|göndereyim|musunuz|misiniz)",
     re.IGNORECASE | re.UNICODE,
 )
 
@@ -39,27 +40,42 @@ _PROMPT = """Teknik audit çıktısını İKİ FARKLI satış mesajına çevir.
 
 ÖNEMLİ: Tüm metin çıktılarında düzgün Türkçe karakterleri kullan (ş, ç, ğ, ü, ö, ı, İ, Ş, Ç, Ğ, Ü, Ö).
 
-SHORT MESSAGE KURALLARI (EN KRİTİK):
-- Tam olarak 4 cümle. Fazlası yasak.
-- 350-480 karakter arası
-- TON: Tanıdık ama profesyonel — "size bir şey dikkatimi çekti" edasında. Soğuk satışçı değil, fark eden biri.
-- YAPI:
-  1. Doğal giriş: "[İsim], [şehir/bölge]'deki [sektör]lere bakarken sizi de gördüm."
-     VEYA "[İsim], kısa bir gözlem paylaşmak istedim."
-  2. TEK somut bulgu (killer insight'tan al, sadece birini seç)
-  3. Bunun müşteriye ne kaybettirdiği (rakam varsa ekle, ama liste yapma)
-  4. Düşük baskılı CTA: "Yarın mı uygun olur?" / "5 dakikalık bir görüşme ayarlayabilir miyiz?" / "İlginizi çektiyse bir bakalım."
-- KESİNLİKLE KULLANMA: SEO, UX, meta, H1, PageSpeed, teknik terim, "optimizasyon", "görünürlük artırma"
-- KULLANMA: isim + problemler listesi (örn. "Siteniz yok, SSL yok, H1 yok" — bu tarz yasak)
-- KULLAN: "müşteri sizi bulamadan gidiyor", "sizi arayan kişi", "karar rakibe kayıyor"
+SHORT MESSAGE KURALLARI — EN KRİTİK:
+
+TON: Tanıdık ama saygılı. "Fark eden, yardım etmek isteyen biri" edasında.
+YASAK TON: Soğuk, korkutucu, ukala, satış baskısı, danışman havası, problemi liste yaparak saymak.
+
+YAPI (tam olarak 4 cümle, 350-480 karakter):
+1. SELAMLAMA + NE YAPTIĞINI ANLAT:
+   "Merhaba [ad],"  (tam isimden sadece ilk adı al, unvan ve soyad olmadan)
+   ardından aynı cümlede: "[şehir]'de [sektör] profillerine bakıyordum, sizinki dikkatimi çekti."
+   VEYA: "[şehir]'deki [sektör] sitelerini incelerken sizi de gördüm."
+2. TEK GÖZLEM — yumuşak dil zorunlu:
+   "fark ettim" / "dikkatimi çekti" / "gördüm" kullan.
+   Sorun listesi YAPMA. Sadece killer_insight'taki EN ÖNEMLİ TEK noktayı seç.
+   "Siteniz yok, SSL yok, H1 yok" tarzı çoklu liste KESİNLİKLE YASAK.
+3. HAFİF ETKİ — "olabilir" ile yumuşat:
+   "Bu durum [müşteri/hasta/danışan] bulmayı zorlaştırıyor olabilir."
+   VEYA: "Sizi arayan [müşteri] bu noktada başka bir isime yönelebiliyor."
+   Büyük rakamları, yüzdeleri, "sıfır" gibi sert ifadeleri KULLANMA.
+4. DÜŞÜK BASKILI CTA — soru formatında:
+   "İsterseniz kısa bir bakış atabilirim — yarın uygun olur musunuz?"
+   VEYA: "10 dakikalık bir görüşmede somut olarak gösterebilirim. Yarın mı daha uygun?"
+
+YASAK KELİMELER short'ta: SEO, UX, meta, H1, PageSpeed, SSL, teknik terim, "optimizasyon",
+"görünürlük artırma", "%100", "sıfır temas", "tamamen yok", "tamamı eksik"
 
 FULL MESSAGE KURALLARI:
 - 8-12 satır, sadece \\n ile ayır
-- Başlık KULLANMA, emoji max 3 adet
-- YAPI: giriş → talep bloğu → "3 kritik nokta:" listesi (mutlaka 3 madde - ile) → içgörü → çözüm çerçevesi (3 madde - ile) → CTA
+- Başlık KULLANMA, emoji max 2 adet
+- YAPI: sıcak giriş → neden yazdığını açıkla → "Dikkatimi çeken 3 nokta:" listesi (3 madde - ile) →
+  içgörü cümlesi → "Bunlar genellikle hızlıca toparlanabiliyor:" (3 madde - ile) → CTA sorusu
 - Teknik kelime yok, her cümle farklı olmalı
-- Örnek akış:
-  "[isim] için biraz daha detaylı baktım.\\n\\n[bölge/sektör talep açıklaması]\\n\\n3 kritik nokta:\\n- ...\\n- ...\\n- ...\\n\\n[içgörü cümle]\\n\\nBu genelde birkaç net değişiklikle toparlanabiliyor:\\n- ...\\n- ...\\n- ...\\n\\n[CTA]"
+- Ton: birinin profilini incelemiş, samimi, yardımsever
+
+ÖRNEK SHORT FORMAT (aynen kopyalama, ton için kullan):
+"Merhaba Başak,
+Büyükçekmece'deki psikolog profillerine bakıyordum, sizinki dikkatimi çekti. Dijital varlığınızda birkaç temel eksik fark ettim — bu durum sizi arayan danışanların başka bir isme yönelmesine yol açıyor olabilir. İsterseniz 10 dakikalık kısa bir analizle mevcut durumu somut gösterebilirim — yarın uygun olur musunuz?"
 
 SEKTÖRE ÖZGÜ DİL ({sektor}): {sektor_dil}
 
@@ -73,17 +89,11 @@ UX sorunları: {ux_hatalar}
 Dönüşüm engelleri: {donusum_engelleri}
 Lead kalitesi: {lead_kalitesi} | Urgency: {urgency}
 
-DÖNÜŞÜRMELER:
-"Form yok" → "müşteri sizi aramadan çıkabiliyor"
-"Hız düşük" → "site yavaş açılınca müşteri gitmiş oluyor"
-"Tel link yok" → "sizi aramak isteyen bir tıklama fazla yapmak zorunda"
-"Yorumlar yok" → "Maps'teki güven sitede kayboluyor"
-
 ÇIKTI: Sadece valid JSON. Preamble yok, markdown yok, kod bloğu yok. İlk karakter {{ olmalı.
 {{
-  "short_message": "4 cümle. Tek blok. Hiç başlık/format yok. Direkt gönderilebilir.",
+  "short_message": "4 cümle. Sıcak, doğal, baskısız. Direkt gönderilebilir.",
   "full_message": "Çok satırlı metin. Sadece \\n satırları. Hiç başlık yok.",
-  "meta": {{"sector": "{sektor}", "tone": "direkt"}}
+  "meta": {{"sector": "{sektor}", "tone": "samimi"}}
 }}"""
 
 
