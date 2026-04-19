@@ -5,6 +5,7 @@ import { ScoreBar } from "@/components/ui/score-bar";
 import { formatDateTime } from "@/lib/utils";
 import { LeadActions } from "./lead-actions";
 import { SalesOutputCard } from "./sales-output-card";
+import { OutreachCard } from "./outreach-card";
 import type { Audit, Lead, OutreachMessage, Proposal } from "@/types";
 import Link from "next/link";
 
@@ -226,34 +227,11 @@ export default async function LeadDetailPage({ params }: Props) {
 
         {/* Outreach */}
         {outreach && (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Outreach Mesajları</CardTitle>
-                {outreach.sent_version && (
-                  <span className="font-mono text-[9px] text-muted tracking-wider">
-                    {outreach.sent_version.toUpperCase()} · {outreach.sent_channel}
-                  </span>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {(["v1", "v2", "v3", "v4"] as const).map((v) =>
-                outreach[v] ? (
-                  <div key={v} className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-[9px] text-dim uppercase tracking-widest">{v}</span>
-                      {outreach.recommended === v && <Badge value="Önerilen" />}
-                      {outreach.sent_version === v && <Badge value="Gönderildi" />}
-                    </div>
-                    <pre className="whitespace-pre-wrap font-mono text-[11px] text-muted bg-panel-high p-3 leading-relaxed border border-stroke">
-                      {outreach[v]}
-                    </pre>
-                  </div>
-                ) : null
-              )}
-            </CardContent>
-          </Card>
+          <OutreachCard
+            leadId={id}
+            outreach={outreach}
+            phone={lead.phone}
+          />
         )}
 
         {/* Proposal */}
