@@ -5,9 +5,6 @@ Her cümle gerçek bulgulara dayanır. Rakipler genel template gönderir, biz ge
 
 import asyncio
 import logging
-import os
-import re
-import tempfile
 from datetime import datetime
 
 from core.utils import safe_json_parse, API_SEMAPHORE, claude_api_call
@@ -18,53 +15,54 @@ logger = logging.getLogger(__name__)
 # Prompt
 # ---------------------------------------------------------------------------
 
-PROPOSAL_PROMPT = """Sen, gelir odakli dijital ajans tekliflerinde uzman bir stratejist olarak calisiyorsun.
-Asagidaki audit verilerini kullanarak bir isletme sahibini ikna edecek teklif icerigi uret.
+PROPOSAL_PROMPT = """Sen dijital strateji alaninda calisiyorsun. Asagidaki audit verisini kullanarak
+isletme sahibinin kendi durumunu fark etmesini saglayan, baski yaratmayan ama harekete geciren
+bir teklif icerigi uret.
 
-KURAL:
-- Her cumle audit verisine atif yapmali. Jenerik ifade YASAK.
-- Rakam kullanmak ZORUNLU (audit'ten alinan spesifik metrikler).
-- Dil: Turkce, profesyonel ama soguk degil. Guven veren, baskici degil.
-- Fiyat mant: Turk piyasasi, kobiyet olcegi, is hacmiyle orantili.
+TON — Jarvis tarzi (ZORUNLU):
+- Zeki ve ozguveli. Gozlem paylas, satis yapma.
+- "Sizi takip ediyorum ve cozumum var" hissi — ama itmeden.
+- Hafif mizahi olabilir, soguk degil.
+- Her cumle audit verisine dayali. Jenerik ifade YASAK.
+- Baski, FOMO, aciliyet yaratan ifade YASAK.
+- Rakam kullan — ama "bu kadar kotu" degil "bu kadar firsat var" cercevesinde.
 
 LEAD:
 Isim: {isim}
 Adres: {adres}
 Sektor: {display_name}
+Google puan: {puan} ({yorum_sayisi} yorum)
 Lead kalitesi: {lead_kalitesi}
-Urgency: {urgency}
 
 AUDIT OZETI:
-Genel skor: {genel_skor}/100
-UX: {ux_skoru}  SEO: {seo_skoru}  Donusum: {donusum_skoru}
 Killer insight: {killer_bulgu} [{killer_rakam}]
 En acitan nokta: {en_acitan}
 Kisisel gozlem: {kisisel_insight}
 Hizli kazanimlar: {hizli_kazanimlar}
 Donusum engeli: {donusum_engeli}
-Ilk surtunum: {ilk_surtunum}
 
 ISTENEN CIKTI (sadece valid JSON, preamble yasak):
 {{
-  "baslik": "tek cumle, rakam iceren, isletme ozelinde kapan baslik",
-  "giris": "2 cumle: kisisel_gozlem'i dogal kullanan, isletme sahibinin dikkati ceken acilis",
-  "durum_ozeti": "3 madde liste — mevcut durumun en kritik 3 problemi (audit verisinden, rakamli)",
-  "cozum": "2-3 cumle: ne yapilacak, neden bu isletme icin dogru cozum (spesifik)",
-  "haftalik_plan": {{
-    "1": "Audit bulgularindan quick win'lerin uygulamasi",
-    "2": "UX ve donusum iyilestirmeleri",
-    "3": "SEO ve icerik optimizasyonu",
-    "4": "Test, olcum, raporlama"
-  }},
+  "baslik": "tek cumle kapan baslik — firsat odakli, rakamli, isletme ozelinde",
+  "giris": "2 cumle: kisisel_gozlem dogal kullanan, 'Sitenizi inceledim' yasak. Guclu bir olumlu tespitle baslar, sonra gap'e gec.",
+  "durum_ozeti": [
+    "firsat 1 — rakamli, somut",
+    "firsat 2",
+    "firsat 3"
+  ],
+  "cozum": "2-3 cumle: ne yapilacak, neden bu isletme icin — spesifik, jargon yok",
+  "baslangic_odaklari": [
+    "Odak 1: quick win'ler (1-2 hafta)",
+    "Odak 2: deneyim iyilestirmeleri",
+    "Odak 3: gorunurluk ve olcum"
+  ],
   "beklenen_sonuclar": [
-    "somut sonuc 1 (rakamli tahmin)",
+    "somut sonuc 1 (tahmini rakamla)",
     "somut sonuc 2",
     "somut sonuc 3"
   ],
-  "neden_simdi": "1 cumle — bu isletme icin gecikmenin maliyeti (rakamli veya somut)",
-  "paket_adi": "kisa paket adi (ornek: 'Dijital Buyume Paketi')",
-  "fiyat_araligi": "X.000 - Y.000 TL (is kapsamina gore Turk piyasasi gercekci aralik)",
-  "cta": "tek cumle — net, baski olmayan harekete gecirici"
+  "bir_sonraki_adim": "1 cumle — yumusak gecis: 'ne zaman bir bakalim?' tarzinda, sure belirtme, baski yok",
+  "cta": "tek cumle — samimi, Jarvis vibe, 'Kahve icerken bakalim mi?' tarzinda. Asla '15 dakika', 'hizmet', 'ajans' yazma."
 }}
 """
 
@@ -82,31 +80,39 @@ async def generate_proposal_content(lead: dict, audit: dict, playbook: dict) -> 
             adres=lead.get("adres") or "",
             display_name=playbook.get("display_name", ""),
             lead_kalitesi=audit.get("lead_kalitesi", "ilik"),
-            urgency=audit.get("urgency", "orta"),
-            genel_skor=audit.get("genel_skor", 0),
-            ux_skoru=skorlar.get("ux", 0),
-            seo_skoru=skorlar.get("seo", 0),
-            donusum_skoru=skorlar.get("donusum", 0),
+            puan=lead.get("puan", ""),
+            yorum_sayisi=lead.get("yorum_sayisi", ""),
             killer_bulgu=killer.get("bulgu", ""),
             killer_rakam=killer.get("rakam", ""),
             en_acitan=audit.get("en_acitan_nokta", ""),
             kisisel_insight=audit.get("kisisel_insight", ""),
             hizli_kazanimlar=", ".join(kazanimlar[:3]),
             donusum_engeli=donusum.get("engel", ""),
-            ilk_surtunum=ilk.get("ilk_surtunum", ""),
         )
 
+        isim = lead.get("isim") or "İşletmeniz"
         fallback = {
-            "baslik": f"{lead.get('isim', '')} icin Dijital Buyume Teklifiniz",
-            "giris": "Sitenizi inceledim ve birkac kritik alan dikkatimi cekti.",
-            "durum_ozeti": [audit.get("en_acitan_nokta", "Analiz bekleniyor")],
-            "cozum": "Audit bulgularini temel alan kapsamli bir iyilestirme paketi sunuyorum.",
-            "haftalik_plan": {"1": "Quick wins", "2": "UX", "3": "SEO", "4": "Test"},
-            "beklenen_sonuclar": ["Donusum artisi", "SEO gorunurlugu", "Kullanici deneyimi"],
-            "neden_simdi": "Her gecen gun potansiyel musteri kaybediliyor.",
-            "paket_adi": "Dijital Buyume Paketi",
-            "fiyat_araligi": "5.000 - 15.000 TL",
-            "cta": "15 dakikalik bir gorusme ayarlayalim.",
+            "baslik": f"{isim} — Görünmez Kalan Fırsatlar",
+            "giris": f"{killer.get('bulgu', 'Birkaç kritik alan dikkatimi çekti')}. "
+                     f"{audit.get('kisisel_insight', '')}",
+            "durum_ozeti": [
+                audit.get("en_acitan_nokta", "Dijital varlık analiz bekleniyor"),
+                donusum.get("engel", "Dönüşüm engeli tespit edildi"),
+                "Bölge aramasında görünürlük güçlendirilebilir",
+            ],
+            "cozum": "Audit bulgularından hareketle en hızlı etki yaratacak noktalara odaklanıyoruz.",
+            "baslangic_odaklari": [
+                "Odak 1: Hızlı kazanımlar — ilk haftada devreye girebilecek değişiklikler",
+                "Odak 2: Deneyim iyileştirmeleri — müşteri kararını kolaylaştırmak",
+                "Odak 3: Görünürlük ve ölçüm — doğru kanalda, doğru kişilere ulaşmak",
+            ],
+            "beklenen_sonuclar": [
+                "Sizi arayan müşterinin kararı kolaylaşır",
+                "Bölge aramalarında daha görünür hale gelirsiniz",
+                "Dijital varlık güven sinyali olarak çalışmaya başlar",
+            ],
+            "bir_sonraki_adim": "Bulgulara bakmak için uygun bir zaman seçebiliriz.",
+            "cta": "Ne zaman bir bakalım?",
         }
 
         resp = await claude_api_call(prompt, max_tokens=1200, temperature=0.2)
@@ -118,12 +124,19 @@ async def generate_proposal_content(lead: dict, audit: dict, playbook: dict) -> 
 # ---------------------------------------------------------------------------
 
 def _score_bar(score: int) -> str:
-    color = "#22c55e" if score >= 65 else ("#f97316" if score >= 35 else "#ef4444")
+    """Düşük skor = büyük fırsat. Sayıyı gösterme, etiketi göster."""
+    if score >= 65:
+        color, label = "#22c55e", "Güçlü"
+    elif score >= 35:
+        color, label = "#f97316", "Gelişme alanı"
+    else:
+        color, label = "#f97316", "Büyük fırsat"
+    fill = max(score, 8)  # bar tamamen kaybolmasın
     return (
         f'<div class="bar-wrap">'
-        f'<div class="bar" style="width:{score}%;background:{color}"></div>'
+        f'<div class="bar" style="width:{fill}%;background:{color}"></div>'
         f'</div>'
-        f'<span class="bar-val">{score}/100</span>'
+        f'<span class="bar-val" style="color:{color}">{label}</span>'
     )
 
 
@@ -191,11 +204,15 @@ def build_proposal_html(lead: dict, audit: dict, content: dict, playbook: dict) 
         sonuc_items = [sonuc_items]
     sonuc_html = "".join(f'<li>{s}</li>' for s in sonuc_items[:3])
 
-    # --- Haftalik plan ---
-    plan = content.get("haftalik_plan") or {}
-    plan_html = "".join(
-        f'<tr><td class="week-num">Hafta {h}</td><td>{plan.get(str(h), "")}</td></tr>'
-        for h in range(1, 5)
+    # --- Baslangic odaklari ---
+    odaklar = content.get("baslangic_odaklari") or []
+    if not odaklar:
+        # geriye dönük uyumluluk: eski haftalik_plan varsa dönüştür
+        plan = content.get("haftalik_plan") or {}
+        odaklar = [v for v in plan.values() if v]
+    odak_html = "".join(
+        f'<tr><td class="week-num">→</td><td>{o}</td></tr>'
+        for o in odaklar[:4]
     )
 
     return f"""<!DOCTYPE html>
@@ -255,12 +272,6 @@ def build_proposal_html(lead: dict, audit: dict, content: dict, playbook: dict) 
   .timeline-table td {{ padding: 8px 10px; font-size: 9.5pt; vertical-align: top; }}
   .week-num {{ font-weight: bold; color: #f97316; white-space: nowrap; width: 70px; }}
 
-  /* Investment */
-  .invest-box {{ background: #0f172a; color: #fff; border-radius: 12px; padding: 20px 24px; margin: 14px 0; }}
-  .invest-pkg {{ font-size: 11pt; font-weight: bold; color: #f97316; margin-bottom: 6px; }}
-  .invest-price {{ font-size: 20pt; font-weight: bold; color: #fff; }}
-  .invest-note {{ font-size: 8.5pt; color: #94a3b8; margin-top: 6px; }}
-
   /* CTA */
   .cta-box {{ background: #f0fdf4; border: 2px solid #22c55e; border-radius: 10px; padding: 14px 18px; margin-top: 18px; text-align: center; }}
   .cta-text {{ font-size: 11pt; font-weight: bold; color: #15803d; }}
@@ -290,34 +301,30 @@ def build_proposal_html(lead: dict, audit: dict, content: dict, playbook: dict) 
 
 <!-- KILLER CALLOUT -->
 <div class="callout">
-  <div class="callout-label">En Kritik Bulgu</div>
+  <div class="callout-label">Öne Çıkan Fırsat</div>
   <div class="callout-text">{killer.get("bulgu", "")} — {killer.get("rakam", "")}</div>
   <div class="callout-sub">{audit.get("kisisel_insight", "")}</div>
 </div>
 
 <!-- GİRİŞ -->
-<h2>Neden Bu Teklifi Hazırladım?</h2>
+<h2>Bu Analizi Neden Hazırladım?</h2>
 <p>{content.get("giris", "")}</p>
 
 <!-- MEVCUT DURUM -->
-<h2>Mevcut Durum Analizi</h2>
+<h2>Dijital Fırsat Haritası</h2>
 
 <div class="scores-grid">
   <div class="score-box">
-    <div class="score-label">UX / Kullanılabilirlik</div>
-    {_score_bar(skorlar.get("ux", 0))}
+    <div class="score-label">Kullanıcı Deneyimi</div>
+    {_score_bar(skorlar.get("ux", 0) or 0)}
   </div>
   <div class="score-box">
-    <div class="score-label">SEO / Görünürlük</div>
-    {_score_bar(skorlar.get("seo", 0))}
+    <div class="score-label">Arama Görünürlüğü</div>
+    {_score_bar(skorlar.get("seo", 0) or 0)}
   </div>
   <div class="score-box">
-    <div class="score-label">Dönüşüm</div>
-    {_score_bar(skorlar.get("donusum", 0))}
-  </div>
-  <div class="genel-box">
-    <div class="genel-num">{genel}</div>
-    <div class="genel-lbl">Genel Skor</div>
+    <div class="score-label">Dönüşüm Potansiyeli</div>
+    {_score_bar(skorlar.get("donusum", 0) or 0)}
   </div>
 </div>
 
@@ -326,45 +333,37 @@ def build_proposal_html(lead: dict, audit: dict, content: dict, playbook: dict) 
 <ul>{durum_html}</ul>
 
 <!-- UX BULGULARI -->
-<h2>Kullanıcı Deneyimi Sorunları</h2>
+<h2>Deneyim Fırsatları</h2>
 {ux_html}
 
 <!-- SEO BULGULARI -->
-<h2>SEO &amp; Görünürlük Açıkları</h2>
+<h2>Görünürlük Fırsatları</h2>
 {seo_html}
 
 <!-- HIZLI KAZANIMLAR -->
-{'<h2>Hızlı Kazanımlar (Max 1 Hafta)</h2><ul>' + kazanim_html + '</ul>' if kazanimlar else ""}
+{'<h2>Hızlı Başlangıç Noktaları</h2><ul>' + kazanim_html + '</ul>' if kazanimlar else ""}
 
 <!-- ÖNERILEN ÇÖZÜM -->
 <div class="page-break"></div>
-<h2>Önerilen Çözüm</h2>
+<h2>Nasıl Çalışırız?</h2>
 <p>{content.get("cozum", "")}</p>
 
-<!-- HAFTALIK PLAN -->
-<h2>Uygulama Takvimi</h2>
+<!-- BAŞLANGIÇ ODAKLARI -->
+<h2>Başlangıç Odakları</h2>
 <table class="timeline-table">
-  {plan_html}
+  {odak_html}
 </table>
 
 <!-- BEKLENEN SONUÇLAR -->
-<h2>Beklenen Sonuçlar</h2>
+<h2>Ne Değişir?</h2>
 <ul>{sonuc_html}</ul>
 
-<!-- YATIRIM -->
-<h2>Yatırım</h2>
-<div class="invest-box">
-  <div class="invest-pkg">{content.get("paket_adi", "Dijital Büyüme Paketi")}</div>
-  <div class="invest-price">{content.get("fiyat_araligi", "")}</div>
-  <div class="invest-note">KDV hariç · Aylık yönetim ve raporlama dahil · Sözleşme yok, esnek çalışma</div>
-</div>
-
-<!-- NEDEN ŞİMDİ -->
-<p style="font-size:9.5pt;color:#b45309"><strong>Neden şimdi?</strong> {content.get("neden_simdi", "")}</p>
+<!-- BİR SONRAKI ADIM -->
+<p style="font-size:9.5pt;color:#475569;margin-top:14px">{content.get("bir_sonraki_adim", "")}</p>
 
 <!-- CTA -->
 <div class="cta-box">
-  <div class="cta-text">{content.get("cta", "15 dakikalık bir görüşme ayarlayalım.")}</div>
+  <div class="cta-text">{content.get("cta", "Ne zaman bir bakalım?")}</div>
 </div>
 
 <!-- FOOTER -->
