@@ -1,6 +1,7 @@
 "use client";
 
 import { ExternalLink, Globe, MapPin, MessageSquare, Phone } from "lucide-react";
+import { useRouter } from "next/navigation";
 import type { SearchResultItem } from "@/types";
 import { SEGMENT_COLORS, SEGMENT_LABELS } from "./segment";
 
@@ -19,14 +20,23 @@ function whatsappLink(phone: string | null): string | null {
 export function ResultCard({ lead, selected, onSelect }: Props) {
   const c = SEGMENT_COLORS[lead.segment];
   const wa = whatsappLink(lead.phone);
+  const router = useRouter();
+
+  function handleClick() {
+    if (lead.lead_id) {
+      router.push(`/leads/${lead.lead_id}`);
+    } else {
+      onSelect();
+    }
+  }
 
   return (
     <div
       role="button"
       tabIndex={0}
-      onClick={onSelect}
+      onClick={handleClick}
       onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(); }
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleClick(); }
       }}
       className={`group relative border bg-panel cursor-pointer transition-all ${
         selected ? "border-stroke-2 bg-panel-high" : "border-stroke hover:border-stroke-2"
@@ -62,6 +72,9 @@ export function ResultCard({ lead, selected, onSelect }: Props) {
             >
               {SEGMENT_LABELS[lead.segment]}
             </span>
+            {lead.lead_id && (
+              <span className="text-[8px] font-mono text-accent mt-1 tracking-wider">DETAY →</span>
+            )}
           </div>
         </div>
 

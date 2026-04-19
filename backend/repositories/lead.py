@@ -2,6 +2,7 @@ from sqlalchemy import select, func
 
 from models.lead import Lead
 from repositories.base import BaseRepository
+import uuid
 
 # Valid pipeline statuses in order
 PIPELINE_STATUSES = ["Yeni", "Audit", "Mesaj", "Cevap", "Demo", "Teklif", "Kapandi", "Soguk"]
@@ -86,3 +87,12 @@ class LeadRepository(BaseRepository[Lead]):
         total = (await self._session.execute(count_stmt)).scalar_one()
         leads = list((await self._session.execute(stmt)).scalars().all())
         return leads, total
+
+    async def find_by_phones(self, phones: list[str]) -> dict[str, uuid.UUID]:
+        """Return {phone: lead_id} for any phone that exists in the DB."""
+        if not phones:
+            return {}
+        result = await self._session.execute(
+            select(Lead.phone, Lead.id).where(Lead.phone.in_(phones))
+        )
+        return {row[0]: row[1] for row in result.all()}
