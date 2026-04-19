@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { leadsApi, auditApi } from "@/lib/api";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { formatDate } from "@/lib/utils";
@@ -27,6 +26,33 @@ const STATUS_DISPLAY: Record<string, string> = {
   Soguk:   "Soğuk",
 };
 
+type SortKey = "score" | "date_desc" | "date_asc" | "name" | "google";
+
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "score",     label: "Skor ↓"   },
+  { key: "date_desc", label: "Yeni ↓"   },
+  { key: "date_asc",  label: "Eski ↑"   },
+  { key: "google",    label: "Google ↓" },
+  { key: "name",      label: "İsim A–Z" },
+];
+
+function sortLeads(leads: Lead[], key: SortKey): Lead[] {
+  return [...leads].sort((a, b) => {
+    switch (key) {
+      case "score":
+        return (b.opportunity_score ?? -1) - (a.opportunity_score ?? -1);
+      case "date_desc":
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      case "date_asc":
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      case "google":
+        return (b.google_rating ?? -1) - (a.google_rating ?? -1);
+      case "name":
+        return a.name.localeCompare(b.name, "tr");
+    }
+  });
+}
+
 function scoreStyle(v: number) {
   if (v >= 70) return "text-hot";
   if (v >= 40) return "text-warm";
@@ -36,31 +62,32 @@ function scoreStyle(v: number) {
 export function LeadsTable() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const urlSector = searchParams.get("sector") ?? "";
-  const urlCity = searchParams.get("city") ?? "";
+  const urlSector   = searchParams.get("sector")   ?? "";
+  const urlCity     = searchParams.get("city")     ?? "";
   const urlDistrict = searchParams.get("district") ?? "";
 
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [searchInput, setSearchInput] = useState("");
+  const [leads,         setLeads]         = useState<Lead[]>([]);
+  const [loading,       setLoading]       = useState(true);
+  const [search,        setSearch]        = useState("");
+  const [searchInput,   setSearchInput]   = useState("");
   const [highScoreOnly, setHighScoreOnly] = useState(false);
-  const [openSectors, setOpenSectors] = useState<Set<string>>(
+  const [sortKey,       setSortKey]       = useState<SortKey>("score");
+  const [openSectors,   setOpenSectors]   = useState<Set<string>>(
     urlSector ? new Set([urlSector]) : new Set()
   );
-  const [auditingId, setAuditingId] = useState<string | null>(null);
+  const [auditingId,     setAuditingId]     = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deletingId,     setDeletingId]     = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const data = await leadsApi.list({
-        limit: 500,
-        sector: urlSector || undefined,
-        city: urlCity || undefined,
+        limit:    500,
+        sector:   urlSector   || undefined,
+        city:     urlCity     || undefined,
         district: urlDistrict || undefined,
-        search: search || undefined,
+        search:   search      || undefined,
       });
       setLeads(data.items);
       if (!urlSector && data.items.length > 0) {
@@ -134,6 +161,7 @@ export function LeadsTable() {
     return acc;
   }, {});
 
+  // Sector groups sorted by latest lead date desc
   const sectors = Object.entries(grouped).sort(([, a], [, b]) => {
     const latestA = Math.max(...a.map((l) => new Date(l.created_at).getTime()));
     const latestB = Math.max(...b.map((l) => new Date(l.created_at).getTime()));
@@ -151,34 +179,54 @@ export function LeadsTable() {
 
   return (
     <div className="p-6 space-y-4">
-      {/* Filters */}
+
+      {/* Filters + Sort */}
       <div className="flex items-center gap-3 flex-wrap">
         <Input
-          className="w-72"
-          placeholder="İsim, sektör veya şehir ara..."
+          className="w-64"
+          placeholder="İsim veya şehir ara..."
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
         />
+
+        {/* Sort buttons */}
+        <div className="flex items-center gap-1">
+          {SORT_OPTIONS.map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setSortKey(key)}
+              className={`px-2.5 py-1 text-[9px] font-mono tracking-[0.15em] uppercase border transition-all ${
+                sortKey === key
+                  ? "bg-accent/10 border-accent text-accent"
+                  : "border-stroke text-dim hover:border-stroke-2 hover:text-muted"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         <button
           type="button"
           onClick={() => setHighScoreOnly((v) => !v)}
-          className={`px-3 py-1.5 text-[9px] font-mono tracking-[0.2em] uppercase border rounded-sm transition-all ${
+          className={`px-3 py-1 text-[9px] font-mono tracking-[0.2em] uppercase border transition-all ${
             highScoreOnly
               ? "bg-hot/10 text-hot border-hot/60"
-              : "bg-transparent text-muted border-stroke hover:border-stroke-2 hover:text-bright"
+              : "border-stroke text-dim hover:border-stroke-2 hover:text-muted"
           }`}
         >
-          Yüksek Skor (70+)
+          Yüksek Skor 70+
         </button>
+
         {(urlCity || urlDistrict) && (
           <button
             type="button"
             onClick={clearLocationFilter}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-[9px] font-mono tracking-[0.2em] uppercase border border-accent/60 bg-accent/10 text-accent rounded-sm hover:bg-accent/20 transition-all"
-            title="Konum filtresini kaldır"
+            className="flex items-center gap-1.5 px-3 py-1 text-[9px] font-mono tracking-[0.2em] uppercase border border-accent/60 bg-accent/10 text-accent hover:bg-accent/20 transition-all"
           >
             <span>📍 {urlCity}{urlDistrict ? ` / ${urlDistrict}` : ""}</span>
-            <span className="text-accent/70">✕</span>
+            <span className="text-accent/60">✕</span>
           </button>
         )}
       </div>
@@ -194,25 +242,37 @@ export function LeadsTable() {
       ) : (
         <div className="space-y-3">
           {sectors.map(([sector, items]) => {
-            const isOpen = openSectors.has(sector);
-            const label = SECTOR_LABELS[sector] ?? sector;
+            const isOpen   = openSectors.has(sector);
+            const label    = SECTOR_LABELS[sector] ?? sector;
+            const sorted   = sortLeads(items, sortKey);
+            const latestAt = Math.max(...items.map((l) => new Date(l.created_at).getTime()));
+            const scrapeDate = formatDate(new Date(latestAt).toISOString());
+            const avgScore = items.reduce((s, l) => s + (l.opportunity_score ?? 0), 0) / items.length;
+
             return (
               <div key={sector} className="border border-stroke bg-panel overflow-hidden">
+
                 {/* Sector header */}
                 <button
                   type="button"
                   onClick={() => toggleSector(sector)}
-                  className="w-full flex items-center justify-between px-5 py-4 bg-panel-high hover:bg-stroke/30 transition-colors border-b border-stroke"
+                  className="w-full flex items-center justify-between px-5 py-3.5 bg-panel-high hover:bg-stroke/30 transition-colors border-b border-stroke"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-wrap">
                     <span className="font-mono font-bold text-bright text-xs tracking-wider uppercase">
                       {label}
                     </span>
                     <span className="font-mono text-[9px] border border-stroke-2 text-muted px-2 py-0.5 tracking-wider">
                       {items.length} ADAY
                     </span>
+                    <span className="font-mono text-[9px] text-dim tracking-wider">
+                      ort. <span className={`font-semibold ${scoreStyle(avgScore)}`}>{avgScore.toFixed(0)}</span>
+                    </span>
+                    <span className="font-mono text-[9px] text-dim tracking-wider">
+                      · Son tarama: <span className="text-muted">{scrapeDate}</span>
+                    </span>
                   </div>
-                  <span className="font-mono text-[9px] text-dim tracking-wider">
+                  <span className="font-mono text-[9px] text-dim tracking-wider shrink-0">
                     {isOpen ? "KAPAT ▲" : "GÖSTER ▼"}
                   </span>
                 </button>
@@ -222,7 +282,7 @@ export function LeadsTable() {
                     <table className="min-w-full">
                       <thead>
                         <tr className="border-b border-stroke">
-                          {["İsim", "Şehir / İlçe", "Google", "Skor", "Durum", "Tarih", "", ""].map((h, i) => (
+                          {["İsim", "Şehir / İlçe", "Google", "Skor", "Durum", "Tarama Tarihi", "", ""].map((h, i) => (
                             <th
                               key={i}
                               className="px-4 py-2.5 text-left font-mono text-[9px] text-dim uppercase tracking-[0.2em] whitespace-nowrap"
@@ -233,7 +293,7 @@ export function LeadsTable() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-stroke">
-                        {items.map((lead) => (
+                        {sorted.map((lead) => (
                           <tr
                             key={lead.id}
                             onClick={() => router.push(`/leads/${lead.id}`)}
@@ -267,7 +327,7 @@ export function LeadsTable() {
                                 value={lead.status}
                                 onChange={(e) => handleStatusChange(e, lead)}
                                 disabled={updatingStatus === lead.id}
-                                className="font-mono text-[9px] border border-stroke rounded-sm px-2 py-1 tracking-wider uppercase cursor-pointer focus:outline-none focus:border-accent disabled:opacity-50"
+                                className="font-mono text-[9px] border border-stroke px-2 py-1 tracking-wider uppercase cursor-pointer focus:outline-none focus:border-accent disabled:opacity-50"
                                 style={{ background: "#0d1324", color: "#7a8aa8" }}
                               >
                                 {PIPELINE_STATUSES.map((s) => (
