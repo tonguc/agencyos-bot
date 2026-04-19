@@ -66,17 +66,45 @@ CUMLE 3 — CTA (soru formunda, secenekli):
   Ornek: "10 dakikada somut olarak gosterebilirim — yarin mi uygun, persembe mi?"
   YASAK: "isterseniz", "yardimci olabilirim", noktayla bitmek
 
-=== FULL MESSAGE (e-posta/detayli mesaj) ===
-- 8-12 satir. Sadece \\n ile ayir. Baslik/emoji yasak.
-- 800-1000 karakter.
-- YAPI:
-  [isim] icin detayli baktim. → [bolge/sektor talep cumle] →
-  "3 kritik nokta:" → - madde1 → - madde2 → - madde3 →
-  [icgoru: kisisel_insight'tan] →
-  "Bu genelde birkas degisiklikle toparlanabiliyor:" →
-  - cozum1 → - cozum2 → - cozum3 →
-  [CTA: alternatif zaman teklifi]
-- Her madde (-) somut, farkli angle. Tekrar etme.
+=== FULL MESSAGE (e-posta / detaylı WhatsApp) ===
+AMAÇ: "Ben para kaybediyorum" hissi — bilgi vermek değil, aksiyona itmek.
+Her paragraf şu soruya hizmet etmeli: "Bu kişi neden hemen konuşmak ister?"
+
+YAPI (bu 6 blok, bu sırada, başka şey ekleme):
+
+BLOK 1 — GİRİŞ (1-2 cümle):
+  Olumlu gözlemle başla (puan/yorum/konum). Ismi kullanma.
+  YASAK: "biraz daha detaylı baktım", "analiz yaptım", "size ulaşıyorum"
+
+BLOK 2 — TALEP VAR AMA SIZE GELMİYOR (1-2 cümle):
+  Sektördeki talebi somutlaştır. Müşterinin sizi nasıl aradığını yaz.
+  Sonra o talebin rakibe gittiğini belirt.
+
+BLOK 3 — 3 KRİTİK NOKTA (maksimum 3 madde, - ile):
+  Her madde PARA DİLİNDE olacak:
+  YASAK: "rezervasyon linki yok"
+  KULLAN: "rezervasyon yapmak isteyen müşteriler masaya dönüşmeden çıkıyor"
+  Mümkünse rakam ekle: "ayda tahminen 60-80 rezervasyon kaybı" gibi.
+  Her madde FARKLI açıdan, tekrar yok.
+
+BLOK 4 — EN GÜÇLÜ INSIGHT (1-2 cümle):
+  kisisel_insight veya killer_bulgu'dan. Para kaybını hissettir, dramatize etme.
+  Mini proof ekle: "Benzer bir {sektor}da [tek değişiklik] ile [somut sonuç] gördük."
+  Proof kısa, satış kokmasın, güven versin.
+
+BLOK 5 — ÇÖZÜM ÇERÇEVESİ (3 madde max, - ile):
+  "Bu genelde 3 adımda toparlanıyor:" → her madde 1 satır, teknik terim yok.
+
+BLOK 6 — CTA (son, sabit format):
+  "Bunu 10–15 dakikada net şekilde gösterebilirim. Yarın mı daha uygun olur, perşembe mi?"
+  CTA kelimesi kelimesine bu format. Değiştirme.
+
+KISITLAMALAR:
+- Max 250-300 kelime. Daha uzun olursa kes.
+- Sadece \\n satır ayırıcı. Başlık, emoji, markdown yasak.
+- SEO/UX/PageSpeed/H1/meta/optimize yasak.
+- Aynı insight 1 kez geçer. Tekrar = sil.
+- Ton: deneyimli danışman. Ne çok resmi, ne çok samimi.
 
 === ACILIS ALTERNATIFLERI ===
 - 3 farkli giris cumlesi. Her biri max 1 cumle.
@@ -182,13 +210,18 @@ def validate_sales_messages(output: dict) -> dict:
         issues.append("short_message CTA içermiyor")
 
     lines = [l for l in full.splitlines() if l.strip()]
-    if len(lines) < 6:
-        issues.append(f"full_message 6 satırdan kısa ({len(lines)} satır)")
+    word_count = len(full.split())
+    if len(lines) < 5:
+        issues.append(f"full_message 5 satırdan kısa ({len(lines)} satır)")
+    if word_count > 350:
+        issues.append(f"full_message 350 kelimeden uzun ({word_count} kelime)")
     bullet_count = len(re.findall(r"^\s*-\s+", full, re.MULTILINE))
     if bullet_count < 3:
-        issues.append(f"full_message 3 problem içermiyor ({bullet_count} madde)")
-    if not _CTA_SIGNALS.search(full):
-        issues.append("full_message CTA içermiyor")
+        issues.append(f"full_message 3 madde içermiyor ({bullet_count} madde)")
+    if _BLACKLIST.search(full):
+        issues.append("full_message teknik kelime içeriyor")
+    if "perşembe" not in full.lower() and "yarin" not in full.lower() and "yarın" not in full.lower():
+        issues.append("full_message alternatif zaman CTA içermiyor")
 
     return {"valid": len(issues) == 0, "issues": issues}
 
@@ -277,19 +310,19 @@ def _fallback_output(lead: dict, audit: dict) -> dict:
     )
 
     full = (
-        f"{isim} için detaylı baktım.\n\n"
-        f"{adres}'da bu sektörde ciddi arama hacmi var. "
-        f"Ama birkaç kritik nokta talebin bir kısmını başka işletmelere yönlendiriyor.\n\n"
+        f"{adres.split(',')[0].strip()} bölgesinde bu sektörde ciddi bir arama hacmi var.\n\n"
+        f"Ama {bulgu.lower() if bulgu else 'birkaç kritik nokta'} — "
+        f"sizi arayan müşteri son adımda başka bir yere gidiyor.\n\n"
         f"3 kritik nokta:\n"
-        f"- {bulgu}\n"
-        f"- Sizi bulan müşteri son adımda karar veremiyor — rakip önde bitiriyor\n"
-        f"- {en_acitan or 'Bölge aramasında ilk sayfada değilsiniz'}\n\n"
-        f"Bunlar genelde hızlı çözülebilir:\n"
+        f"- {bulgu or 'Dijital temas noktası eksik'} — müşteri masaya dönüşmeden çıkıyor\n"
+        f"- {en_acitan or 'Karar anında rakip önde bitiriyor'}\n"
+        f"- Bölge aramasında görünürlük boşluğu — talep size ulaşmadan kayıyor\n\n"
+        f"Bu genelde 3 adımda toparlanıyor:\n"
         f"- İlk temas anını kolaylaştırmak\n"
         f"- Güven sinyallerini öne çıkarmak\n"
-        f"- Bölge odaklı görünürlüğü netleştirmek\n\n"
-        f"Yarın 10 dakika ayırabilirseniz somut olarak göstereyim — "
-        f"yarın mı daha uygun, perşembe mi?"
+        f"- Doğru kanalda görünür olmak\n\n"
+        f"Bunu 10–15 dakikada net şekilde gösterebilirim. "
+        f"Yarın mı daha uygun olur, perşembe mi?"
     )
 
     return {
