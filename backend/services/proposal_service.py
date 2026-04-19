@@ -3,6 +3,7 @@ Proposal Service — orchestration only.
 No FastAPI, ARQ, or Telegram imports.
 """
 
+import base64
 import logging
 import uuid
 
@@ -33,18 +34,21 @@ async def generate_proposal_for_lead(lead_id: uuid.UUID, db: AsyncSession) -> Pr
     audit = await AuditRepository(db).get_latest_for_lead(lead_id)
     audit_dict = audit.result if audit else {}
 
-    pdf_path, content = await generate_proposal(lead_dict, audit_dict, playbook)
+    pdf_bytes, content = await generate_proposal(lead_dict, audit_dict, playbook)
+
+    # PDF bytes'ı DB'de sakla — filesystem bağımlılığı yok (Railway/Docker uyumlu)
+    content["_pdf_b64"] = base64.b64encode(pdf_bytes).decode()
 
     proposal = await ProposalRepository(db).create(
         lead_id=lead_id,
         audit_id=audit.id if audit else None,
         content=content,
-        pdf_path=pdf_path,
+        pdf_path=None,
     )
 
     await LeadRepository(db).update(lead, status="Teklif")
     await log_event(db, event=ActivityEvent.PROPOSAL_GENERATED,
                     lead_id=lead_id, data={"proposal_id": str(proposal.id),
-                                           "pdf_path": pdf_path})
-    logger.info("Proposal uretildi: lead=%s pdf=%s", str(lead_id)[:8], pdf_path)
+                                           "size_bytes": len(pdf_bytes)})
+    logger.info("Proposal uretildi: lead=%s size=%d", str(lead_id)[:8], len(pdf_bytes))
     return proposal

@@ -382,21 +382,10 @@ def render_pdf(html: str) -> bytes:
     return weasyprint.HTML(string=html).write_pdf()
 
 
-async def generate_proposal(lead: dict, audit: dict, playbook: dict) -> tuple[str, dict]:
-    """Returns (pdf_path, content_dict)."""
+async def generate_proposal(lead: dict, audit: dict, playbook: dict) -> tuple[bytes, dict]:
+    """Returns (pdf_bytes, content_dict). Caller handles persistence."""
     content = await generate_proposal_content(lead, audit, playbook)
     html = build_proposal_html(lead, audit, content, playbook)
-
     pdf_bytes = await asyncio.to_thread(render_pdf, html)
-
-    isim_slug = re.sub(r"[^\w]", "_", (lead.get("isim") or "teklif").lower())[:30]
-    tarih = datetime.now().strftime("%Y%m%d")
-    fname = f"teklif_{isim_slug}_{tarih}.pdf"
-
-    tmp_dir = tempfile.mkdtemp(prefix="agencyos_")
-    path = os.path.join(tmp_dir, fname)
-    with open(path, "wb") as f:
-        f.write(pdf_bytes)
-
-    logger.info("Teklif PDF uretildi: %s (%d bytes)", fname, len(pdf_bytes))
-    return path, content
+    logger.info("Teklif PDF uretildi: lead=%s (%d bytes)", lead.get("isim", "?"), len(pdf_bytes))
+    return pdf_bytes, content

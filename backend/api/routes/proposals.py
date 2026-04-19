@@ -1,9 +1,10 @@
+import base64
 import uuid
 from pathlib import Path
 
 from arq import ArqRedis
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
@@ -44,10 +45,21 @@ async def download_pdf(proposal_id: uuid.UUID, db: AsyncSession = Depends(get_db
     proposal = await ProposalRepository(db).get(proposal_id)
     if not proposal:
         raise HTTPException(404, "Teklif bulunamadi")
-    if not proposal.pdf_path or not Path(proposal.pdf_path).exists():
-        raise HTTPException(404, "PDF bulunamadi")
-    return FileResponse(
-        proposal.pdf_path,
-        media_type="application/pdf",
-        filename=f"teklif-{str(proposal_id)[:8]}.pdf",
-    )
+
+    fname = f"teklif-{str(proposal_id)[:8]}.pdf"
+
+    # Yeni yol: PDF bytes DB'de (content._pdf_b64)
+    pdf_b64 = (proposal.content or {}).get("_pdf_b64")
+    if pdf_b64:
+        pdf_bytes = base64.b64decode(pdf_b64)
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+        )
+
+    # Eski yol: dosya sistemi (geriye dönük uyumluluk)
+    if proposal.pdf_path and Path(proposal.pdf_path).exists():
+        return FileResponse(proposal.pdf_path, media_type="application/pdf", filename=fname)
+
+    raise HTTPException(404, "PDF bulunamadi — teklifi yeniden olusturun")
