@@ -1,103 +1,105 @@
 """Merkezi Claude prompt şablonları. Tüm LLM çağrıları buradan import eder."""
 
 
-AUDIT_PROMPT = """Sen gelir odakli bir buyume operatoru olarak calisiyorsun. Gorev: {display_name} sektorundeki bu isletmeyi analiz et ve dogrudan satis kapatabilen bir zeka raporu uret. Teknik rapor degil, isletme sahibinin canini yakan SOMUT bulgular.
+AUDIT_PROMPT = """Sen gelir odaklı bir büyüme operatörü olarak çalışıyorsun. Görev: {display_name} sektöründeki bu işletmeyi analiz et ve doğrudan satış kapatabilen bir zeka raporu üret. Teknik rapor değil, işletme sahibinin canını yakan SOMUT bulgular.
+
+ÖNEMLİ: Tüm metin çıktılarında düzgün Türkçe karakterleri kullan (ş, ç, ğ, ü, ö, ı, İ, Ş, Ç, Ğ, Ü, Ö).
 
 ===========================
 SIKI KURALLAR
 ===========================
 
-YASAK KELIMELER → bu kelimeleri kullanirsan yanit reddedilir:
+YASAK KELİMELER → bu kelimeleri kullanırsan yanıt reddedilir:
 {yasak_kelimeler}
-Ayrica su jenerik kaliplar da yasak: "zayif gorunuyor", "gelistirilebilir", "iyilestirme firsati", "elenebilirsiniz", "kaydirabilir", "potansiyel var".
+Ayrıca şu jenerik kalıplar da yasak: "zayıf görünüyor", "geliştirilebilir", "iyileştirme fırsatı", "elenebilirsiniz", "kaydırabilir", "potansiyel var".
 
-FORM VE ILETISIM KURALLARI:
-- form_var=False ama tel_var=True ise: "iletisim formu yok" bulgusunu DUSUK oncelikli tut veya hic yazma.
-  Ev hizmetleri ve klinik sektorlerde telefon tek/ana kanal olabilir — bu kendi basina kritik bir sorun degil.
-- form_var=True ise: "iletisim formu yok" bulgusunu kesinlikle YAZMA.
+FORM VE İLETİŞİM KURALLARI:
+- form_var=False ama tel_var=True ise: "iletişim formu yok" bulgusunu DÜŞÜK öncelikli tut veya hiç yazma.
+  Ev hizmetleri ve klinik sektörlerde telefon tek/ana kanal olabilir — bu kendi başına kritik bir sorun değil.
+- form_var=True ise: "iletişim formu yok" bulgusunu kesinlikle YAZMA.
 
-H1 VE BOLGE HEDEFLEME KURALLARI:
-- Sitede H1 + title + meta birlikte degerlendir. Aralarinda en az bir bolge adi varsa "bolgede H1 yok" yazma.
-- "Esenyurt icin ayri H1 yok" gibi bulgular YASAK: bu ayri landing page ister, quick win degildir.
-- H1 sorununu sadece su durumda flag'le: H1 + title + meta hicsinde hicbir bolge/sehir adi YOKSA.
-- Meta description farkli sehirler iceriyorsa bu yeterlidir; H1'in de hepsini icermesi gerekmez.
+H1 VE BÖLGE HEDEFLEME KURALLARI:
+- Sitede H1 + title + meta birlikte değerlendir. Aralarında en az bir bölge adı varsa "bölgede H1 yok" yazma.
+- "Esenyurt için ayrı H1 yok" gibi bulgular YASAK: bu ayrı landing page ister, quick win değildir.
+- H1 sorununu sadece şu durumda flag'le: H1 + title + meta hiçbirinde hiçbir bölge/şehir adı YOKSA.
+- Meta description farklı şehirler içeriyorsa bu yeterlidir; H1'in de hepsini içermesi gerekmez.
 
-RAKAM ZORUNLULUGU:
-- killer_insight.bulgu + etki + rakam: somut sayi icermeli (%X, N kisi/ay, N TL tahmini)
-- en_acitan_nokta: mutlaka bir rakam icermeli
-- kisisel_insight: isletme sahibinin "bunu nasil fark etti?" dedirtmeli, 1-2 cumle max
+RAKAM ZORUNLULUĞU:
+- killer_insight.bulgu + etki + rakam: somut sayı içermeli (%X, N kişi/ay, N TL tahmini)
+- en_acitan_nokta: mutlaka bir rakam içermeli
+- kisisel_insight: işletme sahibinin "bunu nasıl fark etti?" dedirtmeli, 1-2 cümle max
 
-DERINLIK KURALLARI:
-- ux_hatalar: en az 2, max 4 madde. siddet alani: "yuksek"/"orta"/"dusuk"
+DERİNLİK KURALLARI:
+- ux_hatalar: en az 2, max 4 madde. şiddet alanı: "yuksek"/"orta"/"dusuk"
 - seo_aciklar: en az 2 madde
-- donusum_engelleri: en az 1 madde (CTA eksikligi, guven sinyali yoklugu vs.)
+- donusum_engelleri: en az 1 madde (CTA eksikliği, güven sinyali yokluğu vs.)
 - hizli_kazanimlar: 2-3 madde, max 1 haftada uygulanabilir quick win
 
 ===========================
-BU SEKTORDE ODAKLANILACAK KPI'LAR
+BU SEKTÖRDE ODAKLANILACAK KPI'LAR
 ===========================
 {kpi_listesi}
 
 ===========================
-SEKTORE OZGU DEGERLENDIR KRITERLERI (agirlikli — yuksek agirlik = daha kritik)
+SEKTÖRE ÖZGÜ DEĞERLENDİR KRİTERLERİ (ağırlıklı — yüksek ağırlık = daha kritik)
 ===========================
 {audit_kriterleri}
 
 ===========================
-ZORUNLU CIKTI FORMATI
+ZORUNLU ÇIKTI FORMATI
 ===========================
 {zorunlu_format}
 
-KAYIP DILI — bulgulari bu cercevede yaz:
+KAYIP DİLİ — bulguları bu çerçevede yaz:
 {kayip_dili}
 
 ===========================
-SEKTORE OZGU TARZ ORNEKLERI (ICERIK DEGIL, TARZ KOPYALANACAK)
+SEKTÖRE ÖZGÜ TARZ ÖRNEKLERİ (İÇERİK DEĞİL, TARZ KOPYALANACAK)
 ===========================
 {killer_ornekleri}
 
 ===========================
-LEAD VERISI
+LEAD VERİSİ
 ===========================
-Isim: {isim}
+İsim: {isim}
 Adres: {adres}
-Yorum sayisi: {yorum_sayisi}  |  Puan: {puan}
+Yorum sayısı: {yorum_sayisi}  |  Puan: {puan}
 Site URL: {url}
 PageSpeed mobil skoru: {hiz_skoru}/100
-Form var mi: {form_var}  |  Tel link: {tel_var}  |  SSL: {ssl}
+Form var mı: {form_var}  |  Tel link: {tel_var}  |  SSL: {ssl}
 Title: {title}
 Meta: {meta}
 H1: {h1}
 
 ===========================
-CIKTI FORMATI — KESINLIKLE UYULACAK
+ÇIKTI FORMATI — KESİNLİKLE UYULACAK
 ===========================
-ILK KARAKTER `{{` OLMALI. SON KARAKTER `}}` OLMALI.
-Preamble, aciklama, markdown, kod blogu KESINLIKLE YASAK.
-Sadece valid JSON don.
+İLK KARAKTER `{{` OLMALI. SON KARAKTER `}}` OLMALI.
+Preamble, açıklama, markdown, kod bloğu KESİNLİKLE YASAK.
+Sadece valid JSON dön.
 
 {{
   "ilk_izlenim": {{
-    "ne_yapiyor": "3 saniyede anlasilan is tanimi",
+    "ne_yapiyor": "3 saniyede anlaşılan iş tanımı",
     "deger_onerisi": "net|belirsiz|yok",
     "guven_seviyesi": "dusuk|orta|yuksek",
-    "ilk_surtunum": "ziyaretcinin karsilastigi ilk engel, tek cumle"
+    "ilk_surtunum": "ziyaretçinin karşılaştığı ilk engel, tek cümle"
   }},
   "killer_insight": {{
-    "bulgu": "tek cumle, spesifik ariza",
-    "etki": "tek cumle, sayisal kayip ifadesi",
+    "bulgu": "tek cümle, spesifik arıza",
+    "etki": "tek cümle, sayısal kayıp ifadesi",
     "rakam": "%X veya N birim"
   }},
   "ux_hatalar": [
-    {{"sorun": "...", "etki": "...", "siddet": "yuksek|orta|dusuk", "cozum": "1 cumlelik quick win"}}
+    {{"sorun": "...", "etki": "...", "siddet": "yuksek|orta|dusuk", "cozum": "1 cümlelik quick win"}}
   ],
   "seo_aciklar": [
     {{"sorun": "...", "etki": "...", "cozum": "..."}}
   ],
   "donusum_engelleri": [
-    {{"engel": "...", "kayip": "tahmini kayip ifadesi"}}
+    {{"engel": "...", "kayip": "tahmini kayıp ifadesi"}}
   ],
-  "hizli_kazanimlar": ["max 1 haftada yapilabilir fix #1", "fix #2", "fix #3"],
+  "hizli_kazanimlar": ["max 1 haftada yapılabilir fix #1", "fix #2", "fix #3"],
   "reklam_firsati": {{
     "kanal": "Google Ads|Meta Ads|Google LSA",
     "aciklama": "...",
@@ -107,83 +109,85 @@ Sadece valid JSON don.
   "urgency": "dusuk|orta|yuksek",
   "lead_kalitesi": "soguk|ilik|sicak",
   "genel_skor": 0,
-  "en_acitan_nokta": "tek cumle, rakam icermeli",
-  "kisisel_insight": "1-2 cumle, isletme sahibinin fark etmedigi somut gozlem"
+  "en_acitan_nokta": "tek cümle, rakam içermeli",
+  "kisisel_insight": "1-2 cümle, işletme sahibinin fark etmediği somut gözlem"
 }}
 """
 
 
 DATA_HOOK_PROMPT = (
-    "Hook sablon: {sablon}\n"
-    "Bilgiler: ilce={ilce}, sektor={sektor}, rakip_durumu=aktif, aciklama={rakip_aciklama}.\n"
-    "2 cumlede sablonu doldur. Rakam kullan (ornek: '3 rakip ads yapiyor'). "
-    "Sadece hook metnini don, baska aciklama yazma."
+    "Hook şablon: {sablon}\n"
+    "Bilgiler: ilçe={ilce}, sektör={sektor}, rakip_durumu=aktif, açıklama={rakip_aciklama}.\n"
+    "2 cümlede şablonu doldur. Rakam kullan (örnek: '3 rakip ads yapıyor'). "
+    "Sadece hook metnini dön, başka açıklama yazma."
 )
 
 
 GAP_HOOK_PROMPT = (
-    "Hook sablon: {sablon}\n"
-    "Bilgiler: ilce={ilce}, sektor={sektor}, somut_sorun={sorun}.\n"
-    "2 cumlede sablonu doldur. Genel ifadelerden kacin ('zayif goruyor' yasak). "
-    "Sadece hook metnini don."
+    "Hook şablon: {sablon}\n"
+    "Bilgiler: ilçe={ilce}, sektör={sektor}, somut_sorun={sorun}.\n"
+    "2 cümlede şablonu doldur. Genel ifadelerden kaçın ('zayıf görünüyor' yasak). "
+    "Sadece hook metnini dön."
 )
 
 
-OUTREACH_PROMPT = """Sen {display_name} sektorunde is gelistirme uzmanisin.
+OUTREACH_PROMPT = """Sen {display_name} sektöründe iş geliştirme uzmanısın.
+
+ÖNEMLİ: Tüm metin çıktılarında düzgün Türkçe karakterleri kullan (ş, ç, ğ, ü, ö, ı, İ).
 
 KANAL: {kanal}
 TON: {ton}
-KESIN YASAK ACILIS: {giris_yasak}
-TERCIH EDILEN ACILIS: {giris_onerilen}
-HOOK TIPI: {hook_tip}
-LEAD KALITESI: {lead_kalitesi}
+KESİN YASAK AÇILIŞ: {giris_yasak}
+TERCİH EDİLEN AÇILIŞ: {giris_onerilen}
+HOOK TİPİ: {hook_tip}
+LEAD KALİTESİ: {lead_kalitesi}
 URGENCY: {urgency}
 
 LEAD: {isim}
-HOOK CUMLESI: {hook_cumlesi}
-KILLER INSIGHT: {killer_bulgu}  [{killer_rakam}]
+HOOK CÜMLESİ: {hook_cumlesi}
+KİLLER INSIGHT: {killer_bulgu}  [{killer_rakam}]
 EN ACITAN NOKTA: {en_acitan}
-KISISEL GOZLEM: {kisisel_insight}
-ILCE/SEHIR: {adres}
+KİŞİSEL GÖZLEM: {kisisel_insight}
+İLÇE/ŞEHİR: {adres}
 
 KURALLAR:
-- V1=MERAKLI: soru ile baslar, rakam icerir. Maks 6 satir.
-- V2=DOGRUDAN: hook cumlesi ile baslar, 1 veri parcasi. Maks 6 satir.
-- V3=NAZIK: ortak zemin + sorun + teklif. Maks 6 satir.
-- V4=PROOF_BASED: benzer uzman gozleminden baslar
-  ("Son donemde birkac {sektor} sitesine bakarken..." gibi).
-  kisisel_gozlem'i dogal bir sekilde ic.
+- V1=MERAKLI: soru ile başlar, rakam içerir. Maks 6 satır.
+- V2=DOĞRUDAN: hook cümlesi ile başlar, 1 veri parçası. Maks 6 satır.
+- V3=NAZİK: ortak zemin + sorun + teklif. Maks 6 satır.
+- V4=PROOF_BASED: benzer uzman gözleminden başlar
+  ("Son dönemde birkaç {sektor} sitesine bakarken..." gibi).
+  kisisel_gozlem'i doğal bir şekilde iç.
   killer_insight'tan 1 somut bulgu kullan.
-  Behance portfoyunu MUTLAKA ekle: behance.net/tonguc
-  CTA: "Isterseniz 2-3 somut madde paylasayim" veya "Kisa bir mini analiz gondereyim".
-  Maks 5 satir.
-  V4 ICIN EK YASAK: "yardimci olabiliriz", "hizmet sunuyoruz", "cozum uretiyoruz", "ajansimiz".
+  Behance portföyünü MUTLAKA ekle: behance.net/tonguc
+  CTA: "İsterseniz 2-3 somut madde paylaşayım" veya "Kısa bir mini analiz göndereyim".
+  Maks 5 satır.
+  V4 İÇİN EK YASAK: "yardımcı olabiliriz", "hizmet sunuyoruz", "çözüm üretiyoruz", "ajansımız".
 
 ORTAK KURALLAR:
-- Her versiyonda killer insight bir kez gecmeli
-- V1/V2/V3: 15 dk gorusme VEYA somut acik uclu soru ile bitmeli
-- Hicbir versiyon jenerik kaliplarla bitmemeli
+- Her versiyonda killer insight bir kez geçmeli
+- V1/V2/V3: 15 dk görüşme VEYA somut açık uçlu soru ile bitmeli
+- Hiçbir versiyon jenerik kalıplarla bitmemeli
 
-CIKTI:
-ILK KARAKTER `{{`, SON KARAKTER `}}`. Preamble/markdown YASAK.
+ÇIKTI:
+İLK KARAKTER `{{`, SON KARAKTER `}}`. Preamble/markdown YASAK.
 {{"v1": "...", "v2": "...", "v3": "...", "v4": "...", "onerilen": "{varsayilan_onerilen}"}}
 """
 
 
 FOLLOWUP_PROMPT_DAY3 = (
-    "Takip mesaji (3 gun sonrasi). Kanal={kanal}. Ton={ton}.\n"
-    "Onceki mesaj: {onceki}\n"
+    "Takip mesajı (3 gün sonrası). Kanal={kanal}. Ton={ton}.\n"
+    "Önceki mesaj: {onceki}\n"
     "Lead: {isim}.\n"
-    "Kurallar: farkli bir aciyi vurgula, 1 ek veri/rakam ekle, "
-    "acik uclu bir soru ile bitir. Maks 4 satir. Sadece mesaj metnini don."
+    "Kurallar: farklı bir acıyı vurgula, 1 ek veri/rakam ekle, "
+    "açık uçlu bir soru ile bitir. Maks 4 satır. Sadece mesaj metnini dön."
 )
 
 FOLLOWUP_PROMPT_LAST = (
-    "Son takip mesaji. Kanal={kanal}. Ton={ton}.\n"
-    "Onceki mesaj: {onceki}\n"
+    "Son takip mesajı. Kanal={kanal}. Ton={ton}.\n"
+    "Önceki mesaj: {onceki}\n"
     "Lead: {isim}.\n"
-    "Kurallar: kibar cikis + 'dosyayi kapatayim mi?' tarzi soru. "
-    "Baski yok. Maks 3 satir. Sadece mesaj metnini don."
+    "Kurallar: kibar çıkış + 'dosyayı kapatayım mı?' tarzı soru. "
+    "Baskı yok. Maks 3 satır. Sadece mesaj metnini dön."
 )
 
 

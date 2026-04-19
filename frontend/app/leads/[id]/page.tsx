@@ -6,6 +6,8 @@ import { formatDateTime } from "@/lib/utils";
 import { LeadActions } from "./lead-actions";
 import { SalesOutputCard } from "./sales-output-card";
 import { OutreachCard } from "./outreach-card";
+import { LocationMap } from "./location-map";
+import { SimilarLeads } from "./similar-leads";
 import type { Audit, Lead, OutreachMessage, Proposal } from "@/types";
 import Link from "next/link";
 
@@ -31,6 +33,13 @@ export default async function LeadDetailPage({ params }: Props) {
     get<OutreachMessage>(`/api/leads/${id}/outreach`),
     get<Proposal>(`/api/leads/${id}/proposal`),
   ]);
+
+  // Similar leads — same sector + city, sorted by score
+  const similarLeads = lead
+    ? await get<{ items: Lead[] }>(
+        `/api/leads?sector=${encodeURIComponent(lead.sector ?? "")}&city=${encodeURIComponent(lead.city ?? "")}&limit=10`
+      ).then((r) => r?.items ?? [])
+    : [];
 
   if (!lead) {
     return (
@@ -85,7 +94,8 @@ export default async function LeadDetailPage({ params }: Props) {
           </CardContent>
         </Card>
 
-        {/* Lead info */}
+        {/* Lead info + map side by side */}
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Card>
           <CardHeader><CardTitle>Bilgiler</CardTitle></CardHeader>
           <CardContent>
@@ -113,6 +123,10 @@ export default async function LeadDetailPage({ params }: Props) {
             </dl>
           </CardContent>
         </Card>
+
+        {/* Map */}
+        <LocationMap address={lead.address} name={lead.name} />
+        </div>
 
         {/* Audit */}
         {audit && (
@@ -262,6 +276,10 @@ export default async function LeadDetailPage({ params }: Props) {
             </CardContent>
           </Card>
         )}
+
+        {/* Similar leads */}
+        <SimilarLeads leads={similarLeads} currentId={id} />
+
       </div>
     </div>
   );

@@ -35,45 +35,54 @@ _SEKTOR_DIL: dict[str, dict[str, str]] = {
     "restoran":      {"service": "müşteri",  "call": "rezervasyon",           "unit": "masa"},
 }
 
-_PROMPT = """Teknik audit ciktisini IKI FARKLI satis mesajina cevir.
+_PROMPT = """Teknik audit çıktısını İKİ FARKLI satış mesajına çevir.
 
-SHORT MESSAGE KURALLARI (EN KRITIK):
-- Tam olarak 4 cumle. Fazlasi yasak.
-- 400-500 karakter arasi
-- YAPI: kisisel giris (isim/bolge) → spesifik gozlem (audit'ten) → musteri kaybi etkisi → dusuk surtuenmeli CTA
-- KESINLIKLE KULLANMA: SEO, UX, meta, H1, PageSpeed, teknik terim, "optimizasyon", "gorunurluk artirma"
-- KULLAN: "musteri sizi bulamadan gidiyor", "sizi arayan kisi", "karar rakibe kayiyor", "talep size gelmeden baska yere gidiyor"
+ÖNEMLİ: Tüm metin çıktılarında düzgün Türkçe karakterleri kullan (ş, ç, ğ, ü, ö, ı, İ, Ş, Ç, Ğ, Ü, Ö).
+
+SHORT MESSAGE KURALLARI (EN KRİTİK):
+- Tam olarak 4 cümle. Fazlası yasak.
+- 350-480 karakter arası
+- TON: Tanıdık ama profesyonel — "size bir şey dikkatimi çekti" edasında. Soğuk satışçı değil, fark eden biri.
+- YAPI:
+  1. Doğal giriş: "[İsim], [şehir/bölge]'deki [sektör]lere bakarken sizi de gördüm."
+     VEYA "[İsim], kısa bir gözlem paylaşmak istedim."
+  2. TEK somut bulgu (killer insight'tan al, sadece birini seç)
+  3. Bunun müşteriye ne kaybettirdiği (rakam varsa ekle, ama liste yapma)
+  4. Düşük baskılı CTA: "Yarın mı uygun olur?" / "5 dakikalık bir görüşme ayarlayabilir miyiz?" / "İlginizi çektiyse bir bakalım."
+- KESİNLİKLE KULLANMA: SEO, UX, meta, H1, PageSpeed, teknik terim, "optimizasyon", "görünürlük artırma"
+- KULLANMA: isim + problemler listesi (örn. "Siteniz yok, SSL yok, H1 yok" — bu tarz yasak)
+- KULLAN: "müşteri sizi bulamadan gidiyor", "sizi arayan kişi", "karar rakibe kayıyor"
 
 FULL MESSAGE KURALLARI:
-- 8-12 satir, sadece \\n ile ayr
-- Baslik KULLANMA, emoji max 3 adet
-- YAPI: giris → talep blogu → "3 kritik nokta:" listesi (mutlaka 3 madde - ile) → icgoru → cozum cercevesi (3 madde - ile) → CTA
-- Teknik kelime yok, her cumle farkli olmali
-- Ornek akis:
-  "[isim] icin biraz daha detayli baktim.\\n\\n[bolge/sektor talep aciklamasi]\\n\\n3 kritik nokta:\\n- ...\\n- ...\\n- ...\\n\\n[icgoru cumle]\\n\\nBu genelde birkas net degisiklikle toparlanabiliyor:\\n- ...\\n- ...\\n- ...\\n\\n[CTA]"
+- 8-12 satır, sadece \\n ile ayır
+- Başlık KULLANMA, emoji max 3 adet
+- YAPI: giriş → talep bloğu → "3 kritik nokta:" listesi (mutlaka 3 madde - ile) → içgörü → çözüm çerçevesi (3 madde - ile) → CTA
+- Teknik kelime yok, her cümle farklı olmalı
+- Örnek akış:
+  "[isim] için biraz daha detaylı baktım.\\n\\n[bölge/sektör talep açıklaması]\\n\\n3 kritik nokta:\\n- ...\\n- ...\\n- ...\\n\\n[içgörü cümle]\\n\\nBu genelde birkaç net değişiklikle toparlanabiliyor:\\n- ...\\n- ...\\n- ...\\n\\n[CTA]"
 
-SEKTORE OZGU DIL ({sektor}): {sektor_dil}
+SEKTÖRE ÖZGÜ DİL ({sektor}): {sektor_dil}
 
-LEAD: {isim} | {adres} | Sektor: {sektor}
+LEAD: {isim} | {adres} | Sektör: {sektor}
 
-AUDIT OZETI:
+AUDİT ÖZETİ:
 Killer bulgu: {killer_bulgu} [{killer_rakam}]
-En acitan nokta: {en_acitan}
-Kisisel gozlem: {kisisel_insight}
-UX sorunlari: {ux_hatalar}
-Donusum engelleri: {donusum_engelleri}
+En acıtan nokta: {en_acitan}
+Kişisel gözlem: {kisisel_insight}
+UX sorunları: {ux_hatalar}
+Dönüşüm engelleri: {donusum_engelleri}
 Lead kalitesi: {lead_kalitesi} | Urgency: {urgency}
 
-DONUSTURMELER:
-"Form yok" → "musteri sizi aramadan cikabiliyor"
-"Hiz dusuk" → "site yavas acilinca musteri gitmis oluyor"
-"Tel link yok" → "sizi aramak isteyen bir tiklama fazla yapmak zorunda"
-"Yorumlar yok" → "Maps'teki guven sitede kayboluyor"
+DÖNÜŞÜRMELER:
+"Form yok" → "müşteri sizi aramadan çıkabiliyor"
+"Hız düşük" → "site yavaş açılınca müşteri gitmiş oluyor"
+"Tel link yok" → "sizi aramak isteyen bir tıklama fazla yapmak zorunda"
+"Yorumlar yok" → "Maps'teki güven sitede kayboluyor"
 
-CIKTI: Sadece valid JSON. Preamble yok, markdown yok, kod blogu yok. Ilk karakter {{ olmali.
+ÇIKTI: Sadece valid JSON. Preamble yok, markdown yok, kod bloğu yok. İlk karakter {{ olmalı.
 {{
-  "short_message": "4 cumle. Tek blok. Hic baslik/format yok. Direkt gonderilebilir.",
-  "full_message": "Cok satirli metin. Sadece \\n satirlari. Hic baslik yok.",
+  "short_message": "4 cümle. Tek blok. Hiç başlık/format yok. Direkt gönderilebilir.",
+  "full_message": "Çok satırlı metin. Sadece \\n satırları. Hiç başlık yok.",
   "meta": {{"sector": "{sektor}", "tone": "direkt"}}
 }}"""
 
