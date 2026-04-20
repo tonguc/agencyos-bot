@@ -333,7 +333,7 @@ export function VoiceAssistant() {
     active ? "Hazır" : "Asistan";
 
   return (
-    <div className="fixed bottom-6 right-6 md:bottom-8 md:right-8 z-50 flex flex-col items-end gap-3 pb-16 md:pb-0">
+    <div className="fixed top-4 right-4 md:top-6 md:right-6 z-50 flex flex-col items-end gap-3">
 
       {/* OpenAI not configured warning */}
       {openaiReady === false && (
@@ -373,19 +373,24 @@ export function VoiceAssistant() {
 
       {/* Orb button */}
       <button type="button" onClick={handleMicClick}
-        className="relative flex items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-full transition-all duration-300 group"
+        className="relative flex items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-full transition-all duration-300 hover:scale-105"
         style={{
           background: active
             ? `radial-gradient(circle, ${micColor}40 0%, ${micColor}15 50%, #0a0f1e 100%)`
-            : "radial-gradient(circle, #1c2742 0%, #0a0f1e 70%)",
+            : `radial-gradient(circle, #38bdf820 0%, #1c2742 70%)`,
           boxShadow: active
             ? `0 0 24px ${micColor}55, 0 0 48px ${micColor}25, inset 0 0 16px ${micColor}20`
-            : "0 4px 12px rgba(0,0,0,0.4)",
-          border: `1px solid ${active ? micColor : "#1c2742"}`,
+            : `0 0 16px #38bdf830, 0 4px 12px rgba(0,0,0,0.4)`,
+          border: `1px solid ${active ? micColor : "#38bdf866"}`,
         }}
         title={active ? "Sohbeti sonlandır" : "Sohbeti başlat"}
         aria-label={active ? "Sohbeti sonlandır" : "Sohbeti başlat"}
       >
+        {/* Breathing pulse when idle (attention-grabber) */}
+        {!active && (
+          <span className="absolute inset-0 rounded-full animate-pulse" style={{ background: "#38bdf815" }} />
+        )}
+
         {/* Pulse ring when listening/speaking */}
         {(status === "listening" || status === "speaking") && (
           <span className="absolute inset-0 rounded-full animate-ping" style={{ background: `${micColor}30` }} />
@@ -393,10 +398,10 @@ export function VoiceAssistant() {
 
         {/* Icon */}
         <span className="relative z-10">
-          {status === "speaking" ? <Volume2 className="h-5 w-5 md:h-6 md:w-6" style={{ color: micColor }} /> :
+          {status === "speaking" ? <Volume2 className="h-5 w-5 md:h-6 md:w-6" style={{ color: active ? micColor : "#38bdf8" }} /> :
            status === "thinking"  ? <Zap className="h-5 w-5 md:h-6 md:w-6 animate-pulse" style={{ color: micColor }} /> :
            status === "listening" ? <MicOff className="h-5 w-5 md:h-6 md:w-6" style={{ color: micColor }} /> :
-           <Mic className="h-5 w-5 md:h-6 md:w-6" style={{ color: micColor }} />}
+           <Mic className="h-5 w-5 md:h-6 md:w-6" style={{ color: active ? micColor : "#38bdf8" }} />}
         </span>
       </button>
     </div>
