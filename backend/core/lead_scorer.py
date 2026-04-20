@@ -1,14 +1,16 @@
 """
-Lead Scorer V2 — 5 katmanlı karar motoru (multiplier-based, minimal double counting).
+Lead Scorer V2 — 6 katmanlı karar motoru (multiplier-based, minimal double counting).
 
 Formül:
-  combined = 0.65 × Opportunity + 0.35 × Intent
-  boosted  = combined × Pattern_Multiplier        (1.00–1.15)
-  final    = min(100, boosted × Fit_Multiplier)   (Fit: 0.85–1.10)
+  opp_final = min(100, Opportunity + TCG_Bonus)
+  combined  = 0.65 × opp_final + 0.35 × Intent
+  boosted   = combined × Pattern_Multiplier        (1.00–1.15)
+  final     = min(100, boosted × Fit_Multiplier)   (Fit: 0.85–1.10)
 
 Katmanlar:
   HARD FILTER        → kurumsal/zincir, telefonsuz, ölü, zaten güçlü
   OPPORTUNITY 0-100  → Maps + Website + SEO + Audit eksikleri (sadece bunlar)
+  TCG BONUS   0-40   → Traffic vs Conversion Gap: trafik var, dönüşüm kırık (opp'a eklenir)
   INTENT      0-100  → Maps aktivite + Sosyal + Dijital yatırım
   FIT_MUL     .85-1.10 → ICP çarpanı (hedef sektör/ilçe/tip, churn riski)
   PATTERN_MUL 1.00-1.15 → sinyal kombinasyonları + sektör spesifik, max %15 boost
@@ -59,6 +61,25 @@ DEFAULT_FEATURE_WEIGHTS = {
     "online_booking_signal": 1.0,
     "ads_signal": 1.0,
     "trust_signal": 1.0,
+}
+
+# TCG sektör ağırlıkları: dönüşüm değeri yüksek sektörlerde gap daha kritik.
+_TCG_SECTOR_WEIGHT: dict[str, float] = {
+    "klinik":            1.2,
+    "kadin_dogum":       1.2,
+    "avukat":            1.2,
+    "guzellik":          1.1,
+    "egitim":            1.1,
+    "restoran":          1.0,
+    "emlak":             1.0,
+    "tadilat":           1.0,
+    "ev_hizmetleri":     0.9,
+    "oto_servis":        0.9,
+    "klima_beyaz_esya":  0.9,
+    "cilingir":          0.9,
+    "tesisat":           0.8,
+    "nakliyat":          0.8,
+    "hali_temizlik":     0.8,
 }
 
 
@@ -406,7 +427,179 @@ def calc_pattern_multiplier(lead: dict, audit: dict, playbook: dict) -> tuple[fl
 
 
 # --------------------------------------------------
-# 6. CONFIDENCE (0.0–1.0) — 40/40/20
+# 6. TCG — Traffic vs Conversion Gap (additive opp bonus)
+# --------------------------------------------------
+
+def calc_tcg_bonus(lead: dict, audit: dict, playbook: dict) -> tuple[int, list[str]]:
+    """
+    Trafik var ama dönüşüm kırık leadleri opportunity skoru üzerinden öne çıkarır.
+
+    Traffic proxy: yorum / IG aktivite / puan — "bu işletmeye insanlar geliyor"
+    Conversion proxy: booking / CTA / WhatsApp / site hızı / güven
+
+    Mevcut katmanlarla örtüşme kasıtlı minimize edildi:
+    - Traffic sinyalleri opportunity'de "eksiklik" ölçer, burada "trafik kanıtı" — farklı boyut.
+    - Conversion sinyalleri Pattern'de çarpan, burada additive — etki mekanizması farklı.
+    - gap_bonus max 20, pattern_bonus max 20 → toplam max 40, min(100) cap'i aşmaz.
+    """
+    explain: list[str] = []
+
+    yorum      = lead.get("yorum_sayisi") or 0
+    puan       = lead.get("puan") or 0
+    rev_30     = lead.get("review_last_30d")
+    post_90    = lead.get("instagram_post_90d") or 0
+    son_yorum  = lead.get("son_yorum_gun")
+    gmb_photos = lead.get("gmb_photo_count")
+    website    = lead.get("website")
+    has_booking = lead.get("has_online_booking")
+    has_cta    = lead.get("has_cta")
+
+    # IG aktif proxy: post_90 ≥ 24 ≈ 8 post/ay
+    ig_monthly_active = post_90 >= 24
+
+    # ── Traffic Proxy (0–100) ─────────────────────────────
+    traffic = 0
+    t_parts: list[str] = []
+
+    if yorum >= 100:
+        traffic += 30
+        t_parts.append(f"+30 yorum ({yorum})")
+    elif yorum >= 50:
+        traffic += 20
+        t_parts.append(f"+20 yorum ({yorum})")
+
+    if rev_30 is not None and rev_30 >= 5:
+        traffic += 15
+        t_parts.append(f"+15 son-30g-yorum ({rev_30})")
+
+    if ig_monthly_active:
+        traffic += 15
+        t_parts.append("+15 IG aktif")
+    elif post_90 == 0 and lead.get("instagram_url"):
+        traffic -= 10
+        t_parts.append("-10 IG pasif")
+
+    if puan >= 4.3:
+        traffic += 10
+        t_parts.append(f"+10 puan ({puan})")
+
+    if gmb_photos is not None and gmb_photos >= 20:
+        traffic += 10
+        t_parts.append(f"+10 fotoğraf ({gmb_photos})")
+
+    if son_yorum is not None and son_yorum >= 90:
+        traffic -= 20
+        t_parts.append(f"-20 son-yorum-eski ({son_yorum}g)")
+
+    traffic = max(0, min(100, traffic))
+
+    # ── Conversion Proxy (0–100) ──────────────────────────
+    conversion = 0
+    c_parts: list[str] = []
+
+    if lead.get("telefon"):
+        conversion += 20
+        c_parts.append("+20 telefon")
+
+    if lead.get("has_whatsapp") is True:
+        conversion += 15
+        c_parts.append("+15 WhatsApp")
+
+    if has_booking is True:
+        conversion += 25
+        c_parts.append("+25 booking")
+    else:
+        conversion -= 15
+        c_parts.append("-15 booking yok")
+
+    if has_cta is True:
+        conversion += 15
+        c_parts.append("+15 CTA")
+    else:
+        conversion -= 10
+        c_parts.append("-10 CTA yok")
+
+    pagespeed = audit.get("pagespeed")
+    if pagespeed is not None:
+        if pagespeed >= 70:
+            conversion += 10
+            c_parts.append(f"+10 hızlı ({pagespeed})")
+        elif pagespeed < 40:
+            conversion -= 10
+            c_parts.append(f"-10 yavaş ({pagespeed})")
+
+    if lead.get("has_trust_signals") is True:
+        conversion += 10
+        c_parts.append("+10 güven sinyali")
+
+    if not website:
+        conversion -= 30
+        c_parts.append("-30 site yok")
+
+    conversion = max(0, min(100, conversion))
+
+    # ── Gap → Bonus ────────────────────────────────────────
+    gap = traffic - conversion
+    if gap >= 40:
+        base_bonus = 15
+    elif gap >= 25:
+        base_bonus = 10
+    elif gap >= 10:
+        base_bonus = 5
+    else:
+        return 0, []  # gap küçük/negatif, TCG katkısı yok
+
+    # ── Sektör ağırlığı ───────────────────────────────────
+    sector = (
+        lead.get("sektor") or lead.get("sector")
+        or playbook.get("sektor") or ""
+    )
+    weight = _TCG_SECTOR_WEIGHT.get(sector, 1.0)
+    gap_bonus = min(20, round(base_bonus * weight))
+
+    explain.append(f"Trafik: {', '.join(t_parts[:3]) or 'zayıf'}")
+    explain.append(f"Conversion: {', '.join(c_parts[:3])}")
+    explain.append(f"→ GAP={gap} → baz +{base_bonus} × {weight:.1f} = +{gap_bonus}")
+
+    # ── TCG Pattern Boost (max 2 aktif, max 20) ────────────
+    # Koşullar mevcut Pattern Multiplier'dan farklı tutuldu (double counting azaltma).
+    pat_bonus = 0
+    active = 0
+    maps_strong = yorum > 50 and puan >= 4.0
+    blog = lead.get("has_blog") or audit.get("has_blog")
+
+    # P1: Maps güçlü + site yok (en güçlü para-kaçırma sinyali)
+    if maps_strong and not website and active < 2:
+        pat_bonus += 15
+        active += 1
+        explain.append("TCG-Pattern: Maps güçlü + site yok → +15")
+
+    # P2: yorum≥50 + booking yok (sektör bağımsız dönüşüm açığı)
+    if yorum >= 50 and has_booking is False and active < 2:
+        pat_bonus += 12
+        active += 1
+        explain.append("TCG-Pattern: yorum≥50 + booking yok → +12")
+
+    # P3: IG aktif + CTA yok (sosyal trafik, yakalama aracı yok)
+    if ig_monthly_active and not has_cta and active < 2:
+        pat_bonus += 10
+        active += 1
+        explain.append("TCG-Pattern: IG aktif + CTA yok → +10")
+
+    # P4: blog var + CTA yok (içerik üretiyorlar, dönüştüremiyorlar)
+    if blog and not has_cta and active < 2 and sector in ("klinik", "avukat", "egitim", "kadin_dogum"):
+        pat_bonus += 8
+        active += 1
+        explain.append(f"TCG-Pattern: blog + CTA yok ({sector}) → +8")
+
+    pat_bonus = min(20, pat_bonus)
+    total = gap_bonus + pat_bonus
+
+    return total, explain
+
+
+# --------------------------------------------------
+# 7. CONFIDENCE (0.0–1.0) — 40/40/20
 # --------------------------------------------------
 
 def calc_confidence(lead: dict, audit: dict) -> float:
@@ -428,7 +621,7 @@ def calc_confidence(lead: dict, audit: dict) -> float:
 
 
 # --------------------------------------------------
-# 7. ÇELİŞKİ DETEKTÖRÜ
+# 8. ÇELİŞKİ DETEKTÖRÜ
 # --------------------------------------------------
 
 def detect_contradictions(lead: dict, audit: dict, opp: int, intent: int) -> list[str]:
@@ -474,7 +667,7 @@ def detect_contradictions(lead: dict, audit: dict, opp: int, intent: int) -> lis
 
 
 # --------------------------------------------------
-# 8. ROUTING
+# 9. ROUTING
 # --------------------------------------------------
 
 def route_decision(
@@ -511,20 +704,26 @@ def route_decision(
 
 
 # --------------------------------------------------
-# 9. FINAL SCORE
+# 10. FINAL SCORE
 # --------------------------------------------------
 
 def calculate_final_score(lead: dict, audit: dict, playbook: dict) -> dict:
     """
-    V2: Pattern çarpan, Fit çarpan, double counting azaltıldı.
+    V2 + TCG: Pattern çarpan, Fit çarpan, TCG additive bonus, double counting azaltıldı.
 
-    final = min(100, (0.65·Opp + 0.35·Intent) × Pattern_Mul × Fit_Mul)
+    opp_final = min(100, Opportunity + TCG_Bonus)
+    final     = min(100, (0.65·opp_final + 0.35·Intent) × Pattern_Mul × Fit_Mul)
     """
     is_blocked, reason = hard_filter(lead, playbook)
     if is_blocked:
         return {"status": "rejected", "reason": reason}
 
-    opp,      opp_signals  = calc_opportunity(lead, audit)
+    opp,       opp_signals  = calc_opportunity(lead, audit)
+    tcg_bonus, tcg_explain  = calc_tcg_bonus(lead, audit, playbook)
+    opp_raw = opp
+    if tcg_bonus:
+        opp = min(100, opp + tcg_bonus)
+
     intent,   int_signals  = calc_intent(lead, audit)
     fit_mul,  fit_signals  = calc_fit_multiplier(lead, playbook)
     pat_mul,  pat_signals  = calc_pattern_multiplier(lead, audit, playbook)
@@ -537,6 +736,8 @@ def calculate_final_score(lead: dict, audit: dict, playbook: dict) -> dict:
     segment, action, reason_sum = route_decision(final, intent, confidence, contradictions)
 
     score_breakdown = list(opp_signals) + list(int_signals) + list(fit_signals) + list(pat_signals)
+    if tcg_explain:
+        score_breakdown += [f"[TCG] {e}" for e in tcg_explain]
 
     return {
         "status":              "ok",
@@ -556,14 +757,19 @@ def calculate_final_score(lead: dict, audit: dict, playbook: dict) -> dict:
         "priority":            SEGMENT_TO_PRIORITY[segment],
         "reason_summary":      reason_sum,
         "decision_reason":     reason_sum,
+        "tcg_bonus":           tcg_bonus,
+        "tcg_explain":         tcg_explain,
         "signals": {
             "opportunity": opp_signals,
             "intent":      int_signals,
             "fit":         fit_signals,
             "pattern":     pat_signals,
+            "tcg":         tcg_explain,
         },
         "score_breakdown": score_breakdown,
         "score_layers": {
+            "opportunity_raw":    opp_raw,
+            "tcg_bonus":          tcg_bonus,
             "opportunity":        opp,
             "intent":             intent,
             "combined":           round(combined, 1),
