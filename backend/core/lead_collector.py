@@ -3,12 +3,35 @@ import re
 import asyncio
 import logging
 from datetime import date
+from urllib.parse import urlparse
 
 import requests
 
 from core.utils import API_SEMAPHORE
 
 logger = logging.getLogger(__name__)
+
+# Domains that are listing/directory/social sites — NOT the business's own website.
+# A URL on these domains means "no own website" = sales opportunity.
+_LISTING_DOMAINS: frozenset[str] = frozenset({
+    # Turkish medical/business directories
+    "doktorsitesi.com", "saglikta.com", "doktortakvimi.com", "hepsidoktor.com",
+    "doktorfizik.com", "hastaneadres.com", "randevu.com", "doktortercihim.com",
+    "doktorumol.com", "drdesc.com",
+    # Turkish general directories / classifieds
+    "sahibinden.com", "yemeksepeti.com", "getir.com", "trendyol.com",
+    "n11.com", "hepsiburada.com", "gittigidiyor.com",
+    # Social media
+    "facebook.com", "instagram.com", "twitter.com", "x.com",
+    "linkedin.com", "youtube.com", "tiktok.com", "pinterest.com",
+    # International directories
+    "yelp.com", "tripadvisor.com", "foursquare.com", "zomato.com",
+    "zocdoc.com", "healthgrades.com", "vitals.com", "ratemds.com",
+    "webmd.com", "practo.com",
+    # Maps / search
+    "google.com", "maps.google.com", "maps.app.goo.gl",
+    "yandex.com", "yandex.com.tr",
+})
 
 APIFY_ACTOR = "compass~crawler-google-places"
 APIFY_RUN_URL = f"https://api.apify.com/v2/acts/{APIFY_ACTOR}/run-sync-get-dataset-items"
@@ -252,8 +275,13 @@ def _filter_relevant(leads: list[dict], sektor: str) -> list[dict]:
 
 def enrich_lead(raw: dict) -> dict:
     website_raw = raw.get("website")
-    if website_raw and "google.com/maps" in website_raw:
-        website_raw = None
+    if website_raw:
+        try:
+            domain = urlparse(website_raw).netloc.lower().lstrip("www.")
+            if any(domain == d or domain.endswith("." + d) for d in _LISTING_DOMAINS):
+                website_raw = None
+        except Exception:
+            website_raw = None
     website = _normalize_url(website_raw)
     telefon = _format_phone(raw.get("phone") or raw.get("phoneNumber") or raw.get("phoneUnformatted"))
 
