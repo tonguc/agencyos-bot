@@ -51,7 +51,7 @@ export function ResultCard({ lead, selected, onSelect, sector, city, district }:
     try {
       const created = await leadsApi.create({
         name: lead.name,
-        sector: sector || "genel",
+        sector: sector || "klinik",
         city: city || "bilinmiyor",
         district: district || "",
         address: lead.address || undefined,

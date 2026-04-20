@@ -13,7 +13,7 @@ from repositories.lead import LeadRepository
 from schemas.audit import AuditOut
 from schemas.common import JobResponse
 from core.sales_output_generator import generate_sales_output
-from core.playbook import load_playbook
+from core.playbook import load_playbook_for_sector
 from services.lead_service import lead_to_core_dict
 
 router = APIRouter(prefix="/leads", tags=["audit"])
@@ -53,7 +53,7 @@ async def refresh_sales_output(lead_id: uuid.UUID, db: AsyncSession = Depends(ge
     if not audit or not audit.result:
         raise HTTPException(404, "Önce audit çalıştırılmalı")
 
-    playbook = load_playbook(lead.sector or "klinik")
+    playbook = load_playbook_for_sector(lead.sector or "klinik")
     lead_dict = lead_to_core_dict(lead)
     audit_result = dict(audit.result)
 

@@ -54,13 +54,23 @@ _DEFAULT_PLAYBOOK: dict[str, str] = {
     "guzellik":      "beauty_routine",
     "egitim":        "education_course",
     "ev_hizmetleri": "ev_hizmetleri_tesisat",
+    "kadin_dogum":   "clinic_general",
+    # Fallback aliases
+    "genel":         "clinic_general",
+    "general":       "clinic_general",
 }
+
+_FALLBACK_PLAYBOOK = "clinic_general"
 
 
 def load_playbook_for_sector(sector: str) -> dict:
     """
     Load a playbook for a top-level sector.
-    Falls back to a default subsector when the sector has no standalone playbook.
+    Falls back to clinic_general for unknown sectors.
     """
-    resolved = _DEFAULT_PLAYBOOK.get(sector, sector)
-    return load_playbook(resolved)
+    resolved = _DEFAULT_PLAYBOOK.get(sector or "", _FALLBACK_PLAYBOOK)
+    try:
+        return load_playbook(resolved)
+    except ValueError:
+        logger.warning("Playbook bulunamadı: %s → fallback: %s", resolved, _FALLBACK_PLAYBOOK)
+        return load_playbook(_FALLBACK_PLAYBOOK)
