@@ -8,8 +8,22 @@ import { SummaryBar } from "./summary-bar";
 import { ResultCard } from "./result-card";
 import { MapView } from "./map-view";
 
-const RECENT_KEY = "agencyos.search.recent";
+const RECENT_KEY  = "agencyos.search.recent";
+const CACHE_KEY   = "agencyos.search.cache";
 const RECENT_LIMIT = 6;
+
+function loadCache(): { query: string; data: SearchResponse } | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function saveCache(query: string, data: SearchResponse) {
+  if (typeof window === "undefined") return;
+  try { window.sessionStorage.setItem(CACHE_KEY, JSON.stringify({ query, data })); } catch {}
+}
 
 function loadRecent(): string[] {
   if (typeof window === "undefined") return [];
@@ -42,6 +56,12 @@ export function SearchClient() {
 
   useEffect(() => {
     setRecent(loadRecent());
+    // Sayfa geri gelindiğinde son arama sonuçlarını geri yükle
+    const cached = loadCache();
+    if (cached) {
+      setQuery(cached.query);
+      setData(cached.data);
+    }
   }, []);
 
   const runSearch = useCallback(async (q: string) => {
@@ -56,6 +76,7 @@ export function SearchClient() {
       const res = await searchApi.run(trimmed, 25);
       if (id !== reqId.current) return;
       setData(res);
+      saveCache(trimmed, res);
       saveRecent(trimmed);
       setRecent(loadRecent());
     } catch (e) {

@@ -96,3 +96,21 @@ class LeadRepository(BaseRepository[Lead]):
             select(Lead.phone, Lead.id).where(Lead.phone.in_(phones))
         )
         return {row[0]: row[1] for row in result.all()}
+
+    async def find_scores_by_phones(self, phones: list[str]) -> dict[str, dict]:
+        """Return {phone: {id, opportunity_score, priority, status}} for phones in DB."""
+        if not phones:
+            return {}
+        result = await self._session.execute(
+            select(Lead.phone, Lead.id, Lead.opportunity_score, Lead.priority, Lead.status)
+            .where(Lead.phone.in_(phones))
+        )
+        return {
+            row[0]: {
+                "id":                str(row[1]),
+                "opportunity_score": row[2],
+                "priority":          row[3],
+                "status":            row[4],
+            }
+            for row in result.all()
+        }
