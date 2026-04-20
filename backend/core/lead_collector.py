@@ -307,6 +307,75 @@ def _serpapi_to_apify(r: dict) -> dict:
     }
 
 
+# SerpAPI engine=google_maps için ll (lat/lng) zorunlu.
+# text `location` sadece IP lokalizasyonu yapar, harita merkezini belirlemez.
+# Format: "@lat,lng,zoomz"  (örn: "@41.0082,28.9784,13z")
+_TR_COORDS: dict[str, str] = {
+    # İstanbul merkez
+    "istanbul":       "@41.0082,28.9784,12z",
+    # İstanbul ilçeleri
+    "adalar":         "@40.8680,29.0818,14z",
+    "arnavutköy":     "@41.1960,28.7427,14z",
+    "ataşehir":       "@40.9827,29.1263,14z",
+    "avcılar":        "@40.9795,28.7231,14z",
+    "bağcılar":       "@41.0355,28.8561,14z",
+    "bahçelievler":   "@40.9987,28.8566,14z",
+    "bakırköy":       "@40.9802,28.8700,14z",
+    "başakşehir":     "@41.0879,28.8004,14z",
+    "bayrampaşa":     "@41.0417,28.9063,14z",
+    "beşiktaş":       "@41.0422,29.0070,14z",
+    "beykoz":         "@41.1322,29.1093,14z",
+    "beylikdüzü":     "@40.9840,28.6372,14z",
+    "beyoğlu":        "@41.0359,28.9773,14z",
+    "büyükçekmece":   "@41.0182,28.5755,14z",
+    "çatalca":        "@41.1436,28.4619,13z",
+    "çekmeköy":       "@41.0344,29.1808,14z",
+    "esenler":        "@41.0468,28.8752,14z",
+    "esenyurt":       "@41.0296,28.6738,14z",
+    "eyüpsultan":     "@41.0614,28.9341,14z",
+    "eyüp":           "@41.0614,28.9341,14z",
+    "fatih":          "@41.0185,28.9394,14z",
+    "gaziosmanpaşa":  "@41.0658,28.9078,14z",
+    "güngören":       "@41.0087,28.8723,14z",
+    "kadıköy":        "@40.9908,29.0291,14z",
+    "kağıthane":      "@41.0848,28.9794,14z",
+    "kartal":         "@40.9109,29.1930,14z",
+    "küçükçekmece":   "@41.0000,28.7833,14z",
+    "maltepe":        "@40.9311,29.1323,14z",
+    "pendik":         "@40.8749,29.2315,14z",
+    "sancaktepe":     "@41.0012,29.2233,14z",
+    "sarıyer":        "@41.1676,29.0514,14z",
+    "silivri":        "@41.0733,28.2483,13z",
+    "sultanbeyli":    "@40.9677,29.2617,14z",
+    "sultangazi":     "@41.1073,28.8703,14z",
+    "şile":           "@41.1803,29.6126,13z",
+    "şişli":          "@41.0640,28.9972,14z",
+    "tuzla":          "@40.8164,29.3076,14z",
+    "ümraniye":       "@41.0197,29.1147,14z",
+    "üsküdar":        "@41.0234,29.0146,14z",
+    "zeytinburnu":    "@40.9943,28.9018,14z",
+    # Diğer büyük şehirler
+    "ankara":         "@39.9334,32.8597,12z",
+    "izmir":          "@38.4237,27.1428,12z",
+    "bursa":          "@40.1825,29.0663,12z",
+    "antalya":        "@36.8969,30.7133,12z",
+    "adana":          "@37.0000,35.3213,12z",
+    "konya":          "@37.8714,32.4846,12z",
+    "gaziantep":      "@37.0662,37.3833,12z",
+    "mersin":         "@36.8121,34.6415,12z",
+    "kayseri":        "@38.7312,35.4787,12z",
+    "eskişehir":      "@39.7767,30.5206,12z",
+}
+
+
+def _get_ll(ilce: str, sehir: str) -> str:
+    """İlçe veya şehir adından SerpAPI Maps ll parametresi döner."""
+    for name in (ilce.lower(), sehir.lower()):
+        if name in _TR_COORDS:
+            return _TR_COORDS[name]
+    return _TR_COORDS["istanbul"]  # varsayılan
+
+
 async def _run_serpapi_maps(
     search_term: str,
     sehir: str,
@@ -314,7 +383,7 @@ async def _run_serpapi_maps(
     limit: int,
     sektor_for_filter: str | None,
 ) -> list[dict]:
-    """SerpAPI Google Maps fallback — used when APIFY_API_TOKEN is absent."""
+    """SerpAPI Google Maps — engine=google_maps, ll parametresiyle konum belirtilir."""
     from config import settings  # local import to avoid circular
 
     key = settings.SERPAPI_API_KEY
@@ -322,14 +391,17 @@ async def _run_serpapi_maps(
         logger.error("SERPAPI_API_KEY tanımlı değil — arama yapılamıyor")
         return []
 
-    location_parts = [p for p in [ilce, sehir, "Turkey"] if p]
-    location = ", ".join(location_parts)
-    logger.info("SerpAPI Maps taraması: q='%s' location='%s' limit=%d", search_term, location, limit)
+    ll = _get_ll(ilce, sehir)
+    # Konumu query'e de ekle: "diş hekimi Kadıköy İstanbul" daha güvenilir sonuç verir
+    location_suffix = " ".join(p for p in [ilce, sehir] if p)
+    q = f"{search_term} {location_suffix}".strip()
+    logger.info("SerpAPI Maps: q='%s' ll='%s' limit=%d", q, ll, limit)
 
     params = {
         "engine":   "google_maps",
-        "q":        search_term,
-        "location": location,
+        "q":        q,
+        "ll":       ll,
+        "type":     "search",
         "hl":       "tr",
         "gl":       "tr",
         "api_key":  key,
