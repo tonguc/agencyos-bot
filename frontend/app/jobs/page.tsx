@@ -129,6 +129,9 @@ export default function OpportunitiesPage() {
     try {
       await jobsApi.delete(id);
       setJobs((prev) => prev?.filter((j) => j.id !== id) ?? null);
+      // Reload lead stats — backend cascade-deleted the associated leads
+      const leadsData = await leadsApi.list({ limit: 500 });
+      setStats(computeStats(leadsData.items));
     } finally {
       setDeleting(null);
     }

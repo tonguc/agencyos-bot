@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import AsyncSessionFactory, get_db
 from repositories.job import JobRepository
+from repositories.lead import LeadRepository
 from schemas.job import JobOut
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
@@ -39,6 +40,12 @@ async def delete_job(job_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     job = await JobRepository(db).get(job_id)
     if not job:
         raise HTTPException(404, "Job bulunamadi")
+    # Cascade-delete leads for collect_leads jobs
+    if job.type == "collect_leads" and job.payload:
+        sector = job.payload.get("sector")
+        city = job.payload.get("city")
+        if sector and city:
+            await LeadRepository(db).delete_by_sector_city(sector, city)
     await JobRepository(db).delete(job)
     await db.commit()
 

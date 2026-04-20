@@ -1,4 +1,4 @@
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 
 from models.lead import Lead
 from repositories.base import BaseRepository
@@ -96,6 +96,12 @@ class LeadRepository(BaseRepository[Lead]):
             select(Lead.phone, Lead.id).where(Lead.phone.in_(phones))
         )
         return {row[0]: row[1] for row in result.all()}
+
+    async def delete_by_sector_city(self, sector: str, city: str) -> int:
+        result = await self._session.execute(
+            delete(Lead).where(Lead.sector == sector, Lead.city == city)
+        )
+        return result.rowcount
 
     async def find_scores_by_phones(self, phones: list[str]) -> dict[str, dict]:
         """Return {phone: {id, opportunity_score, priority, status}} for phones in DB."""
