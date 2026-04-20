@@ -99,6 +99,8 @@ KRITIK: BU LEAD'IN WEB SITESI YOK
   teknik eksikler degil, "siteniz olmadigi icin musteri ne goruyor / ne hissediyor"
   perspektifinden yaz.
 """
+
+DATA_HOOK_PROMPT = (
     "Hook sablon: {sablon}\n"
     "Bilgiler: ilce={ilce}, sektor={sektor}, rakip_durumu=aktif, aciklama={rakip_aciklama}.\n"
     "2 cumlede sablonu doldur. Rakam kullan (ornek: '3 rakip ads yapiyor'). "
@@ -186,6 +188,9 @@ def build_audit_prompt(lead: dict, playbook: dict, site: dict) -> str:
             "===========================\nLEAD VERISI",
             extra_rule + "\n===========================\nLEAD VERISI",
         )
+    # Site yoksa SSL/title/meta/H1 alanlarını prompt'tan gizle —
+    # bu değerlerin False/boş gitmesi Claude'u yanlış yönlendiriyor.
+    na = "(site yok — geçersiz)"
     return base.format(
         display_name=playbook["display_name"],
         yasak_kelimeler=dil.get("yasak", []),
@@ -195,13 +200,13 @@ def build_audit_prompt(lead: dict, playbook: dict, site: dict) -> str:
         yorum_sayisi=lead.get("yorum_sayisi", 0),
         puan=lead.get("puan", 0),
         url=url,
-        hiz_skoru=site.get("hiz_skoru", 0),
-        form_var=site.get("form_var", False),
+        hiz_skoru=na if site_yok else site.get("hiz_skoru", 0),
+        form_var=na if site_yok else site.get("form_var", False),
         tel_var=site.get("tel_var", False),
-        ssl=site.get("ssl", False),
-        title=(site.get("title") or "")[:120],
-        meta=(site.get("meta") or "")[:200],
-        h1=(site.get("h1") or "")[:120],
+        ssl=na if site_yok else site.get("ssl", False),
+        title=na if site_yok else (site.get("title") or "")[:120],
+        meta=na if site_yok else (site.get("meta") or "")[:200],
+        h1=na if site_yok else (site.get("h1") or "")[:120],
     )
 
 
