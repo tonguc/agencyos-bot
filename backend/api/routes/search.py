@@ -33,16 +33,23 @@ async def _enrich_lead_ids(results: list[dict], db: AsyncSession) -> None:
 
     Always called — even on cache hits — so stale lead_id values from
     deleted leads never cause 404s on the detail page.
+    Phone is the primary key; name is the fallback for phoneless leads.
     """
+    repo = LeadRepository(db)
+
     phones = [r["phone"] for r in results if r.get("phone")]
-    if not phones:
-        for r in results:
-            r.setdefault("lead_id", None)
-        return
-    db_scores = await LeadRepository(db).find_scores_by_phones(phones)
+    db_by_phone = await repo.find_scores_by_phones(phones) if phones else {}
+
+    # Collect names for leads that have no phone or weren't matched by phone
+    unmatched_names = [
+        r["name"] for r in results
+        if r.get("name") and not db_by_phone.get(r.get("phone") or "")
+    ]
+    db_by_name = await repo.find_scores_by_names(unmatched_names) if unmatched_names else {}
+
     for r in results:
         phone    = r.get("phone") or ""
-        db_entry = db_scores.get(phone)
+        db_entry = db_by_phone.get(phone) or db_by_name.get((r.get("name") or "").lower())
         if not db_entry:
             r["lead_id"] = None
             continue

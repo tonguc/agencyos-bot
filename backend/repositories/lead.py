@@ -134,3 +134,23 @@ class LeadRepository(BaseRepository[Lead]):
             }
             for row in result.all()
         }
+
+    async def find_scores_by_names(self, names: list[str]) -> dict[str, dict]:
+        """Fallback for phoneless leads: return {lower(name): {...}} for name matches in DB."""
+        if not names:
+            return {}
+        from sqlalchemy import func as sqlfunc
+        lower_names = [n.lower() for n in names]
+        result = await self._session.execute(
+            select(Lead.name, Lead.id, Lead.opportunity_score, Lead.priority, Lead.status)
+            .where(sqlfunc.lower(Lead.name).in_(lower_names))
+        )
+        return {
+            row[0].lower(): {
+                "id":                str(row[1]),
+                "opportunity_score": row[2],
+                "priority":          row[3],
+                "status":            row[4],
+            }
+            for row in result.all()
+        }
