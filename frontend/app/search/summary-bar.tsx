@@ -29,20 +29,24 @@ export function SummaryBar({ summary, active, onToggle }: Props) {
         const c = SEGMENT_COLORS[seg];
         const isActive = active === seg;
         const count = summary[seg];
+        const isEmpty = count === 0;
         return (
           <button
             key={seg}
             type="button"
+            disabled={isEmpty}
             onClick={() => onToggle(isActive ? null : seg)}
             className={`font-mono text-[9px] tracking-[0.2em] uppercase px-3 py-1.5 border rounded-sm inline-flex items-center gap-2 transition-all ${
-              isActive
+              isEmpty
+                ? "text-dim/50 border-stroke/50 cursor-not-allowed opacity-40"
+                : isActive
                 ? `${c.text} ${c.border} bg-panel-high`
                 : "text-muted border-stroke hover:border-stroke-2 hover:text-bright"
             }`}
           >
             <span
-              className={`h-1.5 w-1.5 rounded-full ${c.dot}`}
-              style={isActive ? { boxShadow: `0 0 5px ${c.color}` } : undefined}
+              className={`h-1.5 w-1.5 rounded-full ${c.dot} ${isEmpty ? "opacity-40" : ""}`}
+              style={isActive && !isEmpty ? { boxShadow: `0 0 5px ${c.color}` } : undefined}
             />
             {SEGMENT_LABELS[seg]} · {count}
           </button>
