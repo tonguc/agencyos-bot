@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import {
   Stethoscope, Scale, Home, Sparkles, GraduationCap, Wrench, Baby, Utensils,
 } from "lucide-react";
@@ -180,6 +181,7 @@ function SearchableDropdown({
 }
 
 export default function ScrapePage() {
+  const router = useRouter();
   const [sector, setSector] = useState("");
   const [city, setCity] = useState("");
   const [district, setDistrict] = useState("");
@@ -340,9 +342,18 @@ export default function ScrapePage() {
         </form>
 
         {result && (
-          <div className="mt-4 max-w-4xl border border-ok/40 bg-ok/5 p-3 font-mono text-[13px] text-ok">
-            İş kuyruğa alındı. Job ID:{" "}
-            <span className="font-bold">{result.job_id.slice(0, 8)}</span>
+          <div className="mt-4 max-w-4xl border border-ok/40 bg-ok/5 px-4 py-3 flex items-center justify-between gap-4">
+            <div>
+              <p className="font-mono text-[13px] text-ok font-semibold">Tarama başlatıldı</p>
+              <p className="font-mono text-[12px] text-ok/70 mt-0.5">Lead'ler arka planda toplanıyor. Fırsatlar sayfasından takip edebilirsin.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => router.push("/jobs")}
+              className="font-mono text-[11px] uppercase tracking-wider px-4 py-1.5 border border-ok/50 text-ok hover:bg-ok/10 transition-all whitespace-nowrap shrink-0"
+            >
+              Fırsatlara Git →
+            </button>
           </div>
         )}
         {error && (
