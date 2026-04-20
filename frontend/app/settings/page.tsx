@@ -45,11 +45,11 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children }: { title: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="border border-stroke bg-panel">
-      <div className="px-5 py-3 border-b border-stroke">
-        <p className="font-mono text-[11px] text-dim tracking-[0.25em] uppercase">{title}</p>
+      <div className="px-5 py-3 border-b border-stroke flex items-center">
+        <p className="font-mono text-[11px] text-dim tracking-[0.25em] uppercase flex-1">{title}</p>
       </div>
       <div className="px-5">{children}</div>
     </div>
@@ -61,21 +61,21 @@ export default function SettingsPage() {
   const [usage,   setUsage]   = useState<UsageData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const [sr, ur] = await Promise.all([
-          fetch(`${BASE}/api/settings`,       { headers: hdrs }),
-          fetch(`${BASE}/api/settings/usage`, { headers: hdrs }),
-        ]);
-        if (sr.ok) setS(await sr.json());
-        if (ur.ok) setUsage(await ur.json());
-      } finally {
-        setLoading(false);
-      }
+  async function load() {
+    setLoading(true);
+    try {
+      const [sr, ur] = await Promise.all([
+        fetch(`${BASE}/api/settings`,       { headers: hdrs }),
+        fetch(`${BASE}/api/settings/usage`, { headers: hdrs }),
+      ]);
+      if (sr.ok) setS(await sr.json());
+      if (ur.ok) setUsage(await ur.json());
+    } finally {
+      setLoading(false);
     }
-    load();
-  }, []);
+  }
+
+  useEffect(() => { load(); }, []);
 
   const services: ServiceUsage[] = usage ? [usage.claude, usage.openai, usage.apify] : [];
 
@@ -96,7 +96,19 @@ export default function SettingsPage() {
         )}
 
         {/* API Usage */}
-        <Section title="API Kullanımı">
+        <Section title={
+          <span className="flex items-center justify-between w-full">
+            <span>API Kullanımı</span>
+            <button
+              type="button"
+              onClick={load}
+              disabled={loading}
+              className="font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 border border-stroke text-dim hover:border-accent hover:text-accent disabled:opacity-40 transition-all"
+            >
+              {loading ? "…" : "↻"}
+            </button>
+          </span>
+        }>
           {loading ? (
             <p className="font-mono text-[12px] text-dim py-4">Kontrol ediliyor…</p>
           ) : services.length === 0 ? (

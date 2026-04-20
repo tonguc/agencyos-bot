@@ -105,7 +105,6 @@ async def _check_openai() -> ServiceUsage:
                                 detail=f"Kalan: ${remaining:.2f} / ${total:.2f}",
                                 dashboard_url="https://platform.openai.com/usage")
         # Newer billing system — just verify key works
-        r2 = await httpx.AsyncClient(timeout=8).__aenter__()
         async with httpx.AsyncClient(timeout=8) as client:
             r2 = await client.get("https://api.openai.com/v1/models",
                                   headers={"Authorization": f"Bearer {key}"})
