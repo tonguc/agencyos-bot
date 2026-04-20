@@ -121,13 +121,15 @@ export function VoiceAssistant() {
     if (!recog) return;
     recogRef.current = recog;
 
+    let gotResult = false;
     recog.onresult = (e: SpeechRecognitionEvent) => {
+      gotResult = true;
       const text = e.results[0]?.[0]?.transcript?.trim();
       if (text) handleAnswer(text);
     };
     recog.onerror = () => setStatus("idle");
     recog.onend = () => {
-      if (status === "listening") setStatus("idle");
+      if (!gotResult) setStatus("idle");
     };
 
     setStatus("listening");
