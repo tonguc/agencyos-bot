@@ -178,6 +178,18 @@ def calc_opportunity(lead: dict, audit: dict, playbook: dict) -> tuple[int, list
     elif site_durumu == "iyi":
         add(-5, "Site iyi")
 
+    # ── SEO / SERP görünürlüğü ───────────────────────
+    if lead.get("in_organic_top10") is False and website:
+        add(15, "Organik aramada görünmüyor")
+    elif lead.get("in_organic_top10") is True:
+        add(-8, "Organik aramada görünüyor")
+
+    if lead.get("has_ai_overview") is True:
+        if lead.get("in_ai_overview") is False:
+            add(12, "AI Overview var ama listede değil")
+        else:
+            add(-5, "AI Overview'da görünüyor")
+
     # ── Audit verileri ───────────────────────────────
     # audit.get(..., default) None değeri gelince default'u vermez —
     # bu yüzden explicit None kontrolü. (hiz_skoru None gelebilir: site fetch fail,
