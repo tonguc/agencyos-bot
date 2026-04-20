@@ -1,12 +1,8 @@
 import Link from "next/link";
-import { formatDate } from "@/lib/utils";
+import { formatDate, scoreColorClass } from "@/lib/utils";
 import type { Lead } from "@/types";
 
-function scoreStyle(v: number) {
-  if (v >= 70) return "text-hot";
-  if (v >= 40) return "text-warm";
-  return "text-dim";
-}
+const scoreStyle = scoreColorClass;
 
 interface Props {
   leads: Lead[];

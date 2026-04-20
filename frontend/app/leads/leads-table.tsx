@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { leadsApi, auditApi } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { formatDate } from "@/lib/utils";
+import { formatDate, scoreColorClass } from "@/lib/utils";
 import type { Lead } from "@/types";
 
 const SECTOR_LABELS: Record<string, string> = {
@@ -59,11 +59,7 @@ function sortLeads(leads: Lead[], key: SortKey): Lead[] {
   });
 }
 
-function scoreStyle(v: number) {
-  if (v >= 65) return "text-hot";
-  if (v >= 45) return "text-warm";
-  return "text-dim";
-}
+const scoreStyle = scoreColorClass;
 
 export function LeadsTable() {
   const router = useRouter();

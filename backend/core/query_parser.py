@@ -205,9 +205,10 @@ _SECTOR_KEYWORDS: list[tuple[re.Pattern, str, str | None]] = [
      "cilingir", None),
 
     # Tadilat
-    (re.compile(r"\b(tadilat|boya\s+badana|boyac[ıi]|dekorasyon|alç[ıi]\s+usta|"
-                r"fayans\s+usta|iç\s+mimar|yenileme)", re.I | re.U),
-     "tadilat", None),
+    (re.compile(r"\b(tadilat|boya\s+badana|badana|boyac[ıi]|boya\s+usta|"
+                r"dekorasyon|alç[ıi]\s+usta|fayans\s+usta|iç\s+mimar|yenileme|"
+                r"parke\s+usta|mermer\s+usta|mutfak\s+yenile|banyo\s+yenile)",
+                re.I | re.U), "tadilat", None),
 
     # Nakliyat
     (re.compile(r"\b(nakliyat|evden\s+eve|ta[sş][ıi]mac[ıi]|ta[sş][ıi]ma\s+[sş]irket|"

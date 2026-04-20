@@ -4,17 +4,14 @@ import { useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { leadsApi } from "@/lib/api";
+import { SCORE_HOT, scoreHex } from "@/lib/utils";
 import type { Lead } from "@/types";
 
 interface Props {
   initial: Lead[];
 }
 
-function scoreColor(score: number) {
-  if (score >= 75) return "#ff3b4a";
-  if (score >= 55) return "#ffb648";
-  return "#7a8aa8";
-}
+const scoreColor = scoreHex;
 
 export function HotLeads({ initial }: Props) {
   const [leads, setLeads] = useState<Lead[]>(initial);
@@ -62,7 +59,7 @@ export function HotLeads({ initial }: Props) {
                       >
                         {score || "—"}
                       </span>
-                      {score >= 75 && (
+                      {score >= SCORE_HOT && (
                         <span
                           className="absolute inset-0 border"
                           style={{

@@ -36,14 +36,19 @@ _CRM_TO_SEARCH_SEGMENT = {
 
 
 def _segment_from_score(score: int | None) -> str:
-    """Unscored veya rejected leadler icin threshold tabanli fallback."""
+    """Unscored veya rejected leadler icin threshold tabanli fallback.
+
+    score=None → "review": sektor eslesmedi veya scoring atlandi →
+    "Elendi" degil, "On Skor" (henuz degerlendirilmedi). Thresholds
+    scorer'in route_decision'i ile hizali: HOT>=80, WARM>=60.
+    """
     if score is None:
-        return "low"
-    if score >= 70:
+        return "review"
+    if score >= 80:
         return "hot"
-    if score >= 50:
+    if score >= 60:
         return "warm"
-    if score >= 30:
+    if score >= 40:
         return "ok"
     return "low"
 
@@ -51,12 +56,17 @@ def _segment_from_score(score: int | None) -> str:
 def _normalize_lead(lead: dict, score_info: dict | None) -> dict:
     score = int(score_info["final_score"]) if score_info and score_info.get("status") == "ok" else None
 
-    # Scorer zaten karar verdiyse (HOT/WARM/LOW/REVIEW) onu kullan —
-    # REVIEW sadece burada dogru yansitilir. Scorelanmamis leadlerde threshold fallback.
+    # Segment kararı üç kaynaktan gelir, şu öncelikle:
+    #   1. Scorer'in verdiği karar (HOT/WARM/LOW/REVIEW)
+    #   2. Hard-filter reddi (status=rejected) → "low" (gercek Elendi)
+    #   3. Hic scorelanmamis (score_info=None, ornek: sektor eslesmedi) → "review"
     crm_seg = score_info.get("segment") if score_info and score_info.get("status") == "ok" else None
     segment = _CRM_TO_SEARCH_SEGMENT.get(crm_seg) if crm_seg else None
     if segment is None:
-        segment = _segment_from_score(score)
+        if score_info and score_info.get("status") == "rejected":
+            segment = "low"   # gercek hard-filter reddi
+        else:
+            segment = _segment_from_score(score)  # unscored → "review"
 
     reason = (
         score_info.get("reason_summary") or score_info.get("reason")

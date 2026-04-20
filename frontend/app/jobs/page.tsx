@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/header";
-import { formatDateTime } from "@/lib/utils";
+import { formatDateTime, SCORE_HOT, SCORE_WARM } from "@/lib/utils";
 import { jobsApi, leadsApi } from "@/lib/api";
 import type { Job, Lead } from "@/types";
 
@@ -26,9 +26,9 @@ const SECTOR_LABELS: Record<string, string> = {
 
 function getPriority(avg: number | undefined) {
   if (avg === undefined) return { label: "—", cls: "text-dim border-dim/40" };
-  if (avg >= 65) return { label: "Yüksek", cls: "text-hot border-hot/50 bg-hot/5" };
-  if (avg >= 45) return { label: "Orta",   cls: "text-warm border-warm/50 bg-warm/5" };
-  return               { label: "Düşük",   cls: "text-dim border-dim/40" };
+  if (avg >= SCORE_HOT)  return { label: "Yüksek", cls: "text-hot border-hot/50 bg-hot/5" };
+  if (avg >= SCORE_WARM) return { label: "Orta",   cls: "text-warm border-warm/50 bg-warm/5" };
+  return                        { label: "Düşük",  cls: "text-dim border-dim/40" };
 }
 
 function getNextAction(saved: number, avg: number | undefined, status: string): string {
@@ -36,8 +36,8 @@ function getNextAction(saved: number, avg: number | undefined, status: string): 
   if (status === "failed")  return "Hata oluştu";
   if (saved === 0)          return "Lead bulunamadı";
   if (avg === undefined)    return "Lead'leri incele";
-  if (avg >= 65)            return "Mesaj yaz";
-  if (avg >= 45)            return "Audit başlat";
+  if (avg >= SCORE_HOT)     return "Mesaj yaz";
+  if (avg >= SCORE_WARM)    return "Audit başlat";
   return "Gözden geçir";
 }
 
@@ -46,8 +46,8 @@ interface LeadStats { hot: number; warm: number; yeni: number; auditHazir: numbe
 function computeStats(leads: Lead[]): LeadStats {
   const active = leads.filter((l) => !["Kapandi", "Arsiv"].includes(l.status));
   return {
-    hot:        active.filter((l) => (l.opportunity_score ?? 0) >= 70).length,
-    warm:       active.filter((l) => { const s = l.opportunity_score ?? 0; return s >= 45 && s < 70; }).length,
+    hot:        active.filter((l) => (l.opportunity_score ?? 0) >= SCORE_HOT).length,
+    warm:       active.filter((l) => { const s = l.opportunity_score ?? 0; return s >= SCORE_WARM && s < SCORE_HOT; }).length,
     yeni:       leads.filter((l) => l.status === "Yeni").length,
     auditHazir: leads.filter((l) => l.status === "Audit").length,
   };
