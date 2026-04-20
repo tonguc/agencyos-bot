@@ -39,6 +39,32 @@ async def list_leads(
 async def create_lead(body: LeadCreate, db: AsyncSession = Depends(get_db)):
     repo = LeadRepository(db)
     lead = await repo.create(**body.model_dump())
+
+    # Lead kaydedilirken hemen skor hesapla (audit yoksa temel sinyal).
+    # Hata olursa lead kaydı engellenmez.
+    if body.sector:
+        try:
+            from core.lead_scorer import calculate_final_score
+            from core.playbook import load_playbook_for_sector
+            lead_dict = {
+                "isim":         body.name,
+                "adres":        body.address or "",
+                "yorum_sayisi": body.review_count or 0,
+                "puan":         body.google_rating or 0,
+                "website":      body.website,
+                "telefon":      body.phone,
+                "site_durumu":  None if not body.website else "zayif",
+            }
+            playbook = load_playbook_for_sector(body.sector)
+            score = calculate_final_score(lead_dict, {}, playbook)
+            if score["status"] == "ok":
+                await repo.update(lead,
+                    opportunity_score=int(score["final_score"]),
+                    priority=score["priority"],
+                )
+        except Exception:
+            pass
+
     return lead
 
 
