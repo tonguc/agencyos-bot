@@ -1,75 +1,54 @@
 """
-Lead Scorer — 5 katmanlı karar motoru.
-
-  Hard Filter          → elenenler (kurumsal, ölü, telefonsuz)
-  Opportunity  (0-100) → "Biz bu işletme için ne kadar fark yaratabiliriz?"
-  Buyer Intent (0-100) → "Bu işletme şu an satın alma modunda mı?"
-  Fit Multiplier (0.81–1.00) → "Bu lead ICP bandımızda mı?" — additive değil,
-                                 final skora uygulanan kalifikasyon çarpanı
-  Pattern Boost  (0-20) → birden fazla sinyalin birlikte tetiklediği bonus
+Lead Scorer V2 — 5 katmanlı karar motoru (multiplier-based, minimal double counting).
 
 Formül:
-  combined = 0.65·opportunity + 0.35·intent
-  final    = min(100, combined × fit_multiplier + pattern_boost)
+  combined = 0.65 × Opportunity + 0.35 × Intent
+  boosted  = combined × Pattern_Multiplier        (1.00–1.15)
+  final    = min(100, boosted × Fit_Multiplier)   (Fit: 0.85–1.10)
 
-Routing (score'dan bağımsız, lead'e özgü):
-  REVIEW → zombie risk, düşük confidence, çoklu çelişki
-  HOT    → final≥80, confidence≥0.60, çelişki yok  → generate_full_audit
-  WARM   → final≥60 VEYA skor iyi ama confidence/çelişki var → generate_light_audit
-  LOW    → final<60 → archive_only
+Katmanlar:
+  HARD FILTER        → kurumsal/zincir, telefonsuz, ölü, zaten güçlü
+  OPPORTUNITY 0-100  → Maps + Website + SEO + Audit eksikleri (sadece bunlar)
+  INTENT      0-100  → Maps aktivite + Sosyal + Dijital yatırım
+  FIT_MUL     .85-1.10 → ICP çarpanı (hedef sektör/ilçe/tip, churn riski)
+  PATTERN_MUL 1.00-1.15 → sinyal kombinasyonları + sektör spesifik, max %15 boost
 
-lead["score_breakdown"] → sıralı string listesi ("+20 Website yok", ...)
-lead["score_layers"]    → debugger için katmanlı dict
-lead["data_confidence"] → veri bütünlüğü puanı (0.0–1.0)
-lead["contradictions"]  → çelişkili sinyal uyarıları listesi
-lead["action"]          → generate_full_audit | generate_light_audit |
-                           manual_review | archive_only
-
-Sinyal sahipliği (double-count yoktur):
-  opportunity → website, yorum<10 veya >100, puan, audit, GMB, conversion gaps,
-                site eski (>180g), ads pressure, sektöre özgü conversion
-  intent      → son_yorum, review velocity, IG/YT/LI aktivitesi,
-                site güncel (<60g), rakip reklam, sektöre özgü aktivite
-  fit_mul     → yorum 10-100 (ICP boyut), oncelikli_ilce, sektor_fit
-  pattern     → sinyal kombinasyon bonus'ları (IG aktif + booking yok vb.)
+Routing:
+  REVIEW  → confidence<0.50 | zombie risk | ≥2 çelişki+orta conf
+  HOT     → final≥80 + conf≥0.60 + intent≥45 + çelişki yok
+  WARM    → final≥60, veya final≥80 ama conf/çelişki sınırda
+  LOW     → final<60
 """
 
+from __future__ import annotations
+
 import logging
-import re
 from typing import Tuple
 
 logger = logging.getLogger(__name__)
 
-CHANNEL_FIELDS = [
-    "instagram_post_90d", "instagram_last_post_days",
-    "youtube_video_180d", "youtube_last_video_days",
-    "linkedin_url", "linkedin_active_30d", "linkedin_followers",
-    "market_ads_pressure", "competitor_ads_count", "self_ads_visible",
-    "gmb_photo_count", "gmb_last_photo_days", "gmb_has_description", "gmb_has_qa",
-    "has_cta", "has_whatsapp", "has_online_booking",
-    "has_blog", "last_blog_days",
-    "has_service_pages", "has_faq", "has_about_depth",
-    # Clinic aesthetic signals
-    "has_before_after", "has_visual_gallery",
-    # Clinic trust signals
-    "has_doctor_profile",
-    # Lawyer signals
-    "has_legal_articles", "has_practice_areas", "has_case_examples",
-    "has_contact_clear", "has_linkedin_profile",
-    # Real estate signals
-    "has_property_listings", "listing_count", "has_price_info",
-    "has_photos_quality", "has_video_tour", "has_location_info", "has_call_button",
-    # Beauty signals
-    "has_visual_quality", "has_service_list", "has_instagram_link",
-    # Education signals
-    "has_course_details", "has_curriculum", "has_success_stories",
-    "has_testimonials", "has_free_content", "has_video_content",
-    "has_clear_pricing", "has_cta_clear",
-    # Review velocity
-    "review_last_30d", "review_last_90d",
-    # Update detection
-    "last_website_update_days", "website_update_confidence",
+
+# --------------------------------------------------
+# CONSTANTS
+# --------------------------------------------------
+
+# Bilinen zincir/kurumsal markalar (Türkiye). Hard filter listesi.
+CHAIN_BRANDS = [
+    "hastane", "devlet hastane", "eğitim ve araştırma",
+    "acibadem", "acıbadem", "medipol", "memorial", "medical park",
+    "medicana", "liv hospital", "florence nightingale",
+    "amerikan hastanesi", "yeditepe hastane", "echomar", "kent hospital",
+    "medstar", "özel hospital", "dünyagöz", "anadolu sağlık",
+    "maltepe üniversitesi", "üniversite hastane", "universite hastane",
+    "group", "holding",
 ]
+
+SEGMENT_TO_PRIORITY = {
+    "HOT":    "yuksek",
+    "WARM":   "orta",
+    "LOW":    "dusuk",
+    "REVIEW": "orta",
+}
 
 DEFAULT_FEATURE_WEIGHTS = {
     "blog_signal": 1.0,
@@ -82,65 +61,49 @@ DEFAULT_FEATURE_WEIGHTS = {
     "trust_signal": 1.0,
 }
 
-SEGMENT_TO_PRIORITY = {
-    "HOT":    "yuksek",
-    "WARM":   "orta",
-    "LOW":    "dusuk",
-    "REVIEW": "orta",   # CRM'de WARM önceliği, UI'da özel göster
-}
-
-
-def _fw(playbook: dict) -> dict:
-    """Playbook'tan feature_weights oku, eksikleri default ile doldur."""
-    w = DEFAULT_FEATURE_WEIGHTS.copy()
-    w.update(playbook.get("feature_weights", {}))
-    return {k: float(v) for k, v in w.items()}
-
 
 # --------------------------------------------------
 # 1. HARD FILTER
 # --------------------------------------------------
 
 def hard_filter(lead: dict, playbook: dict) -> Tuple[bool, str]:
-    """
-    Return:
-    (True, reason) → ELENDİ
-    (False, "")    → DEVAM
-    """
+    """Direkt ELENDİ. (True, reason) | (False, '')"""
     isim = (lead.get("isim") or "").lower()
-    yorum = lead.get("yorum_sayisi") or 0
+
+    for brand in CHAIN_BRANDS:
+        if brand in isim:
+            return True, f"kurumsal / zincir ({brand})"
+
     telefon = lead.get("telefon")
-    son_yorum = lead.get("son_yorum_gun")
-
-    if any(x in isim for x in ["hastane", "devlet", "group", "merkez"]):
-        return True, "kurumsal / zincir"
-
-    puan = lead.get("puan") or 0
-    website = lead.get("website")
-    site_durumu = lead.get("site_durumu", "zayif")
-    # Sadece sitesi de iyi olan ve çok yorumlu leadler gerçekten "zaten güçlü"
-    if yorum > 400 and puan > 4.7 and website and site_durumu == "iyi":
-        return True, "zaten güçlü"
-
     if not telefon:
         return True, "telefon yok"
 
+    son_yorum = lead.get("son_yorum_gun")
     if son_yorum is not None and son_yorum > 365:
         return True, "ölü profil"
+
+    yorum = lead.get("yorum_sayisi") or 0
+    puan = lead.get("puan") or 0
+    website = lead.get("website")
+    site_durumu = lead.get("site_durumu", "zayif")
+    if yorum > 400 and puan > 4.7 and website and site_durumu == "iyi":
+        return True, "zaten güçlü"
 
     return False, ""
 
 
 # --------------------------------------------------
-# 2. OPPORTUNITY SCORE (0–100)
+# 2. OPPORTUNITY (0–100, baz: 40)
 # --------------------------------------------------
 
-def calc_opportunity(lead: dict, audit: dict, playbook: dict) -> tuple[int, list[str]]:
-    """Returns (score, signals). Each signal entry: 'Label → +N'."""
+def calc_opportunity(lead: dict, audit: dict) -> tuple[int, list[str]]:
+    """
+    Sadece Maps + Website + SEO + Audit eksikliklerini ölçer.
+    Conversion (CTA/WhatsApp/booking), sosyal, reklam sinyalleri burada YOK —
+    onlar Intent veya Pattern'e aittir.
+    """
     score = 40
     signals: list[str] = []
-    fw = _fw(playbook)
-    sub = lead.get("clinic_subsector")
 
     def add(delta: int, label: str) -> None:
         nonlocal score
@@ -148,277 +111,82 @@ def calc_opportunity(lead: dict, audit: dict, playbook: dict) -> tuple[int, list
         if delta != 0:
             signals.append(f"{label} → {'+' if delta > 0 else ''}{delta}")
 
-    # ── Google Maps / Temel veriler ──────────────────
+    # A. Maps / Profil sağlığı
     yorum = lead.get("yorum_sayisi") or 0
     puan = lead.get("puan") or 0
-    website = lead.get("website")
-    site_durumu = lead.get("site_durumu")
 
-    # yorum sinyal tablosu (fit_multiplier ile örtüşmez — farklı semantik):
-    #   <10   → büyük gap (az yorum = fırsatımız var)   [opportunity]
-    #   10-30 → orta gap (hâlâ büyüme alanı var)        [opportunity, zayıf]
-    #   10-100→ ICP boyut bandı uygun                   [fit_multiplier]
-    #   >100  → gap küçüyor (kalabalık profil)           [opportunity]
     if yorum < 10:
         add(15, f"Yorum az ({yorum})")
-    elif yorum < 30:
-        add(5, f"Yorum az-orta ({yorum})")
+    elif yorum <= 30:
+        add(8, f"Yorum az-orta ({yorum})")
     elif yorum > 100:
         add(-8, f"Yorum çok ({yorum})")
 
-    if 3.8 <= puan <= 4.1:
+    if 3.8 <= puan <= 4.2:
         add(10, f"Puan orta ({puan})")
-    elif puan < 3.8:
-        add(5, f"Puan düşük ({puan})")
+    elif 0 < puan < 3.8:
+        add(6, f"Puan düşük ({puan})")
     elif puan > 4.6:
         add(-10, f"Puan yüksek ({puan})")
 
+    # B. Website gücü
+    website = lead.get("website")
+    site_durumu = lead.get("site_durumu")
     if not website:
         add(20, "Website yok")
     elif site_durumu == "zayif":
-        add(10, "Site zayıf")
+        add(12, "Site zayıf")
+    elif site_durumu == "orta":
+        add(4, "Site orta")
     elif site_durumu == "iyi":
-        add(-5, "Site iyi")
+        add(-6, "Site iyi")
 
-    # ── SEO / SERP görünürlüğü ───────────────────────
-    if lead.get("in_organic_top10") is False and website:
-        add(15, "Organik aramada görünmüyor")
-    elif lead.get("in_organic_top10") is True:
-        add(-8, "Organik aramada görünüyor")
+    # C. SEO / SERP görünürlüğü
+    if website:
+        if lead.get("in_organic_top10") is False:
+            add(15, "Organik aramada görünmüyor")
+        elif lead.get("in_organic_top10") is True:
+            add(-8, "Organik aramada görünüyor")
 
     if lead.get("has_ai_overview") is True:
         if lead.get("in_ai_overview") is False:
-            add(12, "AI Overview var ama listede değil")
+            add(10, "AI Overview var, listede değil")
         else:
             add(-5, "AI Overview'da görünüyor")
 
-    # ── Audit verileri ───────────────────────────────
-    # audit.get(..., default) None değeri gelince default'u vermez —
-    # bu yüzden explicit None kontrolü. (hiz_skoru None gelebilir: site fetch fail,
-    # genel_skor LLM'den null dönebilir.)
+    # D. Audit
     audit_skor = audit.get("genel_skor")
-    if audit_skor is None:
-        audit_skor = 50
+    if audit_skor is not None:
+        if audit_skor < 35:
+            add(12, f"Audit çok zayıf ({audit_skor})")
+        elif audit_skor <= 55:
+            add(6, f"Audit zayıf ({audit_skor})")
+        elif audit_skor > 75:
+            add(-8, f"Audit güçlü ({audit_skor})")
+
     pagespeed = audit.get("pagespeed")
-    if pagespeed is None:
-        pagespeed = 60
-    ssl = audit.get("ssl", True)
+    if pagespeed is not None:
+        if pagespeed < 40:
+            add(8, f"PageSpeed çok yavaş ({pagespeed})")
+        elif pagespeed <= 60:
+            add(4, f"PageSpeed yavaş ({pagespeed})")
+        elif pagespeed > 85:
+            add(-4, f"PageSpeed hızlı ({pagespeed})")
 
-    if audit_skor < 35:
-        add(15, f"Audit çok zayıf ({audit_skor})")
-    elif audit_skor < 55:
-        add(8, f"Audit zayıf ({audit_skor})")
-    elif audit_skor > 75:
-        add(-10, f"Audit güçlü ({audit_skor})")
-
-    if pagespeed < 40:
-        add(10, f"PageSpeed çok yavaş ({pagespeed})")
-    elif pagespeed < 60:
-        add(5, f"PageSpeed yavaş ({pagespeed})")
-    elif pagespeed > 85:
-        add(-5, f"PageSpeed hızlı ({pagespeed})")
-
-    if not ssl:
-        add(8, "SSL yok")
-
-    # ── Google Ads pressure ──────────────────────────
-    ads_w = fw["ads_signal"]
-    ads_pressure = lead.get("market_ads_pressure")
-    competitor_ads_count = lead.get("competitor_ads_count")
-    self_ads_visible = lead.get("self_ads_visible")
-
-    if ads_w > 0:
-        if ads_pressure is True:
-            add(round(4 * ads_w), "Ads pressure var")
-        if competitor_ads_count is not None:
-            if competitor_ads_count >= 3:
-                add(round(4 * ads_w), f"Rakip reklam: {competitor_ads_count}")
-            elif competitor_ads_count >= 1:
-                add(round(2 * ads_w), f"Rakip reklam: {competitor_ads_count}")
-        if ads_pressure is True and self_ads_visible is False:
-            add(round(4 * ads_w), "Rakip var, self yok → açık")
-        elif self_ads_visible is True:
-            add(-3, "Self ads görünüyor")
-
-    # ── GMB derinliği ────────────────────────────────
-    photo_count = lead.get("gmb_photo_count")
-    last_photo = lead.get("gmb_last_photo_days")
-
-    if photo_count is not None:
-        if photo_count < 5:
-            add(6, f"GMB fotoğraf az ({photo_count})")
-        elif photo_count < 15:
-            add(3, f"GMB fotoğraf orta ({photo_count})")
-    if last_photo is not None and last_photo > 90:
-        add(4, f"GMB son fotoğraf eski ({last_photo}g)")
-    if lead.get("gmb_has_description") is False:
-        add(4, "GMB açıklama yok")
-    if lead.get("gmb_has_qa") is False:
-        add(3, "GMB Q&A yok")
-
-    # ── Website conversion gap (sadece website varsa) ─
-    if website:
-        if lead.get("has_cta") is False:
-            add(8, "CTA yok")
-        if lead.get("has_whatsapp") is False:
-            add(5, "WhatsApp yok")
-
-        booking_w = fw["online_booking_signal"]
-        if booking_w > 0 and lead.get("has_online_booking") is False:
-            add(round(10 * booking_w), "Online booking yok")
-
-        blog_w = fw["blog_signal"]
-        if blog_w > 0:
-            if lead.get("has_blog") is False:
-                add(round(6 * blog_w), "Blog yok")
-            elif lead.get("last_blog_days") is not None and lead["last_blog_days"] > 120:
-                add(round(8 * blog_w), f"Blog eski ({lead['last_blog_days']}g)")
-
-        cd_w = fw["content_depth_signal"]
-        if cd_w > 0:
-            if lead.get("has_service_pages") is False:
-                add(round(5 * cd_w), "Servis sayfası yok")
-            if lead.get("has_faq") is False:
-                add(round(3 * cd_w), "SSS yok")
-            if lead.get("has_about_depth") is False:
-                add(round(4 * cd_w), "Hakkında derinliği yok")
-
-    # ── Website güncellik ────────────────────────────
-    update_days = lead.get("last_website_update_days")
-    update_conf = lead.get("website_update_confidence") or 0.0
-    if update_days is not None and update_conf >= 0.3 and update_days > 180:
-        add(4, f"Site eski ({update_days}g, conf={update_conf:.1f})")
-
-    # ── Clinic subsector sinyalleri ──────────────────
-    if sub == "aesthetic":
-        # Görsel içerik eksikliği estetik hastası için deal-breaker
-        if lead.get("has_before_after") is False:
-            add(10, "Before/after yok (estetik)")
-        if lead.get("has_visual_gallery") is False:
-            add(5, "Görsel galeri yok (estetik)")
-
-    elif sub == "trust":
-        # Otorite içeriği eksikliği güven kırıcı
-        trust_w = fw.get("trust_signal", 1.0)
-        if trust_w > 0 and lead.get("has_doctor_profile") is False:
-            add(round(8 * trust_w), "Doktor profili yok (güven)")
-
-    # "general" için mevcut GMB + pagespeed sinyalleri yeterli
-
-    # ── Lawyer subsector sinyalleri ──────────────────
-    sub_sector = lead.get("sub_sector")
-
-    if sub_sector == "litigation":
-        if lead.get("has_legal_articles") is False:
-            add(8, "Hukuki içerik yok (dava)")
-        if lead.get("has_practice_areas") is False:
-            add(6, "Uzmanlık alanları yok (dava)")
-        if lead.get("has_case_examples") is False:
-            add(6, "Dava örnekleri yok (dava)")
-        if lead.get("has_contact_clear") is False:
-            add(6, "İletişim belirsiz (dava)")
-
-    elif sub_sector == "corporate":
-        if lead.get("has_linkedin_profile") is False:
-            add(8, "LinkedIn profil yok (kurumsal)")
-        if lead.get("has_practice_areas") is False:
-            add(6, "Uzmanlık alanları yok (kurumsal)")
-        if lead.get("has_contact_clear") is False:
-            add(6, "İletişim belirsiz (kurumsal)")
-
-    # ── Real estate subsector sinyalleri ─────────────
-    elif sub_sector == "luxury":
-        if lead.get("has_video_tour") is False:
-            add(8, "Video tur yok (lüks emlak)")
-        if lead.get("has_photos_quality") is False:
-            add(8, "Profesyonel fotoğraf yok (lüks emlak)")
-        if lead.get("has_property_listings") is False:
-            add(10, "Online ilan yok (lüks emlak)")
-        if lead.get("has_price_info") is False:
-            add(6, "Fiyat bilgisi yok (lüks emlak)")
-
-    elif sub_sector == "local":
-        if lead.get("has_property_listings") is False:
-            add(10, "Online ilan yok (yerel emlak)")
-        # listing_count: sadece ilanlar var ama az ise (0 ise zaten üstte +10 aldı)
-        listing_count = lead.get("listing_count")
-        if listing_count is not None and 0 < listing_count < 5:
-            add(6, f"İlan az ({listing_count} adet)")
-        if lead.get("has_location_info") is False:
-            add(5, "Bölge bilgisi yok (yerel emlak)")
-        # has_call_button: has_whatsapp'tan bağımsız yeni sinyal
-        if lead.get("has_call_button") is False:
-            add(5, "Arama butonu yok (yerel emlak)")
-
-    # ── Beauty subsector sinyalleri ──────────────────
-    elif sub_sector == "aesthetic":
-        # Öncesi/sonrası: klinikte de kullanılan sinyal, güzellik için de geçerli
-        if lead.get("has_before_after") is False:
-            add(10, "Before/after yok (estetik güzellik)")
-        if lead.get("has_visual_quality") is False:
-            add(8, "Görsel kalite düşük (estetik güzellik)")
-        if lead.get("has_price_info") is False:
-            add(6, "Fiyat bilgisi yok (estetik güzellik)")
-        # has_online_booking generic bloğu zaten hallediyor (online_booking_signal:1.0)
-
-    elif sub_sector == "routine":
-        if lead.get("has_service_list") is False:
-            add(6, "Hizmet listesi yok (rutin güzellik)")
-        if lead.get("has_price_info") is False:
-            add(5, "Fiyat bilgisi yok (rutin güzellik)")
-        # has_whatsapp generic conversion bloğunda zaten +5 veriyor — tekrar etme
-
-    # ── Ev hizmetleri subsector sinyalleri ──────────────
-    elif sub_sector in ("tesisat", "elektrik"):
-        if lead.get("has_call_button") is False:
-            add(10, f"Arama butonu yok ({sub_sector})")
-        if lead.get("has_location_info") is False:
-            add(5, f"Hizmet bölgesi belirsiz ({sub_sector})")
-
-    elif sub_sector == "tadilat":
-        if lead.get("has_before_after") is False:
-            add(10, "Öncesi-sonrası fotoğraf yok (tadilat)")
-        if lead.get("has_visual_gallery") is False:
-            add(6, "Proje galerisi yok (tadilat)")
-        if lead.get("has_cta_clear") is False:
-            add(6, "Keşif CTA'sı yok (tadilat)")
-
-    # ── Education subsector sinyalleri ───────────────
-    elif sub_sector == "course":
-        if lead.get("has_course_details") is False:
-            add(8, "Kurs detay sayfası yok (kurs)")
-        if lead.get("has_curriculum") is False:
-            add(8, "Müfredat yok (kurs)")
-        if lead.get("has_success_stories") is False:
-            add(6, "Başarı hikayesi yok (kurs)")
-        if lead.get("has_clear_pricing") is False:
-            add(6, "Net fiyat yok (kurs)")
-        if lead.get("has_cta_clear") is False:
-            add(6, "CTA belirsiz (kurs)")
-
-    elif sub_sector == "coaching":
-        if lead.get("has_testimonials") is False:
-            add(8, "Müşteri yorumu yok (koçluk)")
-        if lead.get("has_video_content") is False:
-            add(6, "Video içerik yok (koçluk)")
-        if lead.get("has_free_content") is False:
-            add(6, "Ücretsiz içerik yok (koçluk)")
-        if lead.get("has_cta_clear") is False:
-            add(6, "CTA belirsiz (koçluk)")
+    if audit.get("ssl") is False:
+        add(6, "SSL yok")
 
     return max(0, min(score, 100)), signals
 
 
 # --------------------------------------------------
-# 3. BUYER INTENT SCORE (0–100)
+# 3. INTENT (0–100, baz: 50)
 # --------------------------------------------------
 
-def calc_buyer_intent(lead: dict, audit: dict, playbook: dict) -> tuple[int, list[str]]:
-    """Returns (score, signals)."""
+def calc_intent(lead: dict, audit: dict) -> tuple[int, list[str]]:
+    """Aktivite + satın alma sinyalleri. Opp ile çakışmaz."""
     score = 50
     signals: list[str] = []
-    fw = _fw(playbook)
-    sub = lead.get("clinic_subsector")
 
     def add(delta: int, label: str) -> None:
         nonlocal score
@@ -426,7 +194,7 @@ def calc_buyer_intent(lead: dict, audit: dict, playbook: dict) -> tuple[int, lis
         if delta != 0:
             signals.append(f"{label} → {'+' if delta > 0 else ''}{delta}")
 
-    # ── Google Maps aktivitesi ───────────────────────
+    # A. Google Maps aktivitesi
     son_yorum = lead.get("son_yorum_gun")
     if son_yorum is not None:
         if son_yorum < 30:
@@ -436,214 +204,120 @@ def calc_buyer_intent(lead: dict, audit: dict, playbook: dict) -> tuple[int, lis
         elif son_yorum > 180:
             add(-15, f"Son yorum eski ({son_yorum}g)")
 
-    # ── Rakip reklam sinyali (audit) ─────────────────
-    rakip = audit.get("reklam_firsati", {}).get("rakip_durum", "")
-    if rakip == "aktif":
-        add(10, "Rakip reklam aktif")
-
-    # ── Instagram ────────────────────────────────────
-    ig_w = fw["instagram_signal"]
-    post_90 = lead.get("instagram_post_90d")
-    last_post_days = lead.get("instagram_last_post_days")
-
-    if ig_w > 0 and post_90 is not None:
-        if post_90 == 0:
-            add(round(-6 * ig_w), f"Instagram 90g post: {post_90}")
-        elif post_90 <= 3:
-            add(round(-2 * ig_w), f"Instagram 90g post: {post_90}")
-        elif post_90 <= 10:
-            add(round(4 * ig_w), f"Instagram 90g post: {post_90}")
-        else:
-            add(round(6 * ig_w), f"Instagram 90g post: {post_90}")
-
-    if ig_w > 0 and last_post_days is not None:
-        if last_post_days < 14:
-            add(round(4 * ig_w), f"Instagram son post: {last_post_days}g")
-        elif last_post_days < 60:
-            add(round(2 * ig_w), f"Instagram son post: {last_post_days}g")
-        elif last_post_days > 60:
-            add(round(-4 * ig_w), f"Instagram son post: {last_post_days}g")
-
-    # ── YouTube ──────────────────────────────────────
-    yt_w = fw["youtube_signal"]
-    yt_180 = lead.get("youtube_video_180d")
-    yt_last_days = lead.get("youtube_last_video_days")
-
-    if yt_w > 0 and yt_180 is not None:
-        if yt_180 == 0:
-            pass  # yoksa ceza yok
-        elif yt_180 <= 2:
-            add(round(1 * yt_w), f"YouTube 180g video: {yt_180}")
-        elif yt_180 <= 6:
-            add(round(3 * yt_w), f"YouTube 180g video: {yt_180}")
-        else:
-            add(round(4 * yt_w), f"YouTube 180g video: {yt_180}")
-
-    if yt_w > 0 and yt_last_days is not None:
-        if yt_last_days < 30:
-            add(round(2 * yt_w), f"YouTube son video: {yt_last_days}g")
-        elif yt_last_days < 90:
-            add(round(1 * yt_w), f"YouTube son video: {yt_last_days}g")
-
-    # ── LinkedIn ─────────────────────────────────────
-    li_w = fw["linkedin_signal"]
-    if li_w > 0:
-        if lead.get("linkedin_active_30d") is True:
-            add(round(10 * li_w), "LinkedIn aktif (30g)")
-        elif lead.get("linkedin_url"):
-            add(round(2 * li_w), "LinkedIn profil var")
-
-    # ── Review velocity ──────────────────────────────
     rev_30 = lead.get("review_last_30d")
-    rev_90 = lead.get("review_last_90d")
-
     if rev_30 is not None:
         if rev_30 >= 5:
             add(12, f"Son 30g yorum: {rev_30}")
         elif rev_30 >= 2:
             add(6, f"Son 30g yorum: {rev_30}")
+
+    rev_90 = lead.get("review_last_90d")
     if rev_90 is not None and rev_90 >= 10:
         add(8, f"Son 90g yorum: {rev_90}")
 
-    # ── Website yatırım sinyali (intent) ────────────────
-    # SADECE <60 koşulu burada. Opportunity'de >180 koşulu var — örtüşmez.
-    # "Son 60 günde güncelledi" → dijital yatırım yapıyor → satın alma ihtimali yüksek.
+    # B. Sosyal aktivite
+    post_90 = lead.get("instagram_post_90d")
+    if post_90 is not None:
+        if post_90 == 0:
+            add(-6, "IG 90g post: 0")
+        elif post_90 <= 3:
+            add(-2, f"IG 90g post: {post_90}")
+        elif post_90 <= 10:
+            add(4, f"IG 90g post: {post_90}")
+        else:
+            add(6, f"IG 90g post: {post_90}")
+
+    last_post = lead.get("instagram_last_post_days")
+    if last_post is not None:
+        if last_post < 14:
+            add(4, f"IG son post: {last_post}g")
+        elif last_post < 60:
+            add(2, f"IG son post: {last_post}g")
+        elif last_post > 60:
+            add(-4, f"IG son post: {last_post}g")
+
+    if lead.get("linkedin_active_30d") is True:
+        add(8, "LinkedIn aktif (30g)")
+
+    yt_180 = lead.get("youtube_video_180d")
+    if yt_180 is not None:
+        if 3 <= yt_180 <= 6:
+            add(3, f"YouTube 180g video: {yt_180}")
+        elif yt_180 > 6:
+            add(4, f"YouTube 180g video: {yt_180}")
+
+    # C. Dijital yatırım
     update_days = lead.get("last_website_update_days")
     update_conf = lead.get("website_update_confidence") or 0.0
-    if update_days is not None and update_conf >= 0.4:
-        if update_days < 60:
-            add(8, f"Site yatırımı yapılmış ({update_days}g)")
+    if update_days is not None and update_conf >= 0.4 and update_days < 60:
+        add(8, f"Site son 60g güncel ({update_days}g)")
 
-    # ── Clinic subsector intent sinyalleri ───────────
-    if sub == "aesthetic":
-        # Estetik hasta Instagram'dan karar veriyor — düşük aktiflik = düşük intent
-        ig_followers = lead.get("instagram_followers")
-        if ig_followers is not None and ig_followers < 500:
-            add(-5, f"Instagram takipçi az ({ig_followers}, estetik)")
+    if lead.get("market_ads_pressure") is True:
+        add(4, "Sektörde reklam baskısı")
 
-    elif sub == "trust":
-        # Güven segmenti için son yorum puanı extra kritik
-        puan = lead.get("puan") or 0
-        if 3.0 <= puan < 3.8:
-            add(8, f"Puan kritik aralık ({puan}, güven segmenti)")
-
-    # ── Lawyer subsector intent sinyalleri ───────────
-    sub_sector = lead.get("sub_sector")
-    if sub_sector in ("litigation", "corporate"):
-        li_w = fw["linkedin_signal"]
-        # has_linkedin_profile boolean flag (avukat için ek kontrol)
-        if lead.get("has_linkedin_profile") is True and not lead.get("linkedin_url"):
-            add(round(4 * li_w), "LinkedIn profil var (avukat)")
-        elif lead.get("has_linkedin_profile") is False and not lead.get("linkedin_url"):
-            add(round(-4 * li_w), "LinkedIn yok (avukat)")
-        # Review velocity extra boost for lawyers (danışman güveni için kritik)
-        if rev_30 is not None and 3 <= rev_30 < 5:
-            add(2, f"Avukat yorum hız bonusu ({rev_30}/30g)")
-
-    # ── Real estate subsector intent sinyalleri ──────
-    # Instagram sinyali feature_weights ile generic bloğa zaten giriyor.
-    # Burada sadece emlak'a özgü EK sinyaller: aktif ilan varlığı ve iletişim.
-    if sub_sector in ("luxury", "local"):
-        if lead.get("has_property_listings") is True:
-            add(5, "Online ilan mevcut")
-
-    # ── Beauty subsector intent sinyalleri ───────────
-    # instagram_post_90d ve review_last_30d generic scorer'da zaten var.
-    # Burada sadece güzelliğe özgü EK sinyal: Instagram linki dönüşüm yolunu açar.
-    elif sub_sector in ("aesthetic", "routine"):
-        ig_w = fw["instagram_signal"]
-        # Instagram profil linki sitede varsa dönüşüm kanalı açık demek
-        if ig_w > 0 and lead.get("has_instagram_link") is True:
-            add(round(3 * ig_w), "Instagram linki mevcut (güzellik)")
-        elif ig_w > 0 and lead.get("has_instagram_link") is False:
-            add(round(-3 * ig_w), "Instagram linki yok (güzellik)")
-
-    # ── Ev hizmetleri subsector intent sinyalleri ────
-    # Review velocity ev hizmetlerinde karar verme sürecinin tamamı.
-    # Generic rev_30 bloğuna ek: yüksek hız ekstra boost alır.
-    elif sub_sector in ("tesisat", "elektrik", "tadilat"):
-        if rev_30 is not None and rev_30 >= 5:
-            add(6, f"Aktif yorum hızı ({sub_sector})")
-        if lead.get("has_call_button") is True:
-            add(5, f"Arama butonu var ({sub_sector})")
-
-    # ── Education subsector intent sinyalleri ────────
-    # instagram/youtube/review generic scorer'da feature_weights ile hallediliyor.
-    # Burada sadece eğitime özgü EK sinyal: ücretsiz içerik lead magnet olarak çalışır.
-    elif sub_sector in ("course", "coaching"):
-        li_w = fw["linkedin_signal"]
-        # Koçluk için LinkedIn aktifliği doğrudan müşteri niyeti göstergesi
-        if sub_sector == "coaching" and li_w > 0:
-            if lead.get("linkedin_active_30d") is True and not lead.get("linkedin_url"):
-                add(round(5 * li_w), "LinkedIn aktif (koçluk)")
-        # Ücretsiz içerik varsa → lead sıcak, dönüşme ihtimali yüksek
-        if lead.get("has_free_content") is True:
-            add(5, "Ücretsiz içerik mevcut (eğitim)")
+    competitor_ads = lead.get("competitor_ads_count")
+    if competitor_ads is not None and competitor_ads >= 2:
+        add(6, f"Rakip aktif reklam ({competitor_ads})")
 
     return max(0, min(score, 100)), signals
 
 
 # --------------------------------------------------
-# 4. FIT MULTIPLIER (0.81–1.00)
+# 4. FIT MULTIPLIER (0.85–1.10) — SADECE ICP
 # --------------------------------------------------
 
 def calc_fit_multiplier(lead: dict, playbook: dict) -> tuple[float, list[str]]:
-    """
-    ICP kalifikasyon çarpanı. Additive boyut değil — combined skora uygulanır.
-
-    Neden çarpan, neden additive değil:
-      Telefon, hard_filter garantisi → tüm kabul edilen lead'lerde var.
-      Constant signal = discrimination yok = additive'de sabit enflasyon.
-      Çarpan olarak: iyi fit skoru ceza vermez, kötü fit hafifçe düşürür.
-
-    Sinyal sahipliği (opportunity/intent ile örtüşmez):
-      yorum 10-100 : ICP boyut bandı. Opp <10 (gap) ve >100 (büyük) ile aralık ayrı.
-                     Semantik fark: "Doğru büyüklükte mi?" ≠ "Ne kadar gap var?"
-      oncelikli_ilce: bizim hedefleme tercihimiz, alıcı sinyali değil.
-      sektor_fit    : playbook preferred_sectors eşleşmesi.
-    """
-    modifier = 0.88   # baz: ortalama ICP fit
+    """ICP uyumu. Başka sinyal yok — double count önlemi."""
+    mul = 1.00
     signals: list[str] = []
-
-    yorum = lead.get("yorum_sayisi") or 0
-
-    if 10 <= yorum <= 100:
-        modifier += 0.06
-        signals.append(f"Yorum hacmi ICP bandında ({yorum})")
-    elif yorum < 5:
-        modifier -= 0.04   # çok küçük = yüksek churn riski
-        signals.append(f"Çok küçük işletme ({yorum} yorum)")
-
-    if lead.get("oncelikli_ilce"):
-        modifier += 0.05
-        signals.append("Öncelikli ilçe")
 
     sektor = lead.get("sektor") or lead.get("sector") or ""
     preferred = playbook.get("preferred_sectors", [])
+
     if preferred and sektor and sektor in preferred:
-        modifier += 0.04
-        signals.append(f"Hedef sektör ({sektor})")
+        mul += 0.05
+        signals.append("Hedef sektör")
+    elif preferred and sektor and sektor not in preferred:
+        mul -= 0.04
+        signals.append(f"Hedef dışı sektör ({sektor})")
 
-    return min(1.00, modifier), signals
+    if lead.get("oncelikli_ilce"):
+        mul += 0.05
+        signals.append("Öncelikli ilçe")
+
+    if lead.get("playbook_tip_ok") is True:
+        mul += 0.03
+        signals.append("İşletme tipi uygun")
+
+    if lead.get("decision_maker_reachable") is True:
+        mul += 0.02
+        signals.append("Karar verici ulaşılabilir")
+
+    yorum = lead.get("yorum_sayisi") or 0
+    if yorum < 5:
+        mul -= 0.05
+        signals.append(f"Çok küçük ({yorum} yorum, churn riski)")
+
+    if lead.get("kurumsal_yapi_yavas") is True:
+        mul -= 0.05
+        signals.append("Yavaş satış döngüsü (kurumsal)")
+
+    return max(0.85, min(1.10, mul)), signals
 
 
 # --------------------------------------------------
-# 5. PATTERN BOOSTS
+# 5. PATTERN MULTIPLIER (1.00–1.15) — ÇARPAN, additive DEĞİL
 # --------------------------------------------------
 
-def calc_pattern_boosts(lead: dict, audit: dict, playbook: dict) -> tuple[int, list[str]]:
-    """
-    Çoklu sinyal kombinasyonları. Tek başına orta olan sinyaller,
-    birlikte geldiğinde "bu kesin satılır" göstergesine döner.
-    Return (toplam_boost, sinyal_listesi) — her sinyal "+N label" formatında.
-    """
-    total = 0
+def calc_pattern_multiplier(lead: dict, audit: dict, playbook: dict) -> tuple[float, list[str]]:
+    """Güçlü sinyal kombinasyonları + sektör spesifik. Toplam max %15 boost."""
+    boost = 0.0
     signals: list[str] = []
 
-    def fire(delta: int, label: str) -> None:
-        nonlocal total
-        total += delta
-        signals.append(f"{'+' if delta > 0 else ''}{delta} {label}")
+    def fire(delta: float, label: str) -> None:
+        nonlocal boost
+        boost += delta
+        signals.append(f"+{int(delta*100)}% {label}")
 
     website = lead.get("website")
     site_durumu = lead.get("site_durumu")
@@ -651,95 +325,107 @@ def calc_pattern_boosts(lead: dict, audit: dict, playbook: dict) -> tuple[int, l
     yorum = lead.get("yorum_sayisi") or 0
     puan = lead.get("puan") or 0
 
-    ig_post_90 = lead.get("instagram_post_90d")
+    post_90 = lead.get("instagram_post_90d")
     has_booking = lead.get("has_online_booking")
     has_cta = lead.get("has_cta")
     rev_30 = lead.get("review_last_30d")
     competitor_ads = lead.get("competitor_ads_count")
     self_ads = lead.get("self_ads_visible")
 
-    # IG aktif + booking kanalı yok → para hazır, yakalama aracı yok
-    if ig_post_90 is not None and ig_post_90 > 5 and has_booking is False:
-        fire(12, "IG aktif + booking kanalı yok")
+    # IG aktif + booking yok → para geliyor, yakalama aracı yok
+    if post_90 is not None and post_90 > 5 and has_booking is False:
+        fire(0.06, "IG aktif + booking yok")
 
-    # Maps güçlü + site zayıf/yok → organik trafik var, dönüşüm kırık
+    # Maps güçlü + site zayıf → organik trafik var, dönüşüm kırık
     if yorum > 20 and puan >= 4.0 and (not website or site_durumu == "zayif"):
-        fire(10, "Maps güçlü ama site zayıf")
+        fire(0.05, "Maps güçlü + site zayıf")
 
-    # Telefon var + website yok → acil dijital varlık ihtiyacı
-    if telefon and not website:
-        fire(6, "Telefon var ama website yok")
-
-    # Taze yorum akışı + CTA yok → trafik var, CTA eksikliği kayıp
+    # Taze yorum + CTA yok → trafik var, CTA eksikliği kayıp
     if rev_30 is not None and rev_30 >= 3 and has_cta is False:
-        fire(8, "Taze yorum var ama CTA yok")
+        fire(0.04, "Taze yorum + CTA yok")
 
-    # Rakip reklam basıyor + kendisi basmıyor → açık pazar
+    # Rakip reklam basıyor + kendisi yok → açık pazar
     if competitor_ads is not None and competitor_ads >= 2 and self_ads is False:
-        fire(8, "Rakip reklam basıyor, kendisi yok")
+        fire(0.04, "Rakip reklam + self yok")
 
-    total = min(total, 20)  # max +20 boost — birden fazla pattern baskıyı önler
-    return total, signals
+    # Telefon + website yok → acil dijital varlık ihtiyacı
+    if telefon and not website:
+        fire(0.03, "Telefon var + website yok")
+
+    # ── Sektör-spesifik ──────────────────────────────
+    sub_cli = lead.get("clinic_subsector")
+    if sub_cli == "aesthetic" and lead.get("has_before_after") is False:
+        fire(0.04, "Estetik + before/after yok")
+    if sub_cli == "trust" and lead.get("has_doctor_profile") is False:
+        fire(0.03, "Klinik + doktor profili yok")
+
+    sub_sector = lead.get("sub_sector")
+    if sub_sector in ("litigation", "corporate") and lead.get("has_legal_articles") is False:
+        fire(0.03, "Avukat + içerik yok")
+    if sub_sector in ("luxury", "local") and lead.get("has_property_listings") is False:
+        fire(0.04, "Emlak + online ilan yok")
+    if sub_sector in ("tesisat", "elektrik") and lead.get("has_call_button") is False:
+        fire(0.03, f"{sub_sector} + arama butonu yok")
+    if sub_sector == "tadilat" and lead.get("has_before_after") is False:
+        fire(0.04, "Tadilat + öncesi-sonrası yok")
+
+    # Cap at 15%
+    boost = min(0.15, boost)
+    return 1.0 + boost, signals
 
 
 # --------------------------------------------------
-# 6. CONFIDENCE
+# 6. CONFIDENCE (0.0–1.0) — 40/40/20
 # --------------------------------------------------
 
 def calc_confidence(lead: dict, audit: dict) -> float:
-    """
-    Veri bütünlüğü puanı (0.0–1.0).
-    Skoru değil routing kararını etkiler. Düşük confidence → REVIEW.
-
-    Kritik (0.50): puanlama için zorunlu temel veriler
-    Zenginleştirme (0.35): sinyal kalitesini artıran veriler
-    Audit (0.15): harici analiz verisi
-    """
-    CRITICAL = ["yorum_sayisi", "puan", "website", "son_yorum_gun", "telefon"]
-    ENRICH   = [
+    """Veri bütünlüğü. Routing kararını etkiler, skoru etkilemez."""
+    CORE = ["yorum_sayisi", "puan", "website", "son_yorum_gun", "telefon"]
+    ENRICH = [
         "instagram_post_90d", "review_last_30d", "has_cta",
-        "has_online_booking", "has_whatsapp", "gmb_photo_count",
+        "has_online_booking", "has_whatsapp",
+        "gmb_photo_count", "competitor_ads_count",
+        "in_organic_top10",
     ]
-    AUDIT_F  = ["genel_skor", "pagespeed"]
+    AUDIT_F = ["genel_skor", "pagespeed", "ssl"]
 
-    c = sum(1 for f in CRITICAL if lead.get(f) is not None) / len(CRITICAL)
-    e = sum(1 for f in ENRICH   if lead.get(f) is not None) / len(ENRICH)
-    a = sum(1 for f in AUDIT_F  if audit.get(f) is not None) / len(AUDIT_F)
+    c = sum(1 for f in CORE if lead.get(f) is not None) / len(CORE)
+    e = sum(1 for f in ENRICH if lead.get(f) is not None) / len(ENRICH)
+    a = sum(1 for f in AUDIT_F if audit.get(f) is not None) / len(AUDIT_F)
 
-    return round(0.50 * c + 0.35 * e + 0.15 * a, 2)
+    return round(0.40 * c + 0.40 * e + 0.20 * a, 2)
 
 
 # --------------------------------------------------
-# 7. CONTRADICTION DETECTION
+# 7. ÇELİŞKİ DETEKTÖRÜ
 # --------------------------------------------------
 
-def detect_contradictions(lead: dict, opp: int, intent: int) -> list[str]:
-    """
-    Çelişkili sinyal kombinasyonlarını tespit eder.
-    "Zombie risk" tek başına REVIEW tetikler.
-    Diğerleri confidence ile birlikte değerlendirilir.
-    """
+def detect_contradictions(lead: dict, audit: dict, opp: int, intent: int) -> list[str]:
     flags: list[str] = []
     yorum = lead.get("yorum_sayisi") or 0
-    puan  = lead.get("puan") or 0
+    puan = lead.get("puan") or 0
     website = lead.get("website")
+    competitor_ads = lead.get("competitor_ads_count") or 0
+    gmb_photos = lead.get("gmb_photo_count")
+    gmb_desc = lead.get("gmb_has_description")
 
-    # Zombie: büyük gap var ama çok düşük alıcı sinyali → kapalı/pasif olabilir
-    # intent base=50; <45 demek neredeyse hiç pozitif sinyal yok demek
     if opp > 70 and intent < 45:
         flags.append("Büyük gap var ama alıcı sinyali yok — zombie risk")
 
-    # Güçlü Maps + web yok: muhtemelen scraper hatası, gerçek gap değil
     if yorum > 80 and puan > 4.3 and not website:
-        flags.append("Güçlü Maps profili ama website yok — scraper doğrulansın")
+        flags.append("Güçlü Maps ama website yok — scraper doğrulansın")
 
-    # Çok aktif + zaten güçlü: bize ihtiyacı yok
     if intent > 75 and opp < 25:
-        flags.append("Yüksek aktivite ama dijital açık küçük — düşük değer")
+        flags.append("Yüksek aktivite + küçük açık — düşük değer")
 
-    # Mükemmel puan + büyük gap iddiası çelişiyor
     if puan > 4.7 and opp > 65:
-        flags.append("Puan çok yüksek ama yüksek gap skoru — çelişkili sinyal")
+        flags.append("Puan çok yüksek + yüksek gap — sinyal çakışması")
+
+    if competitor_ads >= 2 and not website:
+        flags.append("Rakip reklam var ama site yok — landing sorunu")
+
+    if yorum > 50 and gmb_photos is not None and gmb_photos < 2 and gmb_desc is False:
+        flags.append("Çok yorum + sıfır GMB derinliği — fake/eksik şüphesi")
 
     return flags
 
@@ -750,37 +436,29 @@ def detect_contradictions(lead: dict, opp: int, intent: int) -> list[str]:
 
 def route_decision(
     final: float,
+    intent: int,
     confidence: float,
     contradictions: list[str],
 ) -> tuple[str, str, str]:
-    """
-    Segment + action + reason_summary.
-
-    Batch'ten bağımsız — aynı lead her zaman aynı kararı alır.
-    Öncelik sırası:
-      1. Zombie risk → REVIEW (confidence bağımsız)
-      2. Düşük confidence → REVIEW
-      3. Çoklu çelişki + orta confidence → REVIEW
-      4. HOT: yüksek skor + güvenilir data + temiz sinyal
-      5. WARM: skor iyi ama data veya çelişki sorunu var / skor orta
-      6. LOW: zayıf skor
-    """
     has_zombie = any("zombie" in c for c in contradictions)
 
     if has_zombie:
         return "REVIEW", "manual_review", "Alıcı sinyali yok — zombie risk"
 
     if confidence < 0.50:
-        return "REVIEW", "manual_review", f"Veri yetersiz (confidence={confidence:.2f})"
+        return "REVIEW", "manual_review", f"Veri yetersiz (conf={confidence:.2f})"
 
     if len(contradictions) >= 2 and confidence < 0.65:
         return "REVIEW", "manual_review", contradictions[0]
 
-    if final >= 80 and confidence >= 0.60 and not contradictions:
+    if final >= 80 and confidence >= 0.60 and intent >= 45 and not contradictions:
         return "HOT", "generate_full_audit", "Güçlü fırsat — tam audit"
 
     if final >= 80:
-        reason = contradictions[0] if contradictions else f"Confidence düşük ({confidence:.2f})"
+        reason = contradictions[0] if contradictions else (
+            f"Conf düşük ({confidence:.2f})" if confidence < 0.60 else
+            f"Intent sınırda ({intent})"
+        )
         return "WARM", "generate_light_audit", reason
 
     if final >= 60:
@@ -793,272 +471,61 @@ def route_decision(
 # 9. FINAL SCORE
 # --------------------------------------------------
 
-_SIGNAL_DELTA_RE = re.compile(r"→\s*([+-]?\d+)\s*$")
-
-
-def _parse_delta(signal: str) -> tuple[int, str]:
-    """'Yorum az (3) → +15' → (15, 'Yorum az (3)'). Unknown → (0, signal)."""
-    m = _SIGNAL_DELTA_RE.search(signal)
-    if not m:
-        return 0, signal.strip()
-    try:
-        delta = int(m.group(1))
-    except ValueError:
-        return 0, signal.strip()
-    label = signal[: m.start()].rstrip(" →").strip()
-    return delta, label
-
-
-def _build_breakdown_list(
-    opp_signals: list[str],
-    intent_signals: list[str],
-    fit_signals: list[str],
-    boost_signals: list[str],
-    limit: int = 12,
-) -> list[str]:
-    """
-    Tüm sinyalleri 'signed N label' formatında tek listeye düzleştir.
-    Mutlak değere göre sırala, en etkili limit kadar sinyali döndür.
-    Pattern boost sinyalleri zaten doğru formatta (ör. '+12 IG aktif...').
-    """
-    items: list[tuple[int, str]] = []
-
-    for s in opp_signals + intent_signals + fit_signals:
-        delta, label = _parse_delta(s)
-        if delta == 0 or not label:
-            continue
-        items.append((delta, f"{'+' if delta > 0 else ''}{delta} {label}"))
-
-    for s in boost_signals:
-        m = re.match(r"\s*([+-]?\d+)\s+(.+)", s)
-        if not m:
-            continue
-        try:
-            delta = int(m.group(1))
-        except ValueError:
-            continue
-        items.append((delta, f"{'+' if delta > 0 else ''}{delta} {m.group(2).strip()}"))
-
-    items.sort(key=lambda x: -abs(x[0]))
-    return [label for _, label in items[:limit]]
-
-
-def _build_score_layers(
-    opp_signals: list[str],
-    intent_signals: list[str],
-    fit_mul: float,
-    boost_sum: int,
-) -> dict:
-    """Debugger için katmanlı özet — score_debugger.py bunu okuyor."""
-
-    def _sum(signals: list[str], keywords: list[str]) -> float:
-        total = 0.0
-        for s in signals:
-            if any(k in s for k in keywords):
-                delta, _ = _parse_delta(s)
-                total += delta
-        return total
-
-    return {
-        "maps":           _sum(opp_signals, ["Yorum", "Puan", "GMB"]),
-        "audit":          _sum(opp_signals, ["Audit", "PageSpeed", "SSL"]),
-        "conversion":     _sum(opp_signals, ["CTA", "WhatsApp", "booking", "Blog", "Website yok", "Site", "Servis", "SSS", "Hakkında", "Before", "Görsel", "Doktor"]),
-        "ads":            _sum(opp_signals, ["Ads", "Rakip reklam", "Self ads"]),
-        "social":         _sum(intent_signals, ["Instagram", "YouTube", "LinkedIn"]),
-        "intent":         _sum(intent_signals, ["yorum", "Rakip reklam aktif", "Site yatırımı"]),
-        "fit_multiplier": round(fit_mul, 3),
-        "boost":          float(boost_sum),
-    }
-
-
 def calculate_final_score(lead: dict, audit: dict, playbook: dict) -> dict:
     """
-    5 katmanlı karar motoru — audit={} ile scrape anında çalışır.
+    V2: Pattern çarpan, Fit çarpan, double counting azaltıldı.
 
-    Formül: combined = 0.65·opp + 0.35·intent
-            final    = min(100, combined × fit_multiplier + pattern_boost)
+    final = min(100, (0.65·Opp + 0.35·Intent) × Pattern_Mul × Fit_Mul)
     """
     is_blocked, reason = hard_filter(lead, playbook)
     if is_blocked:
         return {"status": "rejected", "reason": reason}
 
-    opportunity, opp_signals     = calc_opportunity(lead, audit, playbook)
-    intent,      intent_signals  = calc_buyer_intent(lead, audit, playbook)
-    fit_mul,     fit_signals     = calc_fit_multiplier(lead, playbook)
-    boost_sum,   boost_signals   = calc_pattern_boosts(lead, audit, playbook)
-    confidence                   = calc_confidence(lead, audit)
+    opp,      opp_signals  = calc_opportunity(lead, audit)
+    intent,   int_signals  = calc_intent(lead, audit)
+    fit_mul,  fit_signals  = calc_fit_multiplier(lead, playbook)
+    pat_mul,  pat_signals  = calc_pattern_multiplier(lead, audit, playbook)
+    confidence             = calc_confidence(lead, audit)
 
-    combined = (opportunity * 0.65) + (intent * 0.35)
-    final    = round(max(0.0, min(100.0, combined * fit_mul + boost_sum)), 1)
+    combined = 0.65 * opp + 0.35 * intent
+    final    = round(min(100.0, max(0.0, combined * pat_mul * fit_mul)), 1)
 
-    contradictions              = detect_contradictions(lead, opportunity, intent)
-    segment, action, reason_sum = route_decision(final, confidence, contradictions)
+    contradictions              = detect_contradictions(lead, audit, opp, intent)
+    segment, action, reason_sum = route_decision(final, intent, confidence, contradictions)
 
-    fw = _fw(playbook)
-    active_weights = {k: v for k, v in fw.items() if v != 1.0}
+    score_breakdown = list(opp_signals) + list(int_signals) + list(fit_signals) + list(pat_signals)
 
-    score_breakdown = _build_breakdown_list(opp_signals, intent_signals, fit_signals, boost_signals)
-    score_layers    = _build_score_layers(opp_signals, intent_signals, fit_mul, boost_sum)
-
-    result = {
-        "status":         "ok",
-        "opportunity":    opportunity,
-        "buyer_intent":   intent,
-        "fit_multiplier": round(fit_mul, 3),
-        "pattern_boost":  boost_sum,
-        "final_score":    final,
-        "data_confidence": confidence,
-        "segment":        segment,
-        "action":         action,
-        "reason_summary": reason_sum,
-        "priority":       SEGMENT_TO_PRIORITY[segment],
-        "contradictions": contradictions,
+    return {
+        "status":              "ok",
+        "opportunity_score":   opp,
+        "opportunity":         opp,               # legacy alias
+        "intent_score":        intent,
+        "buyer_intent":        intent,            # legacy alias
+        "fit_multiplier":      round(fit_mul, 3),
+        "pattern_multiplier":  round(pat_mul, 3),
+        "pattern_boost":       round((pat_mul - 1.0) * 100, 1),  # legacy: % boost
+        "confidence":          confidence,
+        "data_confidence":     confidence,        # legacy alias
+        "contradictions":      contradictions,
+        "final_score":         final,
+        "segment":             segment,
+        "action":              action,
+        "priority":            SEGMENT_TO_PRIORITY[segment],
+        "reason_summary":      reason_sum,
+        "decision_reason":     reason_sum,
         "signals": {
             "opportunity": opp_signals,
-            "intent":      intent_signals,
+            "intent":      int_signals,
             "fit":         fit_signals,
-            "pattern":     boost_signals,
+            "pattern":     pat_signals,
         },
         "score_breakdown": score_breakdown,
-        "score_layers":    score_layers,
-        "active_weights":  active_weights,
-        "clinic_subsector": lead.get("clinic_subsector"),
+        "score_layers": {
+            "opportunity":        opp,
+            "intent":             intent,
+            "combined":           round(combined, 1),
+            "fit_multiplier":     round(fit_mul, 3),
+            "pattern_multiplier": round(pat_mul, 3),
+            "final":              final,
+        },
     }
-
-    pre_mul  = round(combined, 1)
-    post_mul = round(combined * fit_mul, 1)
-    zombie   = any("zombie" in c for c in contradictions)
-
-    logger.info(
-        "Score: %s | final=%.1f seg=%s action=%s | "
-        "opp=%d intent=%d | "
-        "pre_mul=%.1f fit=%.3f post_mul=%.1f boost=%d | "
-        "conf=%.2f zombie=%s review_reason=%s",
-        lead.get("isim"), final, segment, action,
-        opportunity, intent,
-        pre_mul, fit_mul, post_mul, boost_sum,
-        confidence, zombie,
-        (reason_sum if segment == "REVIEW" else "-"),
-    )
-    return result
-
-
-# --------------------------------------------------
-# 5. EXPLAIN / DEBUG
-# --------------------------------------------------
-
-def explain_score(result: dict, lead: dict | None = None) -> str:
-    if result["status"] == "rejected":
-        return f"ELENDI: {result['reason']}"
-
-    opp     = result.get("opportunity", 0)
-    intent  = result.get("buyer_intent", 0)
-    fit_mul = result.get("fit_multiplier", 1.0)
-    boost   = result.get("pattern_boost", 0)
-    combined = round(opp * 0.65 + intent * 0.35, 1)
-    conf    = result.get("data_confidence", "?")
-
-    lines = [
-        f"Skor: {result['final_score']} ({result['segment']}) → {result.get('action', '?')}",
-        f"  = ({opp}×0.65 + {intent}×0.35 = {combined}) × {fit_mul} + {boost:+d} boost",
-        f"Confidence : {conf}  |  Reason: {result.get('reason_summary', '')}",
-    ]
-
-    contradictions = result.get("contradictions", [])
-    if contradictions:
-        lines.append("\n⚠ Çelişkiler:")
-        lines.extend(f"  • {c}" for c in contradictions)
-
-    sub = result.get("clinic_subsector")
-    if sub:
-        lines.append(f"Klinik alt sektör: {sub}")
-
-    breakdown = result.get("score_breakdown") or []
-    if breakdown:
-        lines.append("\nEn etkili sinyaller:")
-        lines.extend(f"  {s}" for s in breakdown)
-
-    signals = result.get("signals", {})
-    if signals.get("fit"):
-        lines.append(f"\nFit çarpanı ({fit_mul}×) sinyalleri:")
-        lines.extend(f"  {s}" for s in signals["fit"])
-    if signals.get("pattern"):
-        lines.append("\nPattern boostlar:")
-        lines.extend(f"  {s}" for s in signals["pattern"])
-    if signals.get("opportunity"):
-        lines.append("\nOpportunity sinyalleri:")
-        lines.extend(f"  {s}" for s in signals["opportunity"])
-    if signals.get("intent"):
-        lines.append("\nIntent sinyalleri:")
-        lines.extend(f"  {s}" for s in signals["intent"])
-
-    active_w = result.get("active_weights", {})
-    if active_w:
-        lines.append("\nSektör ağırlıkları:")
-        for k, v in active_w.items():
-            lines.append(f"  {k}: {'KAPALI' if v == 0.0 else f'x{v}'}")
-
-    return "\n".join(lines)
-
-
-# --------------------------------------------------
-# 6. COVERAGE STATS
-# --------------------------------------------------
-
-def apply_hot_limiter(
-    results: list[dict],
-    hot_cap_ratio: float = 0.20,
-) -> list[dict]:
-    """
-    DEPRECATED — route_decision() + REVIEW segment ile değiştirildi.
-
-    Batch-relative etiketleme üretir: aynı lead, bulunduğu batch'e göre
-    HOT veya WARM alabilir. Bu CRM güvenini ve explain edilebilirliği bozar.
-    Sadece acil rollback senaryosunda kullan.
-
-    Yeni sistem: her lead confidence + contradiction tabanlı olarak
-    route_decision() ile batch-bağımsız karar alır.
-    """
-    logger.warning(
-        "apply_hot_limiter() çağrıldı — DEPRECATED. "
-        "route_decision() ile confidence-tabanlı REVIEW segmenti kullanın."
-    )
-    ok_results = [r for r in results if r.get("status") == "ok"]
-    total_ok = len(ok_results)
-    if total_ok == 0:
-        return results
-
-    hot_results = [r for r in ok_results if r.get("segment") == "HOT"]
-    max_hot = max(1, int(total_ok * hot_cap_ratio))
-
-    if len(hot_results) <= max_hot:
-        return results
-
-    hot_sorted = sorted(hot_results, key=lambda r: r.get("final_score", 0))
-    to_demote = len(hot_results) - max_hot
-    demote_set = {id(r) for r in hot_sorted[:to_demote]}
-
-    for r in results:
-        if id(r) in demote_set:
-            r["segment"] = "WARM"
-            r["priority"] = SEGMENT_TO_PRIORITY["WARM"]
-            r["_hot_limiter_applied"] = True
-            logger.info("HOT limiter: %s → WARM (final=%.1f)", r.get("isim"), r.get("final_score", 0))
-
-    return results
-
-
-def coverage_stats(leads: list[dict]) -> dict:
-    """Kaç lead'de kanal verisi var/yok."""
-    total = len(leads)
-    if total == 0:
-        return {}
-    stats: dict[str, dict] = {}
-    for field in CHANNEL_FIELDS:
-        present = sum(1 for l in leads if l.get(field) is not None)
-        stats[field] = {
-            "present": present,
-            "missing": total - present,
-            "coverage_pct": round(present / total * 100, 1),
-        }
-    return {"total_leads": total, "fields": stats}
