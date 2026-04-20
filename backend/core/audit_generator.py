@@ -118,6 +118,8 @@ async def fetch_site_data(url: str) -> dict:
             allow_redirects=True,
         )
         html = resp.text[:150_000]
+        # Use final URL after redirects for SSL check (http:// sites often redirect to https://)
+        data["ssl"] = resp.url.startswith("https://")
         if m := re.search(r"<title[^>]*>(.*?)</title>", html, re.I | re.S):
             data["title"] = m.group(1).strip()[:200]
         if m := re.search(r'<meta[^>]*name=["\']description["\'][^>]*content=["\']([^"\']*)["\']', html, re.I):
