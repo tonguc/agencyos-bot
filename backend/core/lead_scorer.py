@@ -151,6 +151,17 @@ def calc_opportunity(lead: dict, audit: dict) -> tuple[int, list[str]]:
         elif lead.get("in_organic_top10") is True:
             add(-8, "Organik aramada görünüyor")
 
+        indexed = lead.get("indexed_pages")
+        if indexed is not None:
+            if indexed == 0:
+                add(18, "Google'da hiç sayfa indexlenmemiş")
+            elif indexed <= 5:
+                add(10, f"Çok az sayfa indexlenmiş ({indexed})")
+            elif indexed <= 20:
+                add(4, f"Az sayfa indexlenmiş ({indexed})")
+            elif indexed >= 200:
+                add(-6, f"Güçlü SEO varlığı ({indexed} sayfa)")
+
     if lead.get("has_ai_overview") is True:
         if lead.get("in_ai_overview") is False:
             add(10, "AI Overview var, listede değil")

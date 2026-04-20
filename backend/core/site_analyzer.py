@@ -22,10 +22,43 @@ import asyncio
 import logging
 import re
 from typing import Optional
+from urllib.parse import urlparse
 
 import httpx
+import requests
 
 logger = logging.getLogger(__name__)
+
+
+async def check_indexed_pages(domain: str) -> int | None:
+    """
+    Query SerpAPI with `site:domain` to get approximate Google indexed page count.
+    Returns None if SERPAPI_API_KEY is not set or request fails.
+    """
+    from config import settings  # local import to avoid circular
+    key = settings.SERPAPI_API_KEY
+    if not key or not domain:
+        return None
+    try:
+        params = {
+            "engine": "google",
+            "q": f"site:{domain}",
+            "gl": "tr",
+            "hl": "tr",
+            "num": 1,
+            "api_key": key,
+        }
+        r = await asyncio.to_thread(
+            requests.get, "https://serpapi.com/search",
+            params=params, timeout=10,
+        )
+        r.raise_for_status()
+        data = r.json()
+        total = data.get("search_information", {}).get("total_results")
+        return int(total) if total is not None else None
+    except Exception as e:
+        logger.debug("indexed_pages kontrol başarısız (%s): %s", domain, e)
+        return None
 
 _USER_AGENT = "Mozilla/5.0 (compatible; AgencyOS/1.0)"
 
@@ -115,6 +148,7 @@ def _blank_signals(site_durumu_original: Optional[str] = None) -> dict:
         "has_phone_visible": False,
         "has_form": False,
         "site_durumu": site_durumu_original or "zayif",
+        "indexed_pages": None,
     }
 
 
@@ -126,17 +160,33 @@ async def _fetch_and_analyze(
 ) -> None:
     """
     Fetch the lead's website and update it in-place with conversion signals.
+    Also checks indexed page count via SerpAPI site: query.
     If fetch fails, sets all fields to False, preserves existing site_durumu.
     """
     url = lead.get("website")
     if not url:
         return  # No website — skip; site_durumu already "yok"
 
+    try:
+        domain = urlparse(url).netloc.lstrip("www.")
+    except Exception:
+        domain = ""
+
+    # Run HTML fetch and indexed pages check in parallel
     async with semaphore:
         try:
-            response = await client.get(url, timeout=timeout, follow_redirects=True)
+            html_task = client.get(url, timeout=timeout, follow_redirects=True)
+            index_task = check_indexed_pages(domain)
+            response, indexed_pages = await asyncio.gather(html_task, index_task, return_exceptions=True)
+            if isinstance(response, Exception):
+                logger.debug("Site fetch başarısız (%s): %s", url, response)
+                signals = _blank_signals(lead.get("site_durumu"))
+                signals["indexed_pages"] = indexed_pages if isinstance(indexed_pages, int) else None
+                lead.update(signals)
+                return
             response.raise_for_status()
             html = response.text
+            lead["indexed_pages"] = indexed_pages if isinstance(indexed_pages, int) else None
         except Exception as e:
             logger.debug("Site fetch başarısız (%s): %s", url, e)
             signals = _blank_signals(lead.get("site_durumu"))

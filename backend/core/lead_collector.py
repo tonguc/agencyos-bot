@@ -149,20 +149,33 @@ async def collect_by_query(
     max_reviews: int = 20,
 ) -> list[dict]:
     """
-    Free-form search against Apify Google Places.
+    Free-form search against Google Maps.
+    Uses Apify when APIFY_API_TOKEN is set, falls back to SerpAPI otherwise.
     Applies query-relevance filter so results actually match the search term.
     """
     if not (search_string or "").strip():
         return []
-    leads = await _run_apify(
-        search_term=search_string.strip(),
-        sehir=sehir or "",
-        ilce=ilce or "",
-        limit=limit,
-        sektor_for_filter=sektor_filter,
-        apify_timeout=apify_timeout,
-        max_reviews=max_reviews,
-    )
+
+    use_apify = bool(os.getenv("APIFY_API_TOKEN"))
+    if use_apify:
+        leads = await _run_apify(
+            search_term=search_string.strip(),
+            sehir=sehir or "",
+            ilce=ilce or "",
+            limit=limit,
+            sektor_for_filter=sektor_filter,
+            apify_timeout=apify_timeout,
+            max_reviews=max_reviews,
+        )
+    else:
+        logger.info("APIFY_API_TOKEN yok — SerpAPI Maps kullanılıyor")
+        leads = await _run_serpapi_maps(
+            search_term=search_string.strip(),
+            sehir=sehir or "",
+            ilce=ilce or "",
+            limit=limit,
+            sektor_for_filter=sektor_filter,
+        )
     return _filter_by_query_relevance(leads, search_string.strip())
 
 
@@ -203,6 +216,81 @@ async def collect_google_maps(sektor: str, sehir: str, ilce: str, limit: int = 3
         limit=limit,
         sektor_for_filter=sektor,
     )
+
+
+def _serpapi_to_apify(r: dict) -> dict:
+    """Convert a SerpAPI local_results item to Apify-compatible raw dict."""
+    gps = r.get("gps_coordinates") or {}
+    return {
+        "title":        r.get("title"),
+        "address":      r.get("address"),
+        "phone":        r.get("phone"),
+        "website":      r.get("website"),
+        "totalScore":   r.get("rating"),
+        "reviewsCount": r.get("reviews"),
+        "categoryName": r.get("type"),
+        "location":     {"lat": gps.get("latitude"), "lng": gps.get("longitude")},
+        "url":          f"https://www.google.com/maps/place/?q=place_id:{r['place_id']}"
+                        if r.get("place_id") else None,
+        # SerpAPI doesn't return individual reviews — son_yorum_gun will be None
+        "reviews": [],
+    }
+
+
+async def _run_serpapi_maps(
+    search_term: str,
+    sehir: str,
+    ilce: str,
+    limit: int,
+    sektor_for_filter: str | None,
+) -> list[dict]:
+    """SerpAPI Google Maps fallback — used when APIFY_API_TOKEN is absent."""
+    from config import settings  # local import to avoid circular
+
+    key = settings.SERPAPI_API_KEY
+    if not key:
+        logger.error("SERPAPI_API_KEY tanımlı değil — arama yapılamıyor")
+        return []
+
+    location_parts = [p for p in [ilce, sehir, "Turkey"] if p]
+    location = ", ".join(location_parts)
+    logger.info("SerpAPI Maps taraması: q='%s' location='%s' limit=%d", search_term, location, limit)
+
+    params = {
+        "engine":   "google_maps",
+        "q":        search_term,
+        "location": location,
+        "hl":       "tr",
+        "gl":       "tr",
+        "api_key":  key,
+    }
+
+    try:
+        response = await asyncio.to_thread(
+            requests.get, "https://serpapi.com/search",
+            params=params, timeout=60,
+        )
+        response.raise_for_status()
+        data = response.json()
+    except requests.Timeout:
+        logger.warning("SerpAPI Maps zaman aşımı — %s @ %s", search_term, location)
+        raise TimeoutError("SerpAPI 60s içinde yanıt vermedi")
+    except requests.RequestException as e:
+        logger.exception("SerpAPI Maps başarısız: %s", e)
+        return []
+
+    raw_results = data.get("local_results") or []
+    if not raw_results:
+        logger.info("SerpAPI Maps: sonuç yok — %s @ %s", search_term, location)
+        return []
+
+    raw_results = raw_results[:limit]
+    converted = [_serpapi_to_apify(r) for r in raw_results]
+    enriched = [enrich_lead(lead) for lead in converted]
+    if sektor_for_filter:
+        enriched = _filter_relevant(enriched, sektor_for_filter)
+    logger.info("%d lead SerpAPI'dan alındı: '%s @ %s'", len(enriched), search_term, location)
+    return enriched
 
 
 async def _run_apify(
