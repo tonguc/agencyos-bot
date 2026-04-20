@@ -182,11 +182,13 @@ export function VoiceAssistant() {
       const data = await voiceApi.chat(text, historyRef.current.slice(0, -1), abort.signal);
       if (abort.signal.aborted) return;
 
-      historyRef.current = [...historyRef.current, { role: "assistant", content: data.reply }].slice(-6);
+      historyRef.current = [...historyRef.current, { role: "assistant", content: data.reply }].slice(-12);
       setCaption(data.reply);
       if (data.action) {
         setAction(data.action);
-        // Auto-navigate to jobs page when a scrape is triggered
+        // End session so we don't loop back into listening after navigating away
+        activeRef.current = false;
+        setActive(false);
         router.push("/jobs");
       }
       setStatus("speaking");
@@ -218,20 +220,24 @@ export function VoiceAssistant() {
 
       const buf = new Float32Array(analyser.frequencyBinCount);
       let silenceStart: number | null = null;
-      const SILENCE_THRESHOLD = 0.015;
-      const SILENCE_DURATION = 700;
+      let hadSpeech = false;
+      const startTime = Date.now();
+      const SILENCE_THRESHOLD = 0.018;
+      const SILENCE_DURATION = 900;
+      const MIN_SPEECH_MS = 1200; // don't auto-stop before user has spoken
 
       const check = () => {
         if (!audioCtxRef.current) return;
         analyser.getFloatTimeDomainData(buf);
         const rms = Math.sqrt(buf.reduce((s, v) => s + v * v, 0) / buf.length);
-        if (rms < SILENCE_THRESHOLD) {
+        if (rms >= SILENCE_THRESHOLD) {
+          hadSpeech = true;
+          silenceStart = null;
+        } else if (hadSpeech && (Date.now() - startTime) > MIN_SPEECH_MS) {
           if (!silenceStart) silenceStart = Date.now();
           else if (Date.now() - silenceStart > SILENCE_DURATION) {
             stopListeningAndSubmit(); return;
           }
-        } else {
-          silenceStart = null;
         }
         requestAnimationFrame(check);
       };
@@ -386,9 +392,9 @@ export function VoiceAssistant() {
         title={active ? "Sohbeti sonlandır" : "Sohbeti başlat"}
         aria-label={active ? "Sohbeti sonlandır" : "Sohbeti başlat"}
       >
-        {/* Pulse ring only when actively listening/speaking */}
+        {/* Slow ring — listening or speaking */}
         {(status === "listening" || status === "speaking") && (
-          <span className="absolute inset-0 rounded-full animate-ping" style={{ background: `${micColor}30` }} />
+          <span className="absolute -inset-1.5 rounded-full animate-pulse" style={{ border: `1.5px solid ${micColor}60` }} />
         )}
 
         {/* Icon */}
