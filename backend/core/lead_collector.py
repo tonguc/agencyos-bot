@@ -415,7 +415,7 @@ async def _run_serpapi_maps(
         response.raise_for_status()
         data = response.json()
     except requests.Timeout:
-        logger.warning("SerpAPI Maps zaman aşımı — %s @ %s", search_term, location)
+        logger.warning("SerpAPI Maps zaman aşımı — q='%s' ll=%s", q, ll)
         raise TimeoutError("SerpAPI 60s içinde yanıt vermedi")
     except requests.RequestException as e:
         logger.exception("SerpAPI Maps başarısız: %s", e)
@@ -423,7 +423,7 @@ async def _run_serpapi_maps(
 
     raw_results = data.get("local_results") or []
     if not raw_results:
-        logger.info("SerpAPI Maps: sonuç yok — %s @ %s", search_term, location)
+        logger.info("SerpAPI Maps: sonuç yok — q='%s' ll=%s", q, ll)
         return []
 
     raw_results = raw_results[:limit]
@@ -431,7 +431,7 @@ async def _run_serpapi_maps(
     enriched = [enrich_lead(lead) for lead in converted]
     if sektor_for_filter:
         enriched = _filter_relevant(enriched, sektor_for_filter)
-    logger.info("%d lead SerpAPI'dan alındı: '%s @ %s'", len(enriched), search_term, location)
+    logger.info("%d lead SerpAPI'dan alındı: q='%s' ll=%s", len(enriched), q, ll)
     return enriched
 
 
