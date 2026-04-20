@@ -103,11 +103,13 @@ function browserSpeak(text: string, onEnd: () => void): boolean {
 export function VoiceAssistant() {
   const router = useRouter();
   const [status, setStatus] = useState<Status>("idle");
+  const [active, setActive] = useState(false);
   const [caption, setCaption] = useState("");
   const [action, setAction] = useState<ScrapeAction | null>(null);
   const [openaiReady, setOpenaiReady] = useState<boolean | null>(null); // null = loading
   const [noTurkishVoice, setNoTurkishVoice] = useState(false);
 
+  const activeRef = useRef(false);
   const historyRef = useRef<{ role: string; content: string }[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -163,8 +165,13 @@ export function VoiceAssistant() {
 
   // ── Chat ─────────────────────────────────────────────────────────────
 
+  const goIdleOrRestart = useCallback(() => {
+    setStatus("idle");
+    if (activeRef.current) setTimeout(() => { if (activeRef.current) startListeningRef.current?.(); }, 250);
+  }, []);
+
   const handleTranscribed = useCallback(async (text: string) => {
-    if (!text.trim()) { setStatus("idle"); return; }
+    if (!text.trim()) { goIdleOrRestart(); return; }
     setStatus("thinking"); setCaption(""); setAction(null);
 
     historyRef.current = [...historyRef.current, { role: "user", content: text }].slice(-6);
@@ -179,10 +186,10 @@ export function VoiceAssistant() {
       setCaption(data.reply);
       if (data.action) setAction(data.action);
       setStatus("speaking");
-      playReply(data.reply, () => setStatus("idle"));
+      playReply(data.reply, () => goIdleOrRestart());
     } catch (e) {
       if ((e as Error)?.name === "AbortError") return;
-      setStatus("idle");
+      goIdleOrRestart();
     } finally {
       if (abortRef.current === abort) abortRef.current = null;
     }
@@ -237,7 +244,7 @@ export function VoiceAssistant() {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
-      setStatus("idle"); return;
+      goIdleOrRestart(); return;
     }
     streamRef.current = stream;
     const mimeType = getBestMimeType();
@@ -252,14 +259,14 @@ export function VoiceAssistant() {
       setStatus("thinking");
       try {
         const { text, error } = await voiceApi.transcribe(blob, ext);
-        if (error || !text) { setStatus("idle"); return; }
+        if (error || !text) { goIdleOrRestart(); return; }
         await handleTranscribed(text);
-      } catch { setStatus("idle"); }
+      } catch { goIdleOrRestart(); }
     };
     recorder.start(100);
     startVAD(stream);
     setStatus("listening");
-  }, [handleTranscribed, startVAD]);
+  }, [handleTranscribed, startVAD, goIdleOrRestart]);
 
   const startBrowserSTT = useCallback(() => {
     const recog = buildBrowserSTT();
@@ -269,15 +276,15 @@ export function VoiceAssistant() {
       gotResult = true;
       const text = e.results[0]?.[0]?.transcript?.trim() ?? "";
       if (text) handleTranscribed(text);
-      else setStatus("idle");
+      else goIdleOrRestart();
     };
-    recog.onerror = () => setStatus("idle");
-    recog.onend = () => { if (!gotResult) setStatus("idle"); };
+    recog.onerror = () => goIdleOrRestart();
+    recog.onend = () => { if (!gotResult) goIdleOrRestart(); };
     setStatus("listening");
     recog.start();
     // Auto-stop after 8s max
     silenceTimerRef.current = setTimeout(() => recog.stop(), 8000);
-  }, [handleTranscribed, startMediaRecorder]);
+  }, [handleTranscribed, startMediaRecorder, goIdleOrRestart]);
 
   const startListening = useCallback(() => {
     // Browser STT preferred (free, low latency) — MediaRecorder+Whisper as fallback
@@ -285,16 +292,23 @@ export function VoiceAssistant() {
     else startMediaRecorder();
   }, [startBrowserSTT, startMediaRecorder]);
 
+  const startListeningRef = useRef(startListening);
+  useEffect(() => { startListeningRef.current = startListening; }, [startListening]);
+
   const handleMicClick = useCallback(() => {
-    if (status === "idle") {
+    if (!active) {
+      // Start session — stays listening until user clicks again
+      activeRef.current = true;
+      setActive(true);
       startListening();
     } else {
-      // Barge-in: stop everything, start fresh
+      // End session
+      activeRef.current = false;
+      setActive(false);
       stopEverything();
       setStatus("idle");
-      setTimeout(() => startListening(), 60);
     }
-  }, [status, startListening, stopEverything]);
+  }, [active, startListening, stopEverything]);
 
   // ── UI ───────────────────────────────────────────────────────────────
 
@@ -354,8 +368,8 @@ export function VoiceAssistant() {
       {/* Mic button */}
       <button type="button" onClick={handleMicClick}
         className="flex items-center gap-2 border px-3 py-2 transition-all"
-        style={{ background: status !== "idle" ? `${micColor}12` : "transparent", borderColor: micBorder }}
-        title={status === "listening" ? "Bitti — konuşmayı bitir" : status !== "idle" ? "Araya gir — kes ve konuş" : "Konuş"}
+        style={{ background: active ? `${micColor}12` : "transparent", borderColor: micBorder }}
+        title={active ? "Sohbeti sonlandır" : "Sohbeti başlat"}
       >
         {status === "speaking" ? <Volume2 className="h-4 w-4 shrink-0" style={{ color: micColor }} /> :
          status === "listening" ? <MicOff className="h-4 w-4 shrink-0" style={{ color: micColor }} /> :
