@@ -14,7 +14,6 @@ real scrape from the same query to save them.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 
 from core.icp_filter import filter_leads
@@ -22,8 +21,6 @@ from core.lead_collector import collect_by_query
 from core.lead_scorer import calculate_final_score
 from core.playbook import load_playbook_for_sector
 from core.query_parser import parse_search_query
-from core.serp_enricher import apply_serp_data, fetch_serp_data
-from core.site_analyzer import analyze_sites
 
 logger = logging.getLogger(__name__)
 
@@ -116,13 +113,23 @@ async def run_search(query: str, limit: int = 25) -> dict:
             "error": "Boş sorgu",
         }
 
-    raw = await collect_by_query(
-        search_string=parsed["search_string"],
-        sehir=parsed["city"],
-        ilce=parsed["district"],
-        limit=limit,
-        sektor_filter=parsed["sector"],
-    )
+    try:
+        raw = await collect_by_query(
+            search_string=parsed["search_string"],
+            sehir=parsed["city"],
+            ilce=parsed["district"],
+            limit=limit,
+            sektor_filter=parsed["sector"],
+            apify_timeout=90,   # quick search — 90s max, full scrape uses 300s
+        )
+    except TimeoutError:
+        return {
+            "parsed": parsed,
+            "results": [],
+            "summary": {"hot": 0, "warm": 0, "ok": 0, "low": 0, "review": 0, "total": 0},
+            "filter_stats": None,
+            "error": "Arama zaman aşımına uğradı (90s). Daha az limit dene veya Yeni Tarama kullan.",
+        }
 
     if not raw:
         return {
@@ -130,7 +137,7 @@ async def run_search(query: str, limit: int = 25) -> dict:
             "results": [],
             "summary": {"hot": 0, "warm": 0, "ok": 0, "low": 0, "review": 0, "total": 0},
             "filter_stats": None,
-            "error": "Sonuç bulunamadı",
+            "error": "Sonuç bulunamadı — farklı arama terimi veya ilçe dene.",
         }
 
     # If the query parser identified a sector, apply ICP + scoring.
@@ -142,22 +149,8 @@ async def run_search(query: str, limit: int = 25) -> dict:
         try:
             playbook = load_playbook_for_sector(parsed["sector"])
 
-            # Run site analysis and SERP fetch in parallel for performance
-            ads_query = f"{parsed['search_string']} {parsed['city'] or ''}".strip()
-            serp_task = asyncio.create_task(fetch_serp_data(ads_query))
-            analyzed_leads = await analyze_sites(raw)
-            serp_data = await serp_task
-            if serp_data:
-                logger.info(
-                    "SerpAPI: ads=%d organic=%d ai_overview=%s (%s)",
-                    serp_data.get("competitor_ads_count", 0),
-                    len(serp_data.get("organic_domains") or []),
-                    serp_data.get("has_ai_overview", False),
-                    ads_query,
-                )
-                apply_serp_data(analyzed_leads, serp_data)
-            raw = analyzed_leads
-
+            # Site analysis and SERP are skipped for quick search —
+            # they add 30-90s per run. Full analysis happens during collect_leads job.
             filtered = filter_leads(raw, playbook)
             filter_stats = filtered["istatistik"]
             for lead in filtered["nitelikli"]:

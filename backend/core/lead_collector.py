@@ -145,6 +145,7 @@ async def collect_by_query(
     ilce: str | None = None,
     limit: int = 30,
     sektor_filter: str | None = None,
+    apify_timeout: int = 300,
 ) -> list[dict]:
     """
     Free-form search against Apify Google Places.
@@ -158,6 +159,7 @@ async def collect_by_query(
         ilce=ilce or "",
         limit=limit,
         sektor_for_filter=sektor_filter,
+        apify_timeout=apify_timeout,
     )
     return _filter_by_query_relevance(leads, search_string.strip())
 
@@ -207,6 +209,7 @@ async def _run_apify(
     ilce: str,
     limit: int,
     sektor_for_filter: str | None,
+    apify_timeout: int = 300,
 ) -> list[dict]:
     token = os.getenv("APIFY_API_TOKEN")
     if not token:
@@ -236,10 +239,13 @@ async def _run_apify(
                 APIFY_RUN_URL,
                 params={"token": token},
                 json=payload,
-                timeout=300,
+                timeout=apify_timeout,
             )
             response.raise_for_status()
             raw_leads = response.json()
+        except requests.Timeout:
+            logger.warning(f"Apify zaman aşımı ({apify_timeout}s) — {search_term} @ {location}")
+            raise TimeoutError(f"Apify {apify_timeout}s içinde yanıt vermedi")
         except requests.RequestException as e:
             logger.exception(f"Apify API çağrısı başarısız ({search_term} @ {location}): {e}")
             return []
