@@ -188,13 +188,42 @@ _SECTOR_KEYWORDS: list[tuple[re.Pattern, str, str | None]] = [
      "egitim", "exam_prep"),
     (re.compile(r"\b(kurs|e[gğ]itim\s+merkez|akademi)", re.I | re.U), "egitim", "course"),
 
-    # Ev hizmetleri
+    # Oto servis
+    (re.compile(r"\b(oto\s+tamir|oto\s+servis|lastik[çc][ıi]|kaporta|mekanik\s+servis|"
+                r"oto\s+elektrik[çc]i|araç\s+servis|araba\s+tamir)", re.I | re.U),
+     "oto_servis", None),
+
+    # Klima / Beyaz Eşya / Kombi
+    (re.compile(r"\b(klima\s+servis|beyaz\s+e[sş]ya\s+servis|kombi\s+servis|kombi\s+tamiri|"
+                r"buzdolab[ıi]\s+tamir|[çc]ama[sş][ıi]r\s+makinesi\s+tamir|"
+                r"klima\s+montaj|klima\s+bak[ıi]m)", re.I | re.U),
+     "klima_beyaz_esya", None),
+
+    # Çilingir
+    (re.compile(r"\b([çc]ilingir|kilitçi|kilit\s+tamiri|oto\s+[çc]ilingir|"
+                r"[çc]ilingirci)", re.I | re.U),
+     "cilingir", None),
+
+    # Tadilat
+    (re.compile(r"\b(tadilat|boya\s+badana|boyac[ıi]|dekorasyon|alç[ıi]\s+usta|"
+                r"fayans\s+usta|iç\s+mimar|yenileme)", re.I | re.U),
+     "tadilat", None),
+
+    # Nakliyat
+    (re.compile(r"\b(nakliyat|evden\s+eve|ta[sş][ıi]mac[ıi]|ta[sş][ıi]ma\s+[sş]irket|"
+                r"ev\s+ta[sş][ıi]ma|ofis\s+ta[sş][ıi]ma)", re.I | re.U),
+     "nakliyat", None),
+
+    # Halı / Temizlik
+    (re.compile(r"\b(hal[ıi]\s+y[ıi]kama|koltuk\s+y[ıi]kama|hal[ıi]\s+temizlik|"
+                r"ev\s+temizlik|ofis\s+temizlik|temizlik\s+[sş]irket|"
+                r"perde\s+y[ıi]kama|cam\s+temizlik)", re.I | re.U),
+     "hali_temizlik", None),
+
+    # Ev hizmetleri (tesisat / elektrik — spesifik olmayan aramalar)
     (re.compile(r"\b(tesisat|su\s+tesisat|d[oö][sş]eme\s+ustas)", re.I | re.U),
      "ev_hizmetleri", "tesisat"),
     (re.compile(r"\b(elektrik[çc]i)", re.I | re.U), "ev_hizmetleri", "elektrik"),
-    (re.compile(r"\b(boyac|tadilat|dekorasyon)", re.I | re.U), "ev_hizmetleri", "tesisat"),
-    (re.compile(r"\b(beyaz\s+e[sş]ya\s+servis|kombi\s+servis)", re.I | re.U),
-     "ev_hizmetleri", "tesisat"),
 
     # Restoran
     (re.compile(r"\b(restoran|restaurant|lokanta|kebab[çc]|pide\s+salon|"

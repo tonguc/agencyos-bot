@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Stethoscope, Scale, Home, Sparkles, GraduationCap, Wrench, Baby, Utensils,
+  Car, Wind, Key, Hammer, Truck, Droplets,
 } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
@@ -98,14 +99,20 @@ const CITIES: Record<string, string[]> = {
 const LIMIT_PRESETS = [5, 10, 15, 20, 25];
 
 const SECTORS = [
-  { key: "klinik",        label: "Klinik",         sub: "Muayenehane, Poliklinik",   Icon: Stethoscope,  color: "#38bdf8" },
-  { key: "avukat",        label: "Avukat",          sub: "Hukuk Bürosu, Danışmanlık", Icon: Scale,         color: "#a774ff" },
-  { key: "emlak",         label: "Emlak",           sub: "Gayrimenkul, Danışman",     Icon: Home,          color: "#34d399" },
-  { key: "guzellik",      label: "Güzellik",        sub: "Kuaför, Lazer, Estetik",    Icon: Sparkles,      color: "#f472b6" },
-  { key: "egitim",        label: "Eğitim",          sub: "Kurs, Dil Okulu, Koçluk",   Icon: GraduationCap, color: "#ffb648" },
-  { key: "ev_hizmetleri", label: "Ev Hizmetleri",   sub: "Tesisat, Elektrik, Tadilat",Icon: Wrench,        color: "#fb923c" },
-  { key: "kadin_dogum",   label: "Kadın Doğum",     sub: "Jinekoloji, Gebelik",       Icon: Baby,          color: "#f43f5e" },
-  { key: "restoran",      label: "Restoran",        sub: "Lokanta, Kafe, Bistro",     Icon: Utensils,      color: "#facc15" },
+  { key: "klinik",          label: "Klinik",           sub: "Muayenehane, Poliklinik",    Icon: Stethoscope,  color: "#38bdf8" },
+  { key: "avukat",          label: "Avukat",            sub: "Hukuk Bürosu, Danışmanlık",  Icon: Scale,        color: "#a774ff" },
+  { key: "emlak",           label: "Emlak",             sub: "Gayrimenkul, Danışman",      Icon: Home,         color: "#34d399" },
+  { key: "guzellik",        label: "Güzellik",          sub: "Kuaför, Lazer, Estetik",     Icon: Sparkles,     color: "#f472b6" },
+  { key: "egitim",          label: "Eğitim",            sub: "Kurs, Dil Okulu, Koçluk",    Icon: GraduationCap,color: "#ffb648" },
+  { key: "ev_hizmetleri",   label: "Tesisat",           sub: "Tesisat, Elektrik, Kombi",   Icon: Wrench,       color: "#fb923c" },
+  { key: "kadin_dogum",     label: "Kadın Doğum",       sub: "Jinekoloji, Gebelik",        Icon: Baby,         color: "#f43f5e" },
+  { key: "restoran",        label: "Restoran",          sub: "Lokanta, Kafe, Bistro",      Icon: Utensils,     color: "#facc15" },
+  { key: "oto_servis",      label: "Oto Servis",        sub: "Tamir, Lastik, Kaporta",     Icon: Car,          color: "#94a3b8" },
+  { key: "klima_beyaz_esya",label: "Klima / Beyaz Eşya",sub: "Klima, Kombi, Beyaz Eşya",  Icon: Wind,         color: "#7dd3fc" },
+  { key: "cilingir",        label: "Çilingir",          sub: "Kilitçi, Acil Giriş",        Icon: Key,          color: "#fbbf24" },
+  { key: "tadilat",         label: "Tadilat",           sub: "Boya, Badana, Dekorasyon",   Icon: Hammer,       color: "#c084fc" },
+  { key: "nakliyat",        label: "Nakliyat",          sub: "Evden Eve, Taşımacılık",     Icon: Truck,        color: "#4ade80" },
+  { key: "hali_temizlik",   label: "Halı & Temizlik",   sub: "Halı Yıkama, Ev Temizliği", Icon: Droplets,     color: "#60a5fa" },
 ];
 
 function trNorm(s: string) {

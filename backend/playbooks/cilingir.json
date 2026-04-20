@@ -1,0 +1,98 @@
+{
+  "sektor": "cilingir",
+  "display_name": "Çilingir / Kilitçi",
+  "kpi_listesi": [
+    "aylik cagri sayisi",
+    "ortalama mudahale suresi",
+    "acil cagri orani"
+  ],
+  "icp_filtre": {
+    "yorum_min": 0,
+    "yorum_max": 400,
+    "puan_max": 5.0,
+    "oncelikli_ilceler": [],
+    "site_durumu_kabul": ["yok", "zayif"],
+    "eleme_kriterleri": [
+      "klinik", "hastane", "eczane", "restoran", "kafe", "güzellik",
+      "kuaför", "avukat", "eğitim", "oto", "nakliyat", "inşaat"
+    ]
+  },
+  "hook_mantigi": {
+    "ana_kayip_birimi": "çağrı",
+    "dusuk_aralik": "10-20 çağrı/ay",
+    "orta_aralik": "20-50 çağrı/ay",
+    "yuksek_aralik": "50-100 çağrı/ay",
+    "varsayilan_guven": 75
+  },
+  "hook_tipleri": {
+    "gap_hook": {
+      "aciklama": "Acil aramada görünmüyor",
+      "sablon": "'{ilce} çilingir' aramasında görünmüyorsunuz — kapıda kalan müşteri ilk çıkan çilingiri arar, o siz değilsiniz.",
+      "tetikleyici": "lead.website mevcut AND audit.genel_skor < 50"
+    },
+    "data_hook": {
+      "aciklama": "Rakip çilingir verisi",
+      "sablon": "{ilce} bölgesinde {rakip_sayi} çilingir Google'da sizi geçiyor — acil aramalar onlara gidiyor.",
+      "tetikleyici": "audit.reklam_firsati.rakip_durum == aktif"
+    },
+    "money_hook": {
+      "aciklama": "Tahmini aylık kayıp",
+      "sablon": "Bu görünürlükle aylık {min}-{max} çağrı kaçıyor olabilir. (%{guven} güven)",
+      "tetikleyici": "her zaman — fallback"
+    },
+    "tercih_sirasi": ["gap_hook", "data_hook", "money_hook"]
+  },
+  "audit_kriterleri": [
+    {
+      "id": "maps_acil",
+      "soru": "Google Maps'te telefon öne çıkmış, '7/24 acil' ifadesi ve konum doğru mu?",
+      "agirlik": 40
+    },
+    {
+      "id": "lokal_seo",
+      "soru": "İlçe + çilingir aramasında ilk 3'te görünüyor mu?",
+      "agirlik": 30
+    },
+    {
+      "id": "mobil",
+      "soru": "Site mobilde anlık açılıyor ve tek tıkla arama özelliği var mı?",
+      "agirlik": 20
+    },
+    {
+      "id": "yorum",
+      "soru": "Yorum sayısı 15+ ve puan 4.0+ mi?",
+      "agirlik": 10
+    }
+  ],
+  "audit_dil_kurallari": {
+    "yasak": ["tespit edildi", "mevcut degil", "onerilir"],
+    "zorunlu_format": "Sorun → Kaçan acil çağrı → Kısa çözüm",
+    "killer_insight_zorunlu": true,
+    "kayip_dili": "acil çağrı kaybı — kapıda kalan müşteri ilk bulduğuna gidiyor"
+  },
+  "outreach": {
+    "kanal": "WhatsApp veya telefon",
+    "ton": "hızlı, acil odaklı, 'her dakika önemli' dili",
+    "giris_yasak": ["Ajansım var", "hizmet sunuyorum", "size ulaşmak istedim"],
+    "giris_onerilen": [
+      "Google'daki profilinize baktım",
+      "fark ettim ki",
+      "dikkatimi çekti"
+    ]
+  },
+  "killer_insight_ornekleri": [
+    "'Beşiktaş çilingir' aramasında 3. sayfadasınız — kapıda kalan müşteri ilk çıkan çilingiri arıyor, o siz değilsiniz",
+    "Google Maps'te 7/24 hizmet bilgisi yok — gece yarısı acil arayanlar güvende hissettiren rakibe geçiyor",
+    "Telefon numarası Maps'te görünmüyor — tıkla-ara butonu olmadan acil müşteri terk ediyor"
+  ],
+  "feature_weights": {
+    "blog_signal": 0.0,
+    "content_depth_signal": 0.1,
+    "instagram_signal": 0.2,
+    "youtube_signal": 0.0,
+    "trust_signal": 1.3,
+    "online_booking_signal": 0.3,
+    "ads_signal": 1.4,
+    "linkedin_signal": 0.0
+  }
+}

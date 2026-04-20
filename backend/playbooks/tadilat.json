@@ -1,0 +1,98 @@
+{
+  "sektor": "tadilat",
+  "display_name": "Tadilat / Boya Badana / Dekorasyon",
+  "kpi_listesi": [
+    "aylik proje sayisi",
+    "ortalama proje tutari",
+    "referans musteri orani"
+  ],
+  "icp_filtre": {
+    "yorum_min": 0,
+    "yorum_max": 400,
+    "puan_max": 5.0,
+    "oncelikli_ilceler": [],
+    "site_durumu_kabul": ["yok", "zayif"],
+    "eleme_kriterleri": [
+      "klinik", "hastane", "eczane", "restoran", "kafe", "güzellik",
+      "kuaför", "avukat", "eğitim", "oto", "nakliyat", "tesisat"
+    ]
+  },
+  "hook_mantigi": {
+    "ana_kayip_birimi": "proje",
+    "dusuk_aralik": "3-8 proje/ay",
+    "orta_aralik": "8-20 proje/ay",
+    "yuksek_aralik": "20-40 proje/ay",
+    "varsayilan_guven": 65
+  },
+  "hook_tipleri": {
+    "gap_hook": {
+      "aciklama": "Referans / portfolio yok",
+      "sablon": "'{ilce} tadilat' aramasında görünmüyorsunuz ve önceki projeleriniz paylaşılmıyor — müşteri görmeden sipariş veremiyor.",
+      "tetikleyici": "lead.website mevcut AND audit.genel_skor < 50"
+    },
+    "data_hook": {
+      "aciklama": "Rakip tadilat verisi",
+      "sablon": "{ilce} bölgesinde {rakip_sayi} tadilat firması Google'da portfolio ve yorumlarla öne çıkıyor.",
+      "tetikleyici": "audit.reklam_firsati.rakip_durum == aktif"
+    },
+    "money_hook": {
+      "aciklama": "Tahmini aylık kayıp",
+      "sablon": "Bu görünürlükle aylık {min}-{max} proje kaçıyor olabilir. (%{guven} güven)",
+      "tetikleyici": "her zaman — fallback"
+    },
+    "tercih_sirasi": ["gap_hook", "data_hook", "money_hook"]
+  },
+  "audit_kriterleri": [
+    {
+      "id": "portfolio",
+      "soru": "Sitede veya Instagram'da önceki proje fotoğrafları (önce/sonra) paylaşılmış mı?",
+      "agirlik": 35
+    },
+    {
+      "id": "maps_yorum",
+      "soru": "Google Maps'te yorum sayısı ve fotoğraf yeterli mi?",
+      "agirlik": 25
+    },
+    {
+      "id": "lokal_seo",
+      "soru": "İlçe + tadilat / boyacı aramasında ilk sayfada görünüyor mu?",
+      "agirlik": 25
+    },
+    {
+      "id": "iletisim",
+      "soru": "WhatsApp veya hızlı teklif alma özelliği sitede ya da Maps'te var mı?",
+      "agirlik": 15
+    }
+  ],
+  "audit_dil_kurallari": {
+    "yasak": ["tespit edildi", "mevcut degil", "onerilir"],
+    "zorunlu_format": "Sorun → Kaçan proje → Kısa çözüm",
+    "killer_insight_zorunlu": true,
+    "kayip_dili": "proje kaybı — portfolio yok, müşteri güvenemiyor"
+  },
+  "outreach": {
+    "kanal": "WhatsApp veya Instagram DM",
+    "ton": "görsel odaklı, referans vurgulu, somut öneri",
+    "giris_yasak": ["Ajansım var", "hizmet sunuyorum", "size ulaşmak istedim"],
+    "giris_onerilen": [
+      "Google'daki profilinize baktım",
+      "fark ettim ki",
+      "dikkatimi çekti"
+    ]
+  },
+  "killer_insight_ornekleri": [
+    "Sitede veya Google Maps'te önceki proje fotoğrafları yok — müşteri 'acaba güzel yapıyorlar mı?' diye düşünerek rakibe gidiyor",
+    "'Ataşehir tadilat' aramasında görünmüyorsunuz — yeni taşınanlar sizi bulamadan fiyat karşılaştırmasını başka yerde yapıyor",
+    "Instagram hesabı yok veya proje paylaşımı yapılmıyor — en güçlü satış aracınız olan portfolio boşta kalıyor"
+  ],
+  "feature_weights": {
+    "blog_signal": 0.1,
+    "content_depth_signal": 0.4,
+    "instagram_signal": 1.3,
+    "youtube_signal": 0.3,
+    "trust_signal": 0.9,
+    "online_booking_signal": 0.4,
+    "ads_signal": 1.0,
+    "linkedin_signal": 0.1
+  }
+}

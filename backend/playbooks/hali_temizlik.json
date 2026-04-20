@@ -1,0 +1,98 @@
+{
+  "sektor": "hali_temizlik",
+  "display_name": "Halı Yıkama / Ev Temizliği",
+  "kpi_listesi": [
+    "aylik musteri sayisi",
+    "tekrar musteri orani",
+    "ortalama siparis tutari"
+  ],
+  "icp_filtre": {
+    "yorum_min": 0,
+    "yorum_max": 500,
+    "puan_max": 5.0,
+    "oncelikli_ilceler": [],
+    "site_durumu_kabul": ["yok", "zayif"],
+    "eleme_kriterleri": [
+      "klinik", "hastane", "eczane", "restoran", "kafe", "güzellik",
+      "kuaför", "avukat", "eğitim", "oto", "nakliyat", "elektrik", "tesisat", "inşaat"
+    ]
+  },
+  "hook_mantigi": {
+    "ana_kayip_birimi": "müşteri",
+    "dusuk_aralik": "10-25 müşteri/ay",
+    "orta_aralik": "25-60 müşteri/ay",
+    "yuksek_aralik": "60-120 müşteri/ay",
+    "varsayilan_guven": 65
+  },
+  "hook_tipleri": {
+    "gap_hook": {
+      "aciklama": "Lokal aramada görünmüyor",
+      "sablon": "'{ilce} halı yıkama' aramasında görünmüyorsunuz — bölgenizdeki müşteri sizi bulamadan rakibe gidiyor.",
+      "tetikleyici": "lead.website mevcut AND audit.genel_skor < 50"
+    },
+    "data_hook": {
+      "aciklama": "Rakip temizlik verisi",
+      "sablon": "{ilce} bölgesinde {rakip_sayi} temizlik firması Google'da yorum ve görsel avantajıyla öne çıkıyor.",
+      "tetikleyici": "audit.reklam_firsati.rakip_durum == aktif"
+    },
+    "money_hook": {
+      "aciklama": "Tahmini aylık kayıp",
+      "sablon": "Bu görünürlükle aylık {min}-{max} müşteri kaçıyor olabilir. (%{guven} güven)",
+      "tetikleyici": "her zaman — fallback"
+    },
+    "tercih_sirasi": ["gap_hook", "data_hook", "money_hook"]
+  },
+  "audit_kriterleri": [
+    {
+      "id": "maps_yorum",
+      "soru": "Google Maps'te yorum sayısı 20+ ve puan 4.3+?",
+      "agirlik": 30
+    },
+    {
+      "id": "lokal_seo",
+      "soru": "İlçe + halı yıkama / ev temizliği aramasında ilk sayfada mı?",
+      "agirlik": 30
+    },
+    {
+      "id": "gorsel",
+      "soru": "Sitede veya Instagram'da temizlik öncesi/sonrası görseller paylaşılmış mı?",
+      "agirlik": 25
+    },
+    {
+      "id": "siparis",
+      "soru": "WhatsApp veya online sipariş butonu var mı?",
+      "agirlik": 15
+    }
+  ],
+  "audit_dil_kurallari": {
+    "yasak": ["tespit edildi", "mevcut degil", "onerilir"],
+    "zorunlu_format": "Sorun → Kaçan müşteri → Kısa çözüm",
+    "killer_insight_zorunlu": true,
+    "kayip_dili": "müşteri kaybı — lokal aramada görünmüyor, görseli yok"
+  },
+  "outreach": {
+    "kanal": "WhatsApp veya telefon",
+    "ton": "temiz, güven verici, hızlı hizmet odaklı",
+    "giris_yasak": ["Ajansım var", "hizmet sunuyorum", "size ulaşmak istedim"],
+    "giris_onerilen": [
+      "Google'daki profilinize baktım",
+      "fark ettim ki",
+      "dikkatimi çekti"
+    ]
+  },
+  "killer_insight_ornekleri": [
+    "'Ataşehir halı yıkama' aramasında görünmüyorsunuz — bölge müşterisi sizi bulamadan rakibe sipariş veriyor",
+    "Sitede veya Maps'te öncesi/sonrası temizlik görseli yok — müşteri sonucu görmeden para vermeye ikna olmuyor",
+    "WhatsApp siparişi yok — telefon açıp konuşmak yerine mesajla sipariş verebilecekleri rakibi seçiyorlar"
+  ],
+  "feature_weights": {
+    "blog_signal": 0.1,
+    "content_depth_signal": 0.3,
+    "instagram_signal": 1.2,
+    "youtube_signal": 0.2,
+    "trust_signal": 1.0,
+    "online_booking_signal": 0.8,
+    "ads_signal": 1.0,
+    "linkedin_signal": 0.0
+  }
+}

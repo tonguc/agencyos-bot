@@ -14,14 +14,21 @@ APIFY_ACTOR = "compass~crawler-google-places"
 APIFY_RUN_URL = f"https://api.apify.com/v2/acts/{APIFY_ACTOR}/run-sync-get-dataset-items"
 
 _SECTOR_SEARCH_TERMS: dict[str, str] = {
-    "klinik":        "klinik muayenehane",
-    "avukat":        "avukat hukuk bürosu",
-    "emlak":         "emlak danışmanı",
-    "guzellik":      "güzellik salonu kuaför",
-    "egitim":        "eğitim kursu dil okulu",
-    "ev_hizmetleri": "tesisatçı",
-    "kadin_dogum":   "kadın hastalıkları ve doğum uzmanı jinekoloji",
-    "restoran":      "restoran lokanta",
+    "klinik":          "klinik muayenehane",
+    "avukat":          "avukat hukuk bürosu",
+    "emlak":           "emlak danışmanı",
+    "guzellik":        "güzellik salonu kuaför",
+    "egitim":          "eğitim kursu dil okulu",
+    "ev_hizmetleri":   "tesisatçı elektrikçi kombi servisi",
+    "kadin_dogum":     "kadın hastalıkları ve doğum uzmanı jinekoloji",
+    "restoran":        "restoran lokanta",
+    # Yeni sektörler
+    "oto_servis":      "oto tamir servis lastikçi",
+    "klima_beyaz_esya": "klima servisi beyaz eşya servisi kombi tamiri",
+    "cilingir":        "çilingir kilitçi",
+    "tadilat":         "tadilat boyacı boya badana dekorasyon",
+    "nakliyat":        "nakliyat evden eve nakliye",
+    "hali_temizlik":   "halı yıkama ev temizliği temizlik şirketi",
 }
 
 # İsim veya kategori bu pattern'lara uyan lead'ler koleksiyon aşamasında filtrelenir.
@@ -73,6 +80,37 @@ _SECTOR_REJECT: dict[str, re.Pattern] = {
         r"\b(klinik|hastane|eczane|tesisat|elektrik|inşaat|boyacı|tadilat|"
         r"mağaza|butik|tekstil|avukat|hukuk|güzellik\s*merkezi|"
         r"bilgisayar|gsm|nakliyat|temizlik|veteriner)\b",
+        re.I | re.UNICODE,
+    ),
+    # Yeni sektörler
+    "oto_servis": re.compile(
+        r"\b(klinik|hastane|eczane|restoran|kafe|güzellik|kuaför|avukat|"
+        r"eğitim|nakliyat|temizlik|inşaat|tesisat|tekstil|mağaza|market)\b",
+        re.I | re.UNICODE,
+    ),
+    "klima_beyaz_esya": re.compile(
+        r"\b(klinik|hastane|eczane|restoran|kafe|güzellik|kuaför|avukat|"
+        r"eğitim|nakliyat|oto\s*tamir|inşaat|tekstil|mağaza|market)\b",
+        re.I | re.UNICODE,
+    ),
+    "cilingir": re.compile(
+        r"\b(klinik|hastane|eczane|restoran|kafe|güzellik|kuaför|avukat|"
+        r"eğitim|oto|nakliyat|inşaat|tesisat|elektrik|tekstil|mağaza)\b",
+        re.I | re.UNICODE,
+    ),
+    "tadilat": re.compile(
+        r"\b(klinik|hastane|eczane|restoran|kafe|güzellik|kuaför|avukat|"
+        r"eğitim|oto|nakliyat|tesisat|elektrik|tekstil|market|süpermarket)\b",
+        re.I | re.UNICODE,
+    ),
+    "nakliyat": re.compile(
+        r"\b(klinik|hastane|eczane|restoran|kafe|güzellik|kuaför|avukat|"
+        r"eğitim|oto\s*tamir|tesisat|elektrik|temizlik|tekstil|market)\b",
+        re.I | re.UNICODE,
+    ),
+    "hali_temizlik": re.compile(
+        r"\b(klinik|hastane|eczane|restoran|kafe|güzellik|kuaför|avukat|"
+        r"eğitim|oto|nakliyat|elektrik|tesisat|inşaat|tekstil|market)\b",
         re.I | re.UNICODE,
     ),
 }

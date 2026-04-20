@@ -8,10 +8,20 @@ import { jobsApi, leadsApi } from "@/lib/api";
 import type { Job, Lead } from "@/types";
 
 const SECTOR_LABELS: Record<string, string> = {
-  klinik: "Klinik", avukat: "Avukat", emlak: "Emlak",
-  guzellik: "Güzellik", egitim: "Eğitim",
-  ev_hizmetleri: "Ev Hizmetleri", kadin_dogum: "Kadın Doğum",
-  restoran: "Restoran",
+  klinik:           "Klinik",
+  avukat:           "Avukat",
+  emlak:            "Emlak",
+  guzellik:         "Güzellik",
+  egitim:           "Eğitim",
+  ev_hizmetleri:    "Tesisat / Elektrik",
+  kadin_dogum:      "Kadın Doğum",
+  restoran:         "Restoran",
+  oto_servis:       "Oto Servis",
+  klima_beyaz_esya: "Klima / Beyaz Eşya",
+  cilingir:         "Çilingir",
+  tadilat:          "Tadilat",
+  nakliyat:         "Nakliyat",
+  hali_temizlik:    "Halı & Temizlik",
 };
 
 function getPriority(avg: number | undefined) {

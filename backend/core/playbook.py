@@ -37,6 +37,13 @@ TOP_LEVEL_SECTORS = [
     "egitim",
     "ev_hizmetleri",
     "kadin_dogum",
+    # Yeni sektörler
+    "oto_servis",
+    "klima_beyaz_esya",
+    "cilingir",
+    "tadilat",
+    "nakliyat",
+    "hali_temizlik",
 ]
 
 
@@ -48,16 +55,23 @@ def list_top_level_sectors() -> list[str]:
 # Default subsector playbook used at collection time (before subsector detection).
 # Audit/funnel stages re-detect the actual subsector from the lead data.
 _DEFAULT_PLAYBOOK: dict[str, str] = {
-    "klinik":        "clinic_general",
-    "avukat":        "lawyer_litigation",
-    "emlak":         "real_estate_local",
-    "guzellik":      "beauty_routine",
-    "egitim":        "education_course",
-    "ev_hizmetleri": "ev_hizmetleri_tesisat",
-    "kadin_dogum":   "clinic_general",
+    "klinik":          "clinic_general",
+    "avukat":          "lawyer_litigation",
+    "emlak":           "real_estate_local",
+    "guzellik":        "beauty_routine",
+    "egitim":          "education_course",
+    "ev_hizmetleri":   "ev_hizmetleri_tesisat",
+    "kadin_dogum":     "clinic_general",
+    # Yeni sektörler
+    "oto_servis":      "oto_servis",
+    "klima_beyaz_esya": "klima_beyaz_esya",
+    "cilingir":        "cilingir",
+    "tadilat":         "tadilat",
+    "nakliyat":        "nakliyat",
+    "hali_temizlik":   "hali_temizlik",
     # Fallback aliases
-    "genel":         "clinic_general",
-    "general":       "clinic_general",
+    "genel":           "clinic_general",
+    "general":         "clinic_general",
 }
 
 _FALLBACK_PLAYBOOK = "clinic_general"

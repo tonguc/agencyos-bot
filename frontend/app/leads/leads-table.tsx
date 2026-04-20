@@ -9,14 +9,20 @@ import { formatDate } from "@/lib/utils";
 import type { Lead } from "@/types";
 
 const SECTOR_LABELS: Record<string, string> = {
-  klinik:        "Klinik / Muayenehane",
-  avukat:        "Avukat / Hukuk Bürosu",
-  emlak:         "Emlak / Gayrimenkul",
-  guzellik:      "Güzellik / Kuaför",
-  egitim:        "Eğitim / Kurs",
-  ev_hizmetleri: "Ev Hizmetleri",
-  kadin_dogum:   "Kadın Doğum Uzmanı",
-  restoran:      "Restoran / Lokanta",
+  klinik:           "Klinik / Muayenehane",
+  avukat:           "Avukat / Hukuk Bürosu",
+  emlak:            "Emlak / Gayrimenkul",
+  guzellik:         "Güzellik / Kuaför",
+  egitim:           "Eğitim / Kurs",
+  ev_hizmetleri:    "Tesisat / Elektrik / Kombi",
+  kadin_dogum:      "Kadın Doğum Uzmanı",
+  restoran:         "Restoran / Lokanta",
+  oto_servis:       "Oto Servis / Tamir",
+  klima_beyaz_esya: "Klima / Beyaz Eşya / Kombi",
+  cilingir:         "Çilingir / Kilitçi",
+  tadilat:          "Tadilat / Boya Badana",
+  nakliyat:         "Nakliyat / Evden Eve",
+  hali_temizlik:    "Halı Yıkama / Ev Temizliği",
 };
 
 const PIPELINE_STATUSES = ["Yeni", "Audit", "Mesaj", "Cevap", "Demo", "Teklif", "Kapandi", "Soguk"];
