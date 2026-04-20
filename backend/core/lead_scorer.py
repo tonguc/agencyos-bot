@@ -176,6 +176,22 @@ def calc_opportunity(lead: dict, audit: dict) -> tuple[int, list[str]]:
     if audit.get("ssl") is False:
         add(6, "SSL yok")
 
+    # E. Site eskimesi (opportunity açısından — hafif ağırlık)
+    # Intent tarafında daha güçlü, burada sadece "çürüme" sinyali.
+    update_days = lead.get("last_website_update_days")
+    update_conf = lead.get("website_update_confidence") or 0.0
+    site_durumu = lead.get("site_durumu")
+
+    if website and update_days is not None and update_conf >= 0.4:
+        # site_durumu = iyi ise zaten güçlü — staleness bonus'unu cap'le
+        site_iyi = site_durumu == "iyi"
+        if update_days > 365:
+            add(3 if site_iyi else 8, f"Site çok eski ({update_days}g)")
+        elif update_days > 180:
+            add(2 if site_iyi else 5, f"Site eski ({update_days}g)")
+        elif update_days > 90:
+            add(1 if site_iyi else 2, f"Site yaşlanmış ({update_days}g)")
+
     return max(0, min(score, 100)), signals
 
 
@@ -246,11 +262,23 @@ def calc_intent(lead: dict, audit: dict) -> tuple[int, list[str]]:
         elif yt_180 > 6:
             add(4, f"YouTube 180g video: {yt_180}")
 
-    # C. Dijital yatırım
+    # C. Dijital yatırım — site güncelleme tazeliği (intent için ana sinyal)
     update_days = lead.get("last_website_update_days")
     update_conf = lead.get("website_update_confidence") or 0.0
-    if update_days is not None and update_conf >= 0.4 and update_days < 60:
-        add(8, f"Site son 60g güncel ({update_days}g)")
+
+    if update_days is not None and update_conf >= 0.4:
+        if update_days < 30:
+            add(10, f"Site çok taze ({update_days}g)")
+        elif update_days < 60:
+            add(6, f"Site güncel ({update_days}g)")
+        elif update_days < 90:
+            add(2, f"Site normal ({update_days}g)")
+        elif update_days <= 180:
+            pass  # nötr
+        elif update_days <= 365:
+            add(-4, f"Site bakımsız ({update_days}g)")
+        else:
+            add(-8, f"Site terk edilmiş ({update_days}g)")
 
     if lead.get("market_ads_pressure") is True:
         add(4, "Sektörde reklam baskısı")
@@ -426,6 +454,18 @@ def detect_contradictions(lead: dict, audit: dict, opp: int, intent: int) -> lis
 
     if yorum > 50 and gmb_photos is not None and gmb_photos < 2 and gmb_desc is False:
         flags.append("Çok yorum + sıfır GMB derinliği — fake/eksik şüphesi")
+
+    # Terk edilmiş site + ölü Maps + sosyal ölü → fırsat değil, zombie
+    update_days = lead.get("last_website_update_days")
+    update_conf = lead.get("website_update_confidence") or 0.0
+    son_yorum   = lead.get("son_yorum_gun")
+    ig_post_90  = lead.get("instagram_post_90d")
+    ig_inactive = ig_post_90 is not None and ig_post_90 == 0
+    maps_olu    = son_yorum is not None and son_yorum > 180
+
+    if (update_days is not None and update_conf >= 0.4
+            and update_days > 365 and maps_olu and ig_inactive):
+        flags.append("Site+Maps+IG üçü de ölü — terk edilmiş şüphesi")
 
     return flags
 
