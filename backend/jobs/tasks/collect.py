@@ -23,7 +23,8 @@ async def run_collect_job(
         job = await JobRepository(db).get(job_uuid)
         if job:
             label = query or sector
-            await JobRepository(db).mark_running(job, f"{label} / {city} taranıyor...")
+            location = ", ".join(p for p in [district, city] if p)
+            await JobRepository(db).mark_running(job, f"{label} / {location} taranıyor...")
             await db.commit()
 
     try:
