@@ -164,9 +164,18 @@ export const settingsApi = {
 };
 
 // ── Voice ──────────────────────────────────────────────────────────────
+export interface VoiceScrapeAction {
+  type: "scrape";
+  job_id: string;
+  sector: string;
+  city: string;
+  district?: string;
+  limit: number;
+}
+
 export const voiceApi = {
   chat: (message: string, history: { role: string; content: string }[]) =>
-    request<{ reply: string }>("/api/voice/chat", {
+    request<{ reply: string; action?: VoiceScrapeAction }>("/api/voice/chat", {
       method: "POST",
       body: JSON.stringify({ message, history }),
     }),
