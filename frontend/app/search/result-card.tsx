@@ -144,6 +144,12 @@ export function ResultCard({ lead, selected, onSelect, sector, city, district }:
 
         {selected && (
           <div className="mt-3 pt-3 border-t border-stroke space-y-3">
+            {lead.segment === "review" && (
+              <div className="border border-review/40 bg-review/5 px-2.5 py-1.5 text-[11px] font-mono text-review">
+                Ön skor — hızlı aramada yalnız Maps sinyalleri kullanıldı.
+                Kesin değerlendirme için kaydet ve <span className="font-bold">Yeni Tarama</span> çalıştır.
+              </div>
+            )}
             {/* Action buttons */}
             <div className="flex flex-wrap items-center gap-2">
               {lead.maps_url && (
