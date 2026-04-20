@@ -15,18 +15,20 @@ async def run_collect_job(
     district: str,
     limit: int,
     job_id: str,
+    query: str = "",
 ) -> dict:
     job_uuid = uuid.UUID(job_id)
 
     async with AsyncSessionFactory() as db:
         job = await JobRepository(db).get(job_uuid)
         if job:
-            await JobRepository(db).mark_running(job, f"{sector} / {city} taranıyor...")
+            label = query or sector
+            await JobRepository(db).mark_running(job, f"{label} / {city} taranıyor...")
             await db.commit()
 
     try:
         async with AsyncSessionFactory() as db:
-            result = await collect_and_save(sector, city, district, limit, db)
+            result = await collect_and_save(sector, city, district, limit, db, query=query)
             await db.commit()
 
         async with AsyncSessionFactory() as db:

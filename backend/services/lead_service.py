@@ -9,7 +9,7 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.lead_collector import collect_google_maps
+from core.lead_collector import collect_google_maps, collect_by_query
 from core.icp_filter import filter_leads
 from core.lead_scorer import calculate_final_score
 from core.playbook import load_playbook, load_playbook_for_sector
@@ -43,10 +43,19 @@ async def collect_and_save(
     district: str,
     limit: int,
     db: AsyncSession,
+    query: str = "",
 ) -> dict:
-    """Scrape leads → filter → score → save to DB. Returns summary dict."""
+    """Scrape leads → filter → score → save to DB. Returns summary dict.
+
+    If `query` is provided, Apify searches that literal phrase (e.g.
+    "kulak burun boğaz doktoru") while `sector` still drives playbook
+    and irrelevance filtering.
+    """
     playbook = load_playbook_for_sector(sector)
-    raw = await collect_google_maps(sector, city, district, limit=limit)
+    if query:
+        raw = await collect_by_query(query, sehir=city, ilce=district, limit=limit, sektor_filter=sector)
+    else:
+        raw = await collect_google_maps(sector, city, district, limit=limit)
     if not raw:
         return {"saved": 0, "stats": {}, "error": "Apify sonuc dondurmedi"}
 

@@ -26,7 +26,7 @@ KURALLAR:
 
 Sektörler: klinik, avukat, emlak, guzellik, egitim, ev_hizmetleri, kadin_dogum, restoran, oto_servis, klima_beyaz_esya, cilingir, tadilat, nakliyat, hali_temizlik
 
-Türkçe→key:
+Türkçe→sector key (playbook/filtre için):
 - doktor/hekim/KBB/dahiliye/kardiyoloji/göz/diş/cerrah/fizyoterapist/poliklinik/hastane → klinik
 - kadın doğum/jinekolog/gebe → kadin_dogum
 - güzellik/estetik/spa/kuaför/berber → guzellik
@@ -40,14 +40,20 @@ Türkçe→key:
 - kreş/anaokulu/kurs/dershane → egitim
 - kafe/lokanta/yemek → restoran
 
-KBB de, göz de, diş de hepsi KLİNİK. "O bizde yok" deme, klinik olarak ekle."""
+query: kullanıcının söylediği gerçek arama ifadesi (ÖRN: "kulak burun boğaz doktoru", "diş hekimi", "estetik cerrahi"). Google'da bu kelimeyle aranır. sector playbook için, query arama için.
+
+KBB de, göz de, diş de hepsi KLİNİK sector'ü ama query="kulak burun boğaz doktoru" gibi kullanıcının dediğini ilet."""
 
 SCRAPE_TOOL = {
     "name": "trigger_scrape",
-    "description": "Kullanıcı onayladığında lead taraması başlatır",
+    "description": "Kullanıcı onayladığında lead taraması başlatır. query kullanıcının söylediği arama ifadesi (KBB doktoru / diş hekimi vb), sector ise playbook/filtreleme için.",
     "input_schema": {
         "type": "object",
         "properties": {
+            "query": {
+                "type": "string",
+                "description": "Kullanıcının söylediği Türkçe arama ifadesi, örn: 'kulak burun boğaz doktoru', 'diş hekimi', 'estetik cerrahi'",
+            },
             "sector": {
                 "type": "string",
                 "enum": [
@@ -60,7 +66,7 @@ SCRAPE_TOOL = {
             "district": {"type": "string"},
             "limit": {"type": "integer", "default": 20},
         },
-        "required": ["sector", "city"],
+        "required": ["query", "sector", "city"],
     },
 }
 
@@ -197,18 +203,19 @@ async def voice_chat(
             sector = inp["sector"]
             city = inp["city"]
             district = inp.get("district", "") or ""
+            query = (inp.get("query") or "").strip()
             limit = int(inp.get("limit", 20))
 
             job = await JobRepository(db).create(
                 type="collect_leads",
-                payload={"sector": sector, "city": city, "district": district, "limit": limit},
+                payload={"sector": sector, "city": city, "district": district, "limit": limit, "query": query},
             )
             await db.commit()
-            await arq.enqueue_job("run_collect_job", sector, city, district, limit, str(job.id))
+            await arq.enqueue_job("run_collect_job", sector, city, district, limit, str(job.id), query)
 
             # If Claude didn't provide text with the tool call, give a fixed short confirm
             if not reply:
-                reply = f"Başlattım. {city} {sector} için {limit} lead."
+                reply = f"Başlattım. {city} {query or sector} için {limit} lead."
 
             action = ScrapeAction(job_id=str(job.id), sector=sector, city=city, district=district, limit=limit)
 
