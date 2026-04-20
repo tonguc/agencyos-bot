@@ -3,13 +3,18 @@ import uuid
 from arq import ArqRedis
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 
 from database import get_db
 from jobs.pool import get_arq_pool
 from repositories.audit import AuditRepository
 from repositories.job import JobRepository
+from repositories.lead import LeadRepository
 from schemas.audit import AuditOut
 from schemas.common import JobResponse
+from core.sales_output_generator import generate_sales_output
+from core.playbook import load_playbook_for_sector
+from services.lead_service import lead_to_core_dict
 
 router = APIRouter(prefix="/leads", tags=["audit"])
 
@@ -35,3 +40,29 @@ async def get_audit(lead_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     if not audit:
         raise HTTPException(404, "Audit bulunamadi")
     return audit
+
+
+@router.post("/{lead_id}/sales-output")
+async def refresh_sales_output(lead_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    """Mevcut audit verisini kullanarak sadece satış mesajını yeniden üretir."""
+    lead = await LeadRepository(db).get(lead_id)
+    if not lead:
+        raise HTTPException(404, "Lead bulunamadi")
+
+    audit = await AuditRepository(db).get_latest_for_lead(lead_id)
+    if not audit or not audit.result:
+        raise HTTPException(404, "Önce audit çalıştırılmalı")
+
+    playbook = load_playbook_for_sector(lead.sector or "klinik")
+    lead_dict = lead_to_core_dict(lead)
+    audit_result = dict(audit.result)
+
+    sales_output = await generate_sales_output(lead_dict, audit_result, playbook)
+
+    new_result = dict(audit.result)
+    new_result["sales_output"] = sales_output
+    audit.result = new_result
+    flag_modified(audit, "result")
+    await db.commit()
+
+    return {"sales_output": sales_output}

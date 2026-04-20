@@ -14,6 +14,7 @@ interface Props {
   hasOutreach: boolean;
   hasProposal: boolean;
   proposalId?: string;
+  hasSalesOutput?: boolean;
 }
 
 interface RunningJob {
@@ -21,11 +22,13 @@ interface RunningJob {
   label: string;
 }
 
-export function LeadActions({ leadId, hasAudit, hasOutreach, hasProposal, proposalId }: Props) {
+export function LeadActions({ leadId, hasAudit, hasOutreach, hasProposal, proposalId, hasSalesOutput }: Props) {
   const router = useRouter();
   const [runningJob, setRunningJob] = useState<RunningJob | null>(null);
   const [jobData, setJobData] = useState<Job | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [salesLoading, setSalesLoading] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -49,7 +52,7 @@ export function LeadActions({ leadId, hasAudit, hasOutreach, hasProposal, propos
           }
         }
       } catch {
-        // transient fetch error, keep polling
+        // transient error
       }
     }, 1500);
   }
@@ -69,7 +72,18 @@ export function LeadActions({ leadId, hasAudit, hasOutreach, hasProposal, propos
     }
   }
 
-  const [pdfLoading, setPdfLoading] = useState(false);
+  async function handleRefreshSales() {
+    setError(null);
+    setSalesLoading(true);
+    try {
+      await auditApi.refreshSalesOutput(leadId);
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Satış mesajı yenilenemedi");
+    } finally {
+      setSalesLoading(false);
+    }
+  }
 
   const downloadPdf = useCallback(async () => {
     if (!proposalId) return;
@@ -99,7 +113,6 @@ export function LeadActions({ leadId, hasAudit, hasOutreach, hasProposal, propos
 
   return (
     <div className="space-y-3">
-      {/* Action buttons */}
       <div className="flex flex-wrap gap-2">
         <Button
           size="sm"
@@ -137,24 +150,37 @@ export function LeadActions({ leadId, hasAudit, hasOutreach, hasProposal, propos
             {pdfLoading ? "İndiriliyor…" : "PDF İndir ↓"}
           </Button>
         )}
+        {hasAudit && (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy || salesLoading}
+            onClick={handleRefreshSales}
+            title="Satış mesajını yeni promptla yeniden yaz (audit tekrar çalışmaz)"
+          >
+            {salesLoading ? "Yenileniyor…" : "Satış Mesajını Yenile"}
+          </Button>
+        )}
       </div>
 
       {/* Job progress */}
       {runningJob && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-medium text-blue-700">{runningJob.label} çalışıyor...</span>
+        <div className="border border-accent/30 bg-accent/5 p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="font-mono text-[10px] text-accent tracking-wider uppercase">
+              {runningJob.label} çalışıyor...
+            </span>
             {jobData && <Badge value={jobData.status} />}
           </div>
           <Progress value={jobData?.progress_pct ?? 0} />
           {jobData?.progress_message && (
-            <p className="text-xs text-blue-600">{jobData.progress_message}</p>
+            <p className="font-mono text-[10px] text-muted">{jobData.progress_message}</p>
           )}
         </div>
       )}
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+        <div className="border border-hot/40 bg-hot/5 p-3 font-mono text-[10px] text-hot">
           {error}
         </div>
       )}

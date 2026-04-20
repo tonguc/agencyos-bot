@@ -142,7 +142,10 @@ _SECTOR_KEYWORDS: list[tuple[re.Pattern, str, str | None]] = [
     (re.compile(r"\b(estetik\s+di[sş]|di[sş]\s+hekim|di[sş]\s+klini[gğ]i|implant|ortodonti|"
                 r"di[sş]\s+doktor)", re.I | re.U), "klinik", "dental"),
     (re.compile(r"\b(plastik\s+cerrah|estetik\s+cerrah|burun\s+esteti[gğ]i|meme\s+esteti[gğ]i|"
-                r"liposakshion|liposuction)", re.I | re.U), "klinik", "aesthetic"),
+                r"liposuction|liposakshion)", re.I | re.U), "klinik", "aesthetic"),
+    (re.compile(r"\b(botoks|botox|dolgu|hyaluronik|prp|mezoterapi|i[pğ]ne\s+estetik|"
+                r"iplik\s+ask[ıi]|yanak\s+dolgu|dudak\s+dolgu|estetik\s+enjeksiyon)",
+                re.I | re.U), "klinik", "aesthetic"),
     (re.compile(r"\b(psikolog|psikiyatr|terapist|psikoterapist|aile\s+danı[sş]man)",
                 re.I | re.U), "klinik", "trust"),
     (re.compile(r"\b(diyetisyen|beslenme\s+uzman)", re.I | re.U), "klinik", "general"),

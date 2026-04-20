@@ -5,6 +5,9 @@ import { ScoreBar } from "@/components/ui/score-bar";
 import { formatDateTime } from "@/lib/utils";
 import { LeadActions } from "./lead-actions";
 import { SalesOutputCard } from "./sales-output-card";
+import { OutreachCard } from "./outreach-card";
+import { LocationMap } from "./location-map";
+import { SimilarLeads } from "./similar-leads";
 import type { Audit, Lead, OutreachMessage, Proposal } from "@/types";
 import Link from "next/link";
 
@@ -31,12 +34,21 @@ export default async function LeadDetailPage({ params }: Props) {
     get<Proposal>(`/api/leads/${id}/proposal`),
   ]);
 
+  // Similar leads — same sector + city, sorted by score
+  const similarLeads = lead
+    ? await get<{ items: Lead[] }>(
+        `/api/leads?sector=${encodeURIComponent(lead.sector ?? "")}&city=${encodeURIComponent(lead.city ?? "")}&limit=10`
+      ).then((r) => r?.items ?? [])
+    : [];
+
   if (!lead) {
     return (
       <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
-          <p className="text-slate-400">Lead bulunamadı.</p>
-          <Link href="/leads" className="text-sm text-blue-500 mt-2 inline-block">← Geri dön</Link>
+          <p className="font-mono text-[11px] text-muted">Lead bulunamadı.</p>
+          <Link href="/leads" className="font-mono text-[10px] text-accent mt-2 inline-block hover:underline">
+            ← Geri dön
+          </Link>
         </div>
       </div>
     );
@@ -54,14 +66,20 @@ export default async function LeadDetailPage({ params }: Props) {
         title={lead.name}
         description={`${lead.sector} · ${lead.city}${lead.district ? ` / ${lead.district}` : ""}`}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Badge value={lead.status} />
-            <Link href="/leads" className="text-xs text-slate-400 hover:text-slate-600">← Lead'ler</Link>
+            <Link
+              href="/leads"
+              className="font-mono text-[9px] text-dim hover:text-accent tracking-wider transition-colors"
+            >
+              ← Lead&apos;ler
+            </Link>
           </div>
         }
       />
 
       <div className="p-6 space-y-5 max-w-4xl">
+
         {/* Actions */}
         <Card>
           <CardHeader><CardTitle>İşlemler</CardTitle></CardHeader>
@@ -76,16 +94,19 @@ export default async function LeadDetailPage({ params }: Props) {
           </CardContent>
         </Card>
 
-        {/* Lead info */}
+        {/* Lead info + map side by side */}
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Card>
           <CardHeader><CardTitle>Bilgiler</CardTitle></CardHeader>
           <CardContent>
-            <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4 text-sm">
+            <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4">
               {([
                 ["Telefon", lead.phone],
                 ["Website", lead.website ? (
                   <a href={lead.website} target="_blank" rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline break-all">{lead.website}</a>
+                    className="text-accent hover:underline break-all font-mono text-[11px]">
+                    {lead.website}
+                  </a>
                 ) : null],
                 ["Adres", lead.address],
                 ["Google Puan", lead.google_rating ? `${lead.google_rating} ⭐ (${lead.review_count} yorum)` : null],
@@ -94,14 +115,18 @@ export default async function LeadDetailPage({ params }: Props) {
                 ["Eklenme", formatDateTime(lead.created_at)],
                 ["Güncelleme", formatDateTime(lead.updated_at)],
               ] as [string, React.ReactNode][]).map(([k, v]) => v != null && (
-                <div key={k}>
-                  <dt className="text-xs text-slate-500">{k}</dt>
-                  <dd className="font-medium text-slate-800 mt-0.5">{v}</dd>
+                <div key={String(k)}>
+                  <dt className="font-mono text-[9px] text-dim uppercase tracking-[0.2em]">{k}</dt>
+                  <dd className="font-medium text-bright text-sm mt-1">{v}</dd>
                 </div>
               ))}
             </dl>
           </CardContent>
         </Card>
+
+        {/* Map */}
+        <LocationMap address={lead.address} name={lead.name} />
+        </div>
 
         {/* Audit */}
         {audit && (
@@ -116,6 +141,7 @@ export default async function LeadDetailPage({ params }: Props) {
               </div>
             </CardHeader>
             <CardContent className="space-y-5">
+
               {/* Scores */}
               <div className="grid grid-cols-2 gap-4">
                 <ScoreBar label="UX" value={audit.ux_score} />
@@ -126,33 +152,42 @@ export default async function LeadDetailPage({ params }: Props) {
 
               {/* Killer insight */}
               {audit.killer_insight && (
-                <div className="rounded-lg bg-amber-50 border border-amber-200 p-4">
-                  <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Killer Insight</p>
-                  <p className="text-sm text-amber-900 font-medium">{audit.killer_insight}</p>
+                <div className="border border-warm/30 bg-warm/5 p-4">
+                  <p className="font-mono text-[9px] text-warm uppercase tracking-[0.2em] mb-2">
+                    ⚡ Killer Insight
+                  </p>
+                  <p className="text-sm text-bright font-medium leading-relaxed">
+                    {audit.killer_insight}
+                  </p>
                   {audit.killer_metric && (
-                    <p className="text-xs text-amber-700 mt-1">Metrik: {audit.killer_metric}</p>
+                    <p className="font-mono text-[10px] text-muted mt-2">Metrik: {audit.killer_metric}</p>
                   )}
                 </div>
               )}
 
               {/* Personal insight */}
               {audit.personal_insight && (
-                <div className="rounded-lg bg-slate-50 border border-slate-200 p-4">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Kişisel İçgörü</p>
-                  <p className="text-sm text-slate-700">{audit.personal_insight}</p>
+                <div className="border border-stroke-2 bg-panel-high p-4">
+                  <p className="font-mono text-[9px] text-muted uppercase tracking-[0.2em] mb-2">
+                    Kişisel İçgörü
+                  </p>
+                  <p className="text-sm text-muted leading-relaxed">{audit.personal_insight}</p>
                 </div>
               )}
 
               {/* Site data */}
-              <div className="flex flex-wrap gap-3 text-xs">
+              <div className="flex flex-wrap gap-2">
                 {[
                   ["Hız", audit.site_speed != null ? `${audit.site_speed}/100` : null],
                   ["SSL", audit.has_ssl ? "✓ Var" : "✗ Yok"],
                   ["Form", audit.has_form ? "✓ Var" : "✗ Yok"],
                   ["Telefon", audit.has_tel ? "✓ Var" : "✗ Yok"],
                 ].map(([k, v]) => v && (
-                  <span key={String(k)} className="rounded-md bg-slate-100 px-2 py-1 text-slate-600">
-                    {k}: <span className="font-medium">{v}</span>
+                  <span
+                    key={String(k)}
+                    className="font-mono text-[9px] border border-stroke-2 px-2 py-1 text-muted uppercase tracking-wider"
+                  >
+                    {k}: <span className="text-bright">{v}</span>
                   </span>
                 ))}
               </div>
@@ -160,11 +195,13 @@ export default async function LeadDetailPage({ params }: Props) {
               {/* UX errors */}
               {Array.isArray(result?.ux_hatalar) && (result.ux_hatalar as unknown[]).length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">UX Hatalar</p>
-                  <ul className="space-y-1">
+                  <p className="font-mono text-[9px] text-dim uppercase tracking-[0.2em] mb-3">UX Hatalar</p>
+                  <ul className="space-y-2">
                     {(result.ux_hatalar as {sorun: string; siddet?: string}[]).map((h, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm text-slate-700">
-                        <span className={`mt-0.5 h-2 w-2 rounded-full shrink-0 ${h.siddet === "yuksek" ? "bg-red-500" : h.siddet === "orta" ? "bg-orange-400" : "bg-slate-300"}`} />
+                      <li key={i} className="flex items-start gap-2 text-sm text-muted">
+                        <span className={`mt-1 h-1.5 w-1.5 rounded-full shrink-0 ${
+                          h.siddet === "yuksek" ? "bg-hot" : h.siddet === "orta" ? "bg-warm" : "bg-dim"
+                        }`} />
                         {h.sorun}
                       </li>
                     ))}
@@ -175,10 +212,10 @@ export default async function LeadDetailPage({ params }: Props) {
               {/* SEO gaps */}
               {Array.isArray(result?.seo_aciklar) && (result.seo_aciklar as unknown[]).length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">SEO Açıklar</p>
+                  <p className="font-mono text-[9px] text-dim uppercase tracking-[0.2em] mb-3">SEO Açıklar</p>
                   <ul className="space-y-1">
                     {(result.seo_aciklar as {sorun: string}[]).map((s, i) => (
-                      <li key={i} className="text-sm text-slate-700">• {s.sorun}</li>
+                      <li key={i} className="font-mono text-[11px] text-muted">· {s.sorun}</li>
                     ))}
                   </ul>
                 </div>
@@ -186,11 +223,11 @@ export default async function LeadDetailPage({ params }: Props) {
 
               {/* Hook */}
               {audit.hook_text && (
-                <div className="rounded-lg bg-blue-50 border border-blue-200 p-4">
-                  <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-1">
-                    Hook ({audit.hook_type})
+                <div className="border border-accent/30 bg-accent/5 p-4">
+                  <p className="font-mono text-[9px] text-accent uppercase tracking-[0.2em] mb-2">
+                    Hook · {audit.hook_type}
                   </p>
-                  <p className="text-sm text-blue-900">{audit.hook_text}</p>
+                  <p className="text-sm text-bright leading-relaxed">{audit.hook_text}</p>
                 </div>
               )}
             </CardContent>
@@ -204,34 +241,11 @@ export default async function LeadDetailPage({ params }: Props) {
 
         {/* Outreach */}
         {outreach && (
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Outreach Mesajları</CardTitle>
-                {outreach.sent_version && (
-                  <span className="text-xs text-slate-500">
-                    {outreach.sent_version.toUpperCase()} gönderildi ({outreach.sent_channel})
-                  </span>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {(["v1", "v2", "v3", "v4"] as const).map((v) =>
-                outreach[v] ? (
-                  <div key={v} className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-slate-600 uppercase">{v}</span>
-                      {outreach.recommended === v && <Badge value="Önerilen" />}
-                      {outreach.sent_version === v && <Badge value="Gönderildi" />}
-                    </div>
-                    <pre className="whitespace-pre-wrap text-xs text-slate-600 bg-slate-50 rounded-lg p-3 leading-relaxed border border-slate-100">
-                      {outreach[v]}
-                    </pre>
-                  </div>
-                ) : null
-              )}
-            </CardContent>
-          </Card>
+          <OutreachCard
+            leadId={id}
+            outreach={outreach}
+            phone={lead.phone}
+          />
         )}
 
         {/* Proposal */}
@@ -240,21 +254,20 @@ export default async function LeadDetailPage({ params }: Props) {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Teklif</CardTitle>
-                <span className="text-xs text-slate-400">{formatDateTime(proposal.created_at)}</span>
+                <span className="font-mono text-[9px] text-dim">{formatDateTime(proposal.created_at)}</span>
               </div>
             </CardHeader>
             <CardContent>
-              {proposal.pdf_path && (
-                <p className="text-xs text-slate-500 font-mono bg-slate-50 p-2 rounded mb-3">{proposal.pdf_path}</p>
-              )}
               {proposal.content && typeof proposal.content === "object" && (
-                <dl className="space-y-3 text-sm">
+                <dl className="space-y-3">
                   {(["baslik", "giris", "neden_simdi", "paket_adi", "fiyat_araligi", "cta"] as string[]).map((k) => {
                     const v = (proposal.content as Record<string, unknown>)[k];
                     return v ? (
                       <div key={k}>
-                        <dt className="text-xs text-slate-500 uppercase tracking-wide">{k.replace(/_/g, " ")}</dt>
-                        <dd className="text-slate-700 mt-0.5">{String(v)}</dd>
+                        <dt className="font-mono text-[9px] text-dim uppercase tracking-[0.2em]">
+                          {k.replace(/_/g, " ")}
+                        </dt>
+                        <dd className="text-sm text-muted mt-1">{String(v)}</dd>
                       </div>
                     ) : null;
                   })}
@@ -263,6 +276,10 @@ export default async function LeadDetailPage({ params }: Props) {
             </CardContent>
           </Card>
         )}
+
+        {/* Similar leads */}
+        <SimilarLeads leads={similarLeads} currentId={id} />
+
       </div>
     </div>
   );

@@ -3,7 +3,6 @@ Sales Output Generator — teknik audit'i müşteri satış mesajlarına çeviri
 SHORT = direkt gönderilir | FULL = follow-up / detay için kullanılır.
 """
 
-import json
 import logging
 import re
 
@@ -20,165 +19,117 @@ _BLACKLIST = re.compile(
 
 _CTA_SIGNALS = re.compile(
     r"(isterseniz|gösterebilirim|konuşalım|görüşelim|ulaşın|yazın|çağrı|"
-    r"dakikada|uygun|yarın|perşembe|pazartesi|zaman|toplantı)",
+    r"dakikada|uygun|yarın|perşembe|pazartesi|zaman|toplantı|"
+    r"atabilirim|bakabiliriz|paylaşayım|göndereyim|musunuz|misiniz)",
     re.IGNORECASE | re.UNICODE,
 )
 
 _SEKTOR_DIL: dict[str, dict[str, str]] = {
-    "ev_hizmetleri": {"service": "müşteri",  "call": "arama / çağrı",        "unit": "kişi"},
-    "klinik":        {"service": "hasta",    "call": "randevu",               "unit": "danışan"},
-    "avukat":        {"service": "kişi",     "call": "danışma",               "unit": "müvekkil"},
-    "egitim":        {"service": "öğrenci",  "call": "kayıt",                 "unit": "kayıt"},
-    "guzellik":      {"service": "randevu",  "call": "işlem",                 "unit": "müşteri"},
-    "emlak":         {"service": "müşteri",  "call": "ilan / danışmaya ulaşma", "unit": "portföy"},
-    "kadin_dogum":   {"service": "hasta",    "call": "randevu",               "unit": "danışan"},
-    "restoran":      {"service": "müşteri",  "call": "rezervasyon",           "unit": "masa"},
+    "ev_hizmetleri": {"service": "müşteri",  "call": "arama / çağrı",        "unit": "kişi",     "label": "ev hizmetleri"},
+    "klinik":        {"service": "hasta",    "call": "randevu",               "unit": "danışan",  "label": "klinik"},
+    "avukat":        {"service": "kişi",     "call": "danışma",               "unit": "müvekkil", "label": "avukat bürosu"},
+    "egitim":        {"service": "öğrenci",  "call": "kayıt",                 "unit": "kayıt",    "label": "eğitim kurumu"},
+    "guzellik":      {"service": "randevu",  "call": "işlem",                 "unit": "müşteri",  "label": "güzellik merkezi"},
+    "emlak":         {"service": "müşteri",  "call": "ilan / danışmaya ulaşma", "unit": "portföy", "label": "emlak ofisi"},
+    "kadin_dogum":   {"service": "hasta",    "call": "randevu",               "unit": "danışan",  "label": "klinik"},
+    "restoran":      {"service": "müşteri",  "call": "rezervasyon",           "unit": "masa",     "label": "restoran"},
 }
 
-_PROMPT = """Teknik audit ciktisini IKI FARKLI satis mesajina ve 3 alternatif giris cumlesine cevir.
+# Sabit short mesaj şablonu — Claude sadece {gozlem} boşluğunu dolduruyor
+_SHORT_TEMPLATE = (
+    "Merhaba {ad},\n"
+    "{sehir}'deki {sektor_label} profillerine bakıyordum, sizinki dikkatimi çekti. "
+    "{gozlem} "
+    "İsterseniz kısa bir bakış atabilirim — yarın uygun olur musunuz?"
+)
 
-=== TON (KESINLIKLE UYULACAK) ===
-- Kisa ve keskin cumle (7-12 kelime). Uzun paragraflar yasak.
-- Aktif ses. Pasif kip yasak. ("goruldu", "tespit edildi" → yasak)
-- Ingilizce terim yok. SEO/UX/PageSpeed/meta/H1 asla yazma.
-- Ozguven var, baski yok. Bulguyu paylas, ittirme.
-- Her cumle somut gozlem icermeli — genel kalip yasak.
-- Muhatabi "siz/sizi/sizin" diye hitap et (samimi ama saygin).
+# Claude'a sadece gözlem cümlesini ürettiriyoruz
+_GOZLEM_PROMPT = """Aşağıdaki audit verisinden sadece EN KRİTİK tek sorunu, sıcak ve doğal bir dille TEK CÜMLE olarak yaz.
 
-=== SHORT MESSAGE (WhatsApp/SMS) ===
-- Tam 3 cumle. Fazlasi yasak.
-- 280-380 karakter.
+KURALLAR:
+- "fark ettim" veya "dikkatimi çekti" dili kullan
+- Teknik terim YASAK: SSL, H1, meta, PageSpeed, UX, SEO, title tag
+- Rakam, yüzde, "kayıp" ifadesi YASAK
+- "Siteniz yok" yerine "dijital varlığınızın eksik olduğunu" gibi yumuşak dil kullan
+- Sadece cümleyi yaz — başka hiçbir şey ekleme, tırnak işareti koyma
 
-CUMLE 1 — OLUMLU GIRIS (zorunlu):
-  Isim ile BASLAMAZ. Somut bir guc noktasi ile baslar.
-  Kullan: puan, yorum sayisi, konum avantaji, kisisel_insight'tan gozlem.
-  Ornek: "404 yorumunuz Beylikduzu'nde guclu bir itibar kaniti —"
-  Ornek: "Ege mutfagi aramasinda cogu rakibin ustune cikacak bir konumunuz var —"
-  YASAK: "kisa bir analiz yaptim", "{isim} —", "size ulasiyorum"
+SEKTOR: {sektor} | MÜŞTERİ: {service}
+KİLLER INSIGHT: {killer_bulgu}
+EN ACITAN: {en_acitan}
+KİŞİSEL GÖZLEM: {kisisel_insight}
 
-CUMLE 2 — SPESIFIK SORUN (tek, somut):
-  Killer insight veya en acitan noktadan. Rakam varsa ic.
-  Ornek: "ama teras araması yapan musteri sizi bulamadan rakibe gidiyor (%65 terk)."
-  YASAK: listeleme (birden fazla sorun), teknik terim
+ÖRNEK ÇIKTILAR (tarzı kopyala, içeriği değil):
+- "Mobilde sitenizin yavaş açıldığını fark ettim — sizi arayan hastalar beklememek için başka bir kliniğe yönelebiliyor."
+- "Google profilinizde web sitesi bağlantısı olmadığını gördüm — sizi arayan kişiler doğrudan ulaşamıyor olabilir."
+- "Sitenizin telefon bağlantısının mobilde çalışmadığını fark ettim — bu durum potansiyel danışanların sizi aramasını zorlaştırıyor."
 
-CUMLE 3 — CTA (soru formunda, secenekli):
-  Her zaman soru ile biter. Alternatif zaman teklifi.
-  Ornek: "10 dakikada somut olarak gosterebilirim — yarin mi uygun, persembe mi?"
-  YASAK: "isterseniz", "yardimci olabilirim", noktayla bitmek
+Sadece cümleyi yaz:"""
 
-=== FULL MESSAGE (e-posta / detaylı WhatsApp) ===
-AMAÇ: "Ben para kaybediyorum" hissi — bilgi vermek değil, aksiyona itmek.
-Her paragraf şu soruya hizmet etmeli: "Bu kişi neden hemen konuşmak ister?"
+_FULL_PROMPT = """Teknik audit çıktısından FULL satış mesajı yaz.
 
-YAPI (bu 6 blok, bu sırada, başka şey ekleme):
+ÖNEMLİ: Düzgün Türkçe karakterleri kullan (ş, ç, ğ, ü, ö, ı, İ).
 
-BLOK 1 — GİRİŞ (1-2 cümle):
-  Olumlu gözlemle başla (puan/yorum/konum). Ismi kullanma.
-  YASAK: "biraz daha detaylı baktım", "analiz yaptım", "size ulaşıyorum"
+YAPI (8-12 satır, sadece \\n ile ayır):
+- Giriş: "[isim] için biraz daha detaylı baktım."
+- Bölge/sektör talebi hakkında 1 cümle
+- "Dikkatimi çeken 3 nokta:" + 3 madde (- ile)
+- İçgörü cümlesi (kişisel gözlemden)
+- "Bunlar genellikle hızlıca düzeltilebiliyor:" + 3 madde (- ile)
+- CTA sorusu
 
-BLOK 2 — TALEP VAR AMA SIZE GELMİYOR (1-2 cümle):
-  Sektördeki talebi somutlaştır. Müşterinin sizi nasıl aradığını yaz.
-  Sonra o talebin rakibe gittiğini belirt.
+TON: Samimi, yardımsever, satışçı değil.
+YASAK: Teknik terim (SSL, H1, SEO, UX, PageSpeed), "ajans", "hizmet", "optimizasyon"
+YASAK: "Siteniz yok, SSL yok" tarzı bombardıman — her madde ayrı ve yumuşak
 
-BLOK 3 — 3 KRİTİK NOKTA (maksimum 3 madde, - ile):
-  Her madde PARA DİLİNDE olacak:
-  YASAK: "rezervasyon linki yok"
-  KULLAN: "rezervasyon yapmak isteyen müşteriler masaya dönüşmeden çıkıyor"
-  Mümkünse rakam ekle: "ayda tahminen 60-80 rezervasyon kaybı" gibi.
-  Her madde FARKLI açıdan, tekrar yok.
+SEKTÖRE ÖZGÜ DİL ({sektor}): {sektor_dil}
+LEAD: {isim} | {adres}
+KİLLER INSIGHT: {killer_bulgu} [{killer_rakam}]
+EN ACITAN: {en_acitan}
+KİŞİSEL GÖZLEM: {kisisel_insight}
+UX SORUNLARI: {ux_hatalar}
+DÖNÜŞÜM ENGELLERİ: {donusum_engelleri}
 
-BLOK 4 — EN GÜÇLÜ INSIGHT (1-2 cümle):
-  kisisel_insight veya killer_bulgu'dan. Para kaybını hissettir, dramatize etme.
-  Mini proof ekle: "Benzer bir {sektor}da [tek değişiklik] ile [somut sonuç] gördük."
-  Proof kısa, satış kokmasın, güven versin.
+Sadece mesaj metnini döndür. Preamble yok, tırnak yok, açıklama yok."""
 
-BLOK 5 — ÇÖZÜM ÇERÇEVESİ (3 madde max, - ile):
-  "Bu genelde 3 adımda toparlanıyor:" → her madde 1 satır, teknik terim yok.
 
-BLOK 6 — CTA (son, sabit format):
-  "Bunu 10–15 dakikada net şekilde gösterebilirim. Yarın mı daha uygun olur, perşembe mi?"
-  CTA kelimesi kelimesine bu format. Değiştirme.
-
-KISITLAMALAR:
-- Max 250-300 kelime. Daha uzun olursa kes.
-- Sadece \\n satır ayırıcı. Başlık, emoji, markdown yasak.
-- SEO/UX/PageSpeed/H1/meta/optimize yasak.
-- Aynı insight 1 kez geçer. Tekrar = sil.
-- Ton: deneyimli danışman. Ne çok resmi, ne çok samimi.
-
-=== ACILIS ALTERNATIFLERI ===
-- 3 farkli giris cumlesi. Her biri max 1 cumle.
-- V1: somut rakam ile baslar (puan veya tahmini kisi sayisi)
-- V2: bolge/arama davranisi ile baslar
-- V3: karsilastirma/tespitle baslar ("Son donemde birka {sektor} baktigimda...")
-- Hicbiri "size ulasiyorum", "gorunurluk" veya teknik terim icermemeli.
-
-=== SEKTORE OZGU DIL ({sektor}): {sektor_dil} ===
-
-LEAD: {isim} | {adres} | Sektor: {sektor}
-
-AUDIT OZETI:
-Killer bulgu: {killer_bulgu} [{killer_rakam}]
-En acitan nokta: {en_acitan}
-Kisisel gozlem: {kisisel_insight}
-UX sorunlari: {ux_hatalar}
-Donusum engelleri: {donusum_engelleri}
-Lead kalitesi: {lead_kalitesi} | Urgency: {urgency}
-
-DONUSTURMELER (teknik → satis dili):
-"Form yok" → "{service} sizi aramadan cikabiliyor"
-"Hiz dusuk" → "site yavas acilinca {service} gitmis oluyor"
-"Tel link yok" → "sizi aramak isteyen bir tiklama fazla yapmak zorunda"
-"Yorumlar yok" → "Maps'teki guven sitede kayboluyor"
-"Web sitesi yok" → "Google Maps disinda sizi bulamiyorlar"
-
-CIKTI: Sadece valid JSON. Preamble yok, markdown yok, kod blogu yok. Ilk karakter {{ olmali.
-{{
-  "short_message": "3 cumle. 300-400 karakter. Direkt gonderilebilir.",
-  "full_message": "Cok satirli metin. Sadece \\n satirlari. Baslik/emoji yok.",
-  "acilis_alternatifleri": ["rakam ile", "bolge/arama ile", "karsilastirma ile"],
-  "meta": {{"sector": "{sektor}", "tone": "keskin-ozguveli"}}
-}}"""
+def _extract_first_name(full_name: str) -> str:
+    """'Klinik Psikolog Başak AKÇA ARSLAN' → 'Başak', 'Op.Dr.Deva Ozdemir' → 'Deva'"""
+    TITLE_WORDS = {
+        "dr", "op", "prof", "uzm", "av", "mimar", "müh", "ing",
+        "doktor", "uzman", "klinik", "psikolog", "avukat", "hemşire",
+        "psk", "fzt", "dt", "spec", "uzman",
+    }
+    cleaned = re.sub(r"[.\-]", " ", full_name)
+    parts = cleaned.strip().split()
+    for part in parts:
+        word = part.strip(".,").lower()
+        if word in TITLE_WORDS:
+            continue
+        if part.isupper() and len(part) > 2:
+            continue
+        if len(part) < 2:
+            continue
+        return part[0].upper() + part[1:]
+    return parts[0].title() if parts else full_name
 
 
 def _sektor_dil_str(sector: str) -> str:
-    top = sector.split("_")[0] if "_" in sector else sector
-    dil = _SEKTOR_DIL.get(sector) or _SEKTOR_DIL.get(top)
+    dil = _SEKTOR_DIL.get(sector, {})
     if dil:
         return f"{dil['service']} / {dil['call']} / {dil['unit']}"
     return "müşteri / güven / karar"
 
 
-def _build_prompt(lead: dict, audit: dict, playbook: dict) -> str:
-    sector = playbook.get("sektor", lead.get("sektor", "genel"))
-    killer = audit.get("killer_insight") or {}
-    ux = audit.get("ux_hatalar") or []
-    donusum = audit.get("donusum_engelleri") or []
+def _sektor_label(sector: str) -> str:
+    return _SEKTOR_DIL.get(sector, {}).get("label", sector)
 
-    top = sector.split("_")[0] if "_" in sector else sector
-    dil = _SEKTOR_DIL.get(sector) or _SEKTOR_DIL.get(top) or {}
 
-    return _PROMPT.format(
-        sektor=sector,
-        sektor_dil=_sektor_dil_str(sector),
-        service=dil.get("service", "müşteri"),
-        call=dil.get("call", "iletişim"),
-        isim=lead.get("isim") or "",
-        adres=lead.get("adres") or "",
-        killer_bulgu=killer.get("bulgu", ""),
-        killer_rakam=killer.get("rakam", ""),
-        en_acitan=audit.get("en_acitan_nokta", ""),
-        kisisel_insight=audit.get("kisisel_insight", ""),
-        ux_hatalar="; ".join(h.get("sorun", "") for h in ux[:3]) or "(yok)",
-        donusum_engelleri="; ".join(d.get("engel", "") for d in donusum[:2]) or "(yok)",
-        lead_kalitesi=audit.get("lead_kalitesi", "ilik"),
-        urgency=audit.get("urgency", "orta"),
-    )
+def _sektor_service(sector: str) -> str:
+    return _SEKTOR_DIL.get(sector, {}).get("service", "müşteri")
 
 
 def _auto_trim_short(text: str) -> str:
-    """450 karakter aşıyorsa en uzun cümleyi çıkar."""
-    if len(text) <= 450:
+    if len(text) <= 500:
         return text
     sentences = re.split(r"(?<=[.!?])\s+", text.strip())
     if len(sentences) <= 1:
@@ -189,25 +140,18 @@ def _auto_trim_short(text: str) -> str:
 
 
 def validate_sales_messages(output: dict) -> dict:
-    """
-    Returns {'valid': bool, 'issues': list[str]}
-
-    SHORT: ≤3 cümle, 300-400 karakter, teknik kelime yok, CTA var
-    FULL: ≥6 satır, ≥3 madde (-), CTA var
-    """
     issues = []
     short = output.get("short_message", "")
     full = output.get("full_message", "")
 
-    sentence_count = len(re.split(r"(?<=[.!?])\s+", short.strip()))
-    if sentence_count > 3:
-        issues.append(f"short_message 3 cümleden fazla ({sentence_count} cümle)")
-    if len(short) > 450:
-        issues.append(f"short_message 450 karakterden uzun ({len(short)})")
+    if len(short) > 520:
+        issues.append(f"short_message 520 karakterden uzun ({len(short)})")
     if _BLACKLIST.search(short):
         issues.append("short_message teknik kelime içeriyor")
     if not _CTA_SIGNALS.search(short):
         issues.append("short_message CTA içermiyor")
+    if not short.lower().startswith("merhaba"):
+        issues.append("short_message 'Merhaba' ile başlamıyor")
 
     lines = [l for l in full.splitlines() if l.strip()]
     word_count = len(full.split())
@@ -227,106 +171,106 @@ def validate_sales_messages(output: dict) -> dict:
 
 
 async def generate_sales_output(lead: dict, audit: dict, playbook: dict) -> dict:
-    """
-    Returns:
-    {
-      "short_message": str,   # direkt gönderilir (WhatsApp / DM / e-mail)
-      "full_message":  str,   # follow-up / detay için
-      "meta": {"sector": str, "tone": str},
-      "_valid": bool,
-      "_issues": list[str],
-    }
-    """
-    prompt = _build_prompt(lead, audit, playbook)
+    sector = playbook.get("sektor", lead.get("sektor", "genel"))
+    killer = audit.get("killer_insight") or {}
+    ux = audit.get("ux_hatalar") or []
+    donusum = audit.get("donusum_engelleri") or []
+
+    isim = lead.get("isim") or ""
+    adres = lead.get("adres") or ""
+    city = adres.split("/")[0].strip() if "/" in adres else adres.split(",")[0].strip()
+
+    ad = _extract_first_name(isim)
+
     client = anthropic.AsyncAnthropic()
 
-    output: dict | None = None
-    for attempt in range(2):
-        try:
-            msg = await client.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=1500,
-                temperature=0,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            raw = msg.content[0].text.strip()
-            if raw.startswith("```"):
-                raw = re.sub(r"^```[a-z]*\n?", "", raw)
-                raw = re.sub(r"\n?```$", "", raw)
-            output = json.loads(raw)
-        except json.JSONDecodeError as e:
-            logger.error(
-                "Sales output JSON parse failed (attempt %s) lead=%s: %s | raw=%r",
-                attempt + 1, lead.get("isim", "?"), e, (raw if "raw" in dir() else "")[:200],
-            )
-            if attempt == 1:
-                output = _fallback_output(lead, audit)
-                break
-            continue
-        except Exception as e:
-            logger.exception("Sales output generation failed (attempt %s) lead=%s: %s",
-                             attempt + 1, lead.get("isim", "?"), e)
-            output = _fallback_output(lead, audit)
-            break
+    # ── 1. Gözlem cümlesini üret ──
+    gozlem_prompt = _GOZLEM_PROMPT.format(
+        sektor=sector,
+        service=_sektor_service(sector),
+        killer_bulgu=killer.get("bulgu", ""),
+        en_acitan=audit.get("en_acitan_nokta", ""),
+        kisisel_insight=audit.get("kisisel_insight", ""),
+    )
+    gozlem = ""
+    try:
+        msg = await client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=120,
+            temperature=0,
+            messages=[{"role": "user", "content": gozlem_prompt}],
+        )
+        gozlem = msg.content[0].text.strip().strip('"').strip("'")
+        if gozlem and gozlem[-1] not in ".!?":
+            gozlem += "."
+    except Exception as e:
+        logger.exception("Gözlem cümlesi üretilemedi: %s", e)
+        gozlem = f"{killer.get('bulgu', 'Birkaç önemli nokta dikkatimi çekti')}."
 
-        if output.get("short_message") and len(output["short_message"]) > 450:
-            output["short_message"] = _auto_trim_short(output["short_message"])
+    # ── 2. Short mesajı şablondan oluştur ──
+    short = _SHORT_TEMPLATE.format(
+        ad=ad,
+        sehir=city or "Bölgenizdeki",
+        sektor_label=_sektor_label(sector),
+        gozlem=gozlem,
+    )
 
-        validation = validate_sales_messages(output)
-        if validation["valid"] or attempt == 1:
-            break
-        logger.warning("Sales output retry (attempt 1 failed): %s", validation["issues"])
+    # ── 3. Full mesajı üret ──
+    full_prompt = _FULL_PROMPT.format(
+        sektor=sector,
+        sektor_dil=_sektor_dil_str(sector),
+        isim=isim,
+        adres=adres,
+        killer_bulgu=killer.get("bulgu", ""),
+        killer_rakam=killer.get("rakam", ""),
+        en_acitan=audit.get("en_acitan_nokta", ""),
+        kisisel_insight=audit.get("kisisel_insight", ""),
+        ux_hatalar="; ".join(h.get("sorun", "") for h in ux[:3]) or "(yok)",
+        donusum_engelleri="; ".join(d.get("engel", "") for d in donusum[:2]) or "(yok)",
+    )
+    full = ""
+    try:
+        msg = await client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=600,
+            temperature=0.1,
+            messages=[{"role": "user", "content": full_prompt}],
+        )
+        full = msg.content[0].text.strip()
+    except Exception as e:
+        logger.exception("Full mesaj üretilemedi: %s", e)
+        full = _fallback_full(isim, adres, killer, audit)
 
-    if output is None:
-        output = _fallback_output(lead, audit)
-
-    if output.get("short_message") and len(output["short_message"]) > 500:
-        output["short_message"] = _auto_trim_short(output["short_message"])
+    output = {
+        "short_message": short,
+        "full_message": full,
+        "meta": {"sector": sector, "tone": "samimi"},
+    }
 
     validation = validate_sales_messages(output)
     output["_valid"] = validation["valid"]
     output["_issues"] = validation["issues"]
 
     if not validation["valid"]:
-        logger.warning("Sales output final issues: %s | lead=%s",
-                       validation["issues"], lead.get("isim", "?"))
+        logger.warning("Sales output issues: %s | lead=%s", validation["issues"], isim)
 
     return output
 
 
-def _fallback_output(lead: dict, audit: dict) -> dict:
-    killer = audit.get("killer_insight") or {}
-    isim = lead.get("isim") or "İşletmeniz"
-    adres = (lead.get("adres") or "").split(",")[0].strip() or "bölgenizde"
-    bulgu = killer.get("bulgu") or "birkaç kritik nokta dikkatimi çekti"
-    rakam = killer.get("rakam", "")
-    en_acitan = audit.get("en_acitan_nokta", "")
-
-    rakam_str = f" ({rakam})" if rakam else ""
-    short = (
-        f"{isim} — {bulgu}{rakam_str}. "
-        f"Sizi arayan müşteri bu noktada rakibe gidiyor. "
-        f"10 dakikada somut olarak gösterebilirim — yarın mı uygun olur?"
-    )
-
-    full = (
-        f"{adres.split(',')[0].strip()} bölgesinde bu sektörde ciddi bir arama hacmi var.\n\n"
-        f"Ama {bulgu.lower() if bulgu else 'birkaç kritik nokta'} — "
-        f"sizi arayan müşteri son adımda başka bir yere gidiyor.\n\n"
-        f"3 kritik nokta:\n"
-        f"- {bulgu or 'Dijital temas noktası eksik'} — müşteri masaya dönüşmeden çıkıyor\n"
-        f"- {en_acitan or 'Karar anında rakip önde bitiriyor'}\n"
-        f"- Bölge aramasında görünürlük boşluğu — talep size ulaşmadan kayıyor\n\n"
-        f"Bu genelde 3 adımda toparlanıyor:\n"
-        f"- İlk temas anını kolaylaştırmak\n"
-        f"- Güven sinyallerini öne çıkarmak\n"
-        f"- Doğru kanalda görünür olmak\n\n"
-        f"Bunu 10–15 dakikada net şekilde gösterebilirim. "
+def _fallback_full(isim: str, adres: str, killer: dict, audit: dict) -> str:
+    return (
+        f"{isim} için biraz daha detaylı baktım.\n\n"
+        f"{adres} bölgesinde ciddi bir talep var ama birkaç eksik yüzünden "
+        f"bu talebin bir kısmı size gelmeden başka işletmelere gidiyor.\n\n"
+        f"Dikkatimi çeken 3 nokta:\n"
+        f"- {killer.get('bulgu', 'Dijital erişimde kritik bir eksik var')}\n"
+        f"- Müşteri ile ilk temas zorlaşıyor\n"
+        f"- Bölge aramalarında görünürlük eksik\n\n"
+        f"{audit.get('en_acitan_nokta', 'Güçlü bir başlangıç noktanız var.')}\n\n"
+        f"Bunlar genellikle hızlıca düzeltilebiliyor:\n"
+        f"- Müşteri ile ilk teması kolaylaştırmak\n"
+        f"- Güven unsurlarını ön plana taşımak\n"
+        f"- Bölge odaklı erişimi güçlendirmek\n\n"
+        f"İsterseniz bunu sizin örneğinizde kısa bir görüşmede gösterebilirim. "
         f"Yarın mı daha uygun olur, perşembe mi?"
     )
-
-    return {
-        "short_message": short,
-        "full_message": full,
-        "meta": {"sector": lead.get("sektor", "genel"), "tone": "direkt"},
-    }

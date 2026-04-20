@@ -14,6 +14,7 @@ real scrape from the same query to save them.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from core.icp_filter import filter_leads
@@ -21,6 +22,8 @@ from core.lead_collector import collect_by_query
 from core.lead_scorer import calculate_final_score
 from core.playbook import load_playbook_for_sector
 from core.query_parser import parse_search_query
+from core.serp_enricher import apply_serp_data, fetch_serp_data
+from core.site_analyzer import analyze_sites
 
 logger = logging.getLogger(__name__)
 
@@ -63,22 +66,31 @@ def _normalize_lead(lead: dict, score_info: dict | None) -> dict:
         if score_info else "sektör eşleşmedi"
     )
 
+    # Score breakdown: en etkili sinyaller (UI'da madde madde gösterilir)
+    if score_info and score_info.get("status") == "ok":
+        breakdown: list[str] = score_info.get("score_breakdown") or []
+    elif score_info and score_info.get("status") == "rejected":
+        breakdown = [f"Elendi: {score_info.get('reason', '?')}"]
+    else:
+        breakdown = []
+
     return {
-        "name":          lead.get("isim") or "",
-        "address":       lead.get("adres") or "",
-        "phone":         lead.get("telefon"),
-        "website":       lead.get("website"),
-        "google_rating": lead.get("puan") or None,
-        "review_count":  lead.get("yorum_sayisi") or 0,
-        "category":      lead.get("kategori"),
-        "lat":           lead.get("enlem"),
-        "lng":           lead.get("boylam"),
-        "maps_url":      lead.get("maps_url"),
-        "site_status":   lead.get("site_durumu"),
-        "score":         score,
-        "segment":       segment,
-        "priority":      score_info.get("priority") if score_info else None,
-        "reason":        reason,
+        "name":           lead.get("isim") or "",
+        "address":        lead.get("adres") or "",
+        "phone":          lead.get("telefon"),
+        "website":        lead.get("website"),
+        "google_rating":  lead.get("puan") or None,
+        "review_count":   lead.get("yorum_sayisi") or 0,
+        "category":       lead.get("kategori"),
+        "lat":            lead.get("enlem"),
+        "lng":            lead.get("boylam"),
+        "maps_url":       lead.get("maps_url"),
+        "site_status":    lead.get("site_durumu"),
+        "score":          score,
+        "segment":        segment,
+        "priority":       score_info.get("priority") if score_info else None,
+        "reason":         reason,
+        "score_breakdown": breakdown,
     }
 
 
@@ -129,6 +141,23 @@ async def run_search(query: str, limit: int = 25) -> dict:
     if parsed["sector"]:
         try:
             playbook = load_playbook_for_sector(parsed["sector"])
+
+            # Run site analysis and SERP fetch in parallel for performance
+            ads_query = f"{parsed['search_string']} {parsed['city'] or ''}".strip()
+            serp_task = asyncio.create_task(fetch_serp_data(ads_query))
+            analyzed_leads = await analyze_sites(raw)
+            serp_data = await serp_task
+            if serp_data:
+                logger.info(
+                    "SerpAPI: ads=%d organic=%d ai_overview=%s (%s)",
+                    serp_data.get("competitor_ads_count", 0),
+                    len(serp_data.get("organic_domains") or []),
+                    serp_data.get("has_ai_overview", False),
+                    ads_query,
+                )
+                apply_serp_data(analyzed_leads, serp_data)
+            raw = analyzed_leads
+
             filtered = filter_leads(raw, playbook)
             filter_stats = filtered["istatistik"]
             for lead in filtered["nitelikli"]:

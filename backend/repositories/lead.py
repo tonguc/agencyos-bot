@@ -2,6 +2,7 @@ from sqlalchemy import select, func
 
 from models.lead import Lead
 from repositories.base import BaseRepository
+import uuid
 
 # Valid pipeline statuses in order
 PIPELINE_STATUSES = ["Yeni", "Audit", "Mesaj", "Cevap", "Demo", "Teklif", "Kapandi", "Soguk"]
@@ -50,6 +51,8 @@ class LeadRepository(BaseRepository[Lead]):
         self,
         *,
         sector: str | None = None,
+        city: str | None = None,
+        district: str | None = None,
         status: str | None = None,
         priority: str | None = None,
         search: str | None = None,
@@ -62,6 +65,12 @@ class LeadRepository(BaseRepository[Lead]):
         if sector:
             stmt = stmt.where(Lead.sector == sector)
             count_stmt = count_stmt.where(Lead.sector == sector)
+        if city:
+            stmt = stmt.where(Lead.city == city)
+            count_stmt = count_stmt.where(Lead.city == city)
+        if district:
+            stmt = stmt.where(Lead.district == district)
+            count_stmt = count_stmt.where(Lead.district == district)
         if status:
             stmt = stmt.where(Lead.status == status)
             count_stmt = count_stmt.where(Lead.status == status)
@@ -78,3 +87,12 @@ class LeadRepository(BaseRepository[Lead]):
         total = (await self._session.execute(count_stmt)).scalar_one()
         leads = list((await self._session.execute(stmt)).scalars().all())
         return leads, total
+
+    async def find_by_phones(self, phones: list[str]) -> dict[str, uuid.UUID]:
+        """Return {phone: lead_id} for any phone that exists in the DB."""
+        if not phones:
+            return {}
+        result = await self._session.execute(
+            select(Lead.phone, Lead.id).where(Lead.phone.in_(phones))
+        )
+        return {row[0]: row[1] for row in result.all()}

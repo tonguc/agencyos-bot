@@ -14,53 +14,74 @@ import {
 } from "lucide-react";
 
 const nav = [
-  { href: "/", label: "Gösterge", icon: BarChart3 },
-  { href: "/search", label: "Firma Ara", icon: Sparkles },
-  { href: "/pipeline", label: "Pipeline", icon: BriefcaseBusiness },
-  { href: "/leads", label: "Adaylar", icon: Users },
-  { href: "/scrape", label: "Yeni Tarama", icon: Search },
-  { href: "/jobs", label: "Görevler", icon: Zap },
-  { href: "/settings", label: "Ayarlar", icon: Settings },
+  { href: "/pipeline", label: "Pipeline",    icon: BarChart3 },
+  { href: "/search",   label: "Firma Ara",   icon: Sparkles },
+  { href: "/leads",    label: "Adaylar",     icon: Users },
+  { href: "/scrape",   label: "Yeni Tarama", icon: Search },
+  { href: "/jobs",     label: "Görevler",    icon: Zap },
+  { href: "/settings", label: "Ayarlar",     icon: Settings },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="flex h-screen w-60 flex-col bg-slate-900 text-slate-100 shrink-0">
-      {/* Logo */}
-      <div className="flex items-center gap-2 px-5 py-5 border-b border-slate-800">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white font-bold text-sm">
-          A
+    <aside
+      className="flex h-screen w-52 flex-col shrink-0 border-r border-stroke"
+      style={{ background: "#0d1324" }}
+    >
+      {/* Brand */}
+      <div className="flex items-center gap-3 px-4 py-5 border-b border-stroke">
+        <div
+          className="relative flex h-7 w-7 items-center justify-center border border-accent shrink-0"
+          style={{ boxShadow: "0 0 10px rgba(56,189,248,0.3)" }}
+        >
+          <div
+            className="absolute inset-1 border border-dashed border-accent opacity-50"
+            style={{ animation: "spin 10s linear infinite" }}
+          />
+          <div
+            className="h-1.5 w-1.5 rounded-full bg-accent"
+            style={{ boxShadow: "0 0 6px #38bdf8" }}
+          />
         </div>
-        <span className="font-semibold text-white tracking-tight">AgencyOS</span>
+        <div>
+          <p className="font-mono font-bold text-bright text-[11px] tracking-[0.2em]">AGENCYOS</p>
+          <p className="font-mono text-[9px] text-dim tracking-[0.15em]">/ INTEL</p>
+        </div>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+      <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
         {nav.map(({ href, label, icon: Icon }) => {
-          const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+          const active = pathname.startsWith(href);
           return (
             <Link
               key={href}
               href={href}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                "flex items-center gap-3 px-3 py-2 text-[10px] font-mono font-medium tracking-[0.15em] uppercase transition-all",
                 active
-                  ? "bg-slate-800 text-white"
-                  : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+                  ? "text-accent bg-accent/10 border-l-2 border-accent"
+                  : "text-muted hover:text-bright hover:bg-panel-high border-l-2 border-transparent"
               )}
             >
-              <Icon className="h-4 w-4 shrink-0" />
+              <Icon className="h-3.5 w-3.5 shrink-0" />
               {label}
             </Link>
           );
         })}
       </nav>
 
-      {/* Footer */}
-      <div className="px-5 py-4 border-t border-slate-800 text-xs text-slate-500">
-        v0.1 · Tonguc
+      {/* Status footer */}
+      <div className="px-4 py-4 border-t border-stroke">
+        <div className="flex items-center gap-2">
+          <div
+            className="h-1.5 w-1.5 rounded-full bg-ok"
+            style={{ boxShadow: "0 0 5px #34d399", animation: "pulse 2s ease-in-out infinite" }}
+          />
+          <span className="font-mono text-[9px] text-dim tracking-[0.2em]">SYSTEM · ONLINE</span>
+        </div>
       </div>
     </aside>
   );

@@ -7,8 +7,6 @@ import { formatDateTime } from "@/lib/utils";
 import { jobsApi, leadsApi } from "@/lib/api";
 import type { Job, Lead } from "@/types";
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
 const SECTOR_LABELS: Record<string, string> = {
   klinik: "Klinik", avukat: "Avukat", emlak: "Emlak",
   guzellik: "Güzellik", egitim: "Eğitim",
@@ -17,10 +15,10 @@ const SECTOR_LABELS: Record<string, string> = {
 };
 
 function getPriority(avg: number | undefined) {
-  if (avg === undefined) return { label: "—", cls: "bg-slate-100 text-slate-400" };
-  if (avg >= 65) return { label: "Yüksek", cls: "bg-red-100 text-red-700 font-semibold" };
-  if (avg >= 45) return { label: "Orta",   cls: "bg-amber-100 text-amber-700 font-semibold" };
-  return               { label: "Düşük",   cls: "bg-slate-100 text-slate-500" };
+  if (avg === undefined) return { label: "—", cls: "text-dim border-dim/40" };
+  if (avg >= 65) return { label: "Yüksek", cls: "text-hot border-hot/50 bg-hot/5" };
+  if (avg >= 45) return { label: "Orta",   cls: "text-warm border-warm/50 bg-warm/5" };
+  return               { label: "Düşük",   cls: "text-dim border-dim/40" };
 }
 
 function getNextAction(saved: number, avg: number | undefined, status: string): string {
@@ -45,8 +43,6 @@ function computeStats(leads: Lead[]): LeadStats {
   };
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
-
 function StatCard({ icon, label, value, color, onClick }: {
   icon: string; label: string; value: number;
   color: string; onClick: () => void;
@@ -55,32 +51,38 @@ function StatCard({ icon, label, value, color, onClick }: {
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-col items-start gap-1 rounded-xl border border-slate-200 p-4 bg-white shadow-sm hover:shadow-md hover:border-slate-300 transition-all text-left w-full"
+      className="flex flex-col items-start gap-2 border border-stroke bg-panel p-4 hover:bg-panel-high transition-all text-left w-full"
     >
       <span className="text-xl leading-none">{icon}</span>
-      <span className={`text-3xl font-bold leading-tight ${color}`}>{value}</span>
-      <span className="text-xs text-slate-500 leading-snug">{label}</span>
+      <span className={`text-3xl font-mono font-bold leading-tight ${color}`}>{value}</span>
+      <span className="font-mono text-[9px] text-muted tracking-[0.15em] uppercase leading-snug">{label}</span>
     </button>
   );
 }
 
 function ResultCell({ saved, avg, status }: { saved: number; avg?: number; status: string }) {
-  if (status === "running") return <span className="text-xs text-blue-500 animate-pulse">Taranıyor…</span>;
-  if (status === "failed")  return <span className="text-xs text-red-500">Hata</span>;
-  if (saved === 0)           return <span className="text-xs text-slate-400">Sonuç yok</span>;
+  if (status === "running") return (
+    <span className="font-mono text-[10px] text-accent animate-pulse tracking-wider">Taranıyor…</span>
+  );
+  if (status === "failed") return (
+    <span className="font-mono text-[10px] text-hot">Hata</span>
+  );
+  if (saved === 0) return (
+    <span className="font-mono text-[10px] text-dim">Sonuç yok</span>
+  );
   const p = getPriority(avg);
   return (
     <div className="flex items-center gap-2">
-      <span className="font-semibold text-slate-800">{saved}</span>
-      <span className="text-slate-400 text-xs">lead</span>
+      <span className="font-mono font-semibold text-bright text-sm">{saved}</span>
+      <span className="font-mono text-[9px] text-dim">lead</span>
       {avg !== undefined && (
-        <span className={`text-xs px-1.5 py-0.5 rounded-full ${p.cls}`}>ort. {avg}</span>
+        <span className={`font-mono text-[9px] px-2 py-0.5 border tracking-wider uppercase ${p.cls}`}>
+          ort. {avg}
+        </span>
       )}
     </div>
   );
 }
-
-// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function OpportunitiesPage() {
   const router = useRouter();
@@ -118,70 +120,72 @@ export default function OpportunitiesPage() {
 
   return (
     <div className="flex flex-col flex-1">
-      <Header
-        title="Fırsatlar"
-        description="Bugün hangi lead'lerle ilgilenmem gerekiyor?"
-      />
+      <Header title="Fırsatlar" description="Bugün hangi lead'lerle ilgilenmem gerekiyor?" />
       <div className="p-6 space-y-6">
 
-        {/* ── Stat Cards ── */}
+        {/* Stat Cards */}
         {stats && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <StatCard icon="🔥" label="Sıcak Fırsat"        value={stats.hot}        color="text-red-600"    onClick={() => router.push("/leads")} />
-            <StatCard icon="💛" label="Orta Fırsat"          value={stats.warm}       color="text-amber-500"  onClick={() => router.push("/leads")} />
-            <StatCard icon="🆕" label="Henüz İşlenmemiş"    value={stats.yeni}       color="text-blue-600"   onClick={() => router.push("/leads")} />
-            <StatCard icon="📋" label="Audit Hazır, Mesaj Bekleyen" value={stats.auditHazir} color="text-violet-600" onClick={() => router.push("/leads")} />
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-stroke border border-stroke">
+            <StatCard icon="🔥" label="Sıcak Fırsat"               value={stats.hot}        color="text-hot"    onClick={() => router.push("/leads")} />
+            <StatCard icon="💛" label="Orta Fırsat"                 value={stats.warm}       color="text-warm"   onClick={() => router.push("/leads")} />
+            <StatCard icon="🆕" label="Henüz İşlenmemiş"           value={stats.yeni}       color="text-accent" onClick={() => router.push("/leads")} />
+            <StatCard icon="📋" label="Audit Hazır, Mesaj Bekleyen" value={stats.auditHazir} color="text-review" onClick={() => router.push("/leads")} />
           </div>
         )}
 
-        {/* ── CTA Bar (yalnızca sıcak fırsat varsa) ── */}
+        {/* Hot CTA */}
         {stats && stats.hot > 0 && (
-          <div className="rounded-xl bg-red-50 border border-red-200 p-4 flex items-center justify-between gap-4">
+          <div className="border border-hot/40 bg-hot/5 p-4 flex items-center justify-between gap-4">
             <div>
-              <span className="font-semibold text-red-700">🔥 {stats.hot} sıcak fırsat hazır</span>
-              <span className="text-sm text-red-500 ml-2">— mesaj göndermek için doğru an</span>
+              <span className="font-mono font-semibold text-hot text-sm">
+                🔥 {stats.hot} sıcak fırsat hazır
+              </span>
+              <span className="font-mono text-[11px] text-muted ml-3">— mesaj göndermek için doğru an</span>
             </div>
             <button
               type="button"
               onClick={() => router.push("/leads")}
-              className="shrink-0 text-sm font-medium text-white bg-red-600 hover:bg-red-700 px-4 py-1.5 rounded-lg transition-colors"
+              className="font-mono text-[9px] uppercase tracking-wider px-4 py-1.5 border border-hot/60 text-hot hover:bg-hot/10 transition-all whitespace-nowrap"
             >
-              Lead'leri Aç
+              Lead&apos;leri Aç
             </button>
           </div>
         )}
 
-        {/* ── Tarama Fırsatları ── */}
+        {/* Tarama Jobs */}
         {jobs === null ? (
-          <p className="text-sm text-slate-400 text-center py-10">Yükleniyor…</p>
+          <p className="font-mono text-[11px] text-dim text-center py-10 tracking-wider">Yükleniyor…</p>
         ) : scrapeJobs.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-slate-200 p-12 text-center">
-            <p className="text-sm text-slate-400 mb-3">Henüz tarama yapılmamış.</p>
+          <div className="border border-dashed border-stroke p-12 text-center">
+            <p className="font-mono text-[11px] text-dim mb-3">Henüz tarama yapılmamış.</p>
             <button
               type="button"
               onClick={() => router.push("/scrape")}
-              className="text-sm font-medium text-blue-600 hover:underline"
+              className="font-mono text-[10px] uppercase tracking-wider text-accent hover:underline"
             >
               İlk taramayı başlat →
             </button>
           </div>
         ) : (
           <div>
-            <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2 px-1">
-              Tarama Fırsatları
-            </h2>
-            <div className="overflow-auto rounded-xl border border-slate-200 bg-white">
-              <table className="min-w-full text-sm">
+            <p className="font-mono text-[9px] text-dim tracking-[0.25em] uppercase mb-3">
+              ▸ Tarama Fırsatları
+            </p>
+            <div className="border border-stroke bg-panel overflow-auto">
+              <table className="min-w-full">
                 <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50">
+                  <tr className="border-b border-stroke">
                     {["Tarama", "Konum", "Sonuç", "Öncelik", "Sonraki Adım", ""].map((h, i) => (
-                      <th key={i} className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wide whitespace-nowrap">
+                      <th
+                        key={i}
+                        className="px-4 py-3 text-left font-mono text-[9px] text-dim uppercase tracking-[0.2em] whitespace-nowrap"
+                      >
                         {h}
                       </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-stroke">
                   {scrapeJobs.map((job) => {
                     const city     = job.payload?.city     as string | undefined;
                     const district = job.payload?.district as string | undefined;
@@ -192,68 +196,67 @@ export default function OpportunitiesPage() {
                     const next     = getNextAction(saved, avg, job.status);
 
                     return (
-                      <tr key={job.id} className="hover:bg-slate-50/70 transition-colors">
-                        {/* Tarama */}
+                      <tr key={job.id} className="hover:bg-panel-high transition-colors">
                         <td className="px-4 py-3.5">
-                          <span className="font-semibold text-slate-800">
+                          <span className="font-medium text-bright text-sm">
                             {SECTOR_LABELS[sector ?? ""] ?? sector ?? "—"}
                           </span>
-                          <p className="text-xs text-slate-400 mt-0.5">
+                          <p className="font-mono text-[10px] text-dim mt-0.5">
                             {formatDateTime(job.started_at ?? job.created_at)}
                           </p>
                         </td>
-
-                        {/* Konum */}
-                        <td className="px-4 py-3.5 text-slate-600 whitespace-nowrap">
+                        <td className="px-4 py-3.5 font-mono text-[11px] text-muted whitespace-nowrap">
                           {city ?? "—"}{district ? ` / ${district}` : ""}
                         </td>
-
-                        {/* Sonuç */}
                         <td className="px-4 py-3.5">
                           <ResultCell saved={saved} avg={avg} status={job.status} />
                         </td>
-
-                        {/* Öncelik */}
                         <td className="px-4 py-3.5">
                           {job.status === "running" ? (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-600">Devam ediyor</span>
+                            <span className="font-mono text-[9px] uppercase tracking-wider px-2 py-0.5 border border-accent/50 text-accent bg-accent/5">
+                              Devam ediyor
+                            </span>
                           ) : job.status === "failed" ? (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-600">Başarısız</span>
+                            <span className="font-mono text-[9px] uppercase tracking-wider px-2 py-0.5 border border-hot/50 text-hot bg-hot/5">
+                              Başarısız
+                            </span>
                           ) : (
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${priority.cls}`}>
+                            <span className={`font-mono text-[9px] uppercase tracking-wider px-2 py-0.5 border ${priority.cls}`}>
                               {priority.label}
                             </span>
                           )}
                         </td>
-
-                        {/* Sonraki Adım */}
                         <td className="px-4 py-3.5">
                           {job.status === "failed" && job.error_message ? (
-                            <span className="text-xs text-red-500 font-mono" title={job.error_message}>
+                            <span className="font-mono text-[10px] text-hot" title={job.error_message}>
                               {job.error_message.slice(0, 45)}{job.error_message.length > 45 ? "…" : ""}
                             </span>
                           ) : (
-                            <span className="text-sm text-slate-600">{next}</span>
+                            <span className="font-mono text-[11px] text-muted">{next}</span>
                           )}
                         </td>
-
-                        {/* İşlemler */}
                         <td className="px-4 py-3.5">
                           <div className="flex items-center gap-2 justify-end">
                             {job.status === "completed" && saved > 0 && (
                               <button
                                 type="button"
-                                onClick={() => { if (sector) router.push(`/leads?sector=${sector}`); }}
-                                className="text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors"
+                                onClick={() => {
+                                  if (!sector) return;
+                                  const q = new URLSearchParams({ sector });
+                                  if (city) q.set("city", city);
+                                  if (district) q.set("district", district);
+                                  router.push(`/leads?${q.toString()}`);
+                                }}
+                                className="font-mono text-[9px] uppercase tracking-wider px-3 py-1.5 border border-accent/50 text-accent hover:bg-accent/10 transition-all whitespace-nowrap"
                               >
-                                Lead'leri Gör
+                                Lead&apos;leri Gör
                               </button>
                             )}
                             <button
                               type="button"
                               onClick={() => handleDelete(job.id)}
                               disabled={deleting === job.id}
-                              className="text-slate-300 hover:text-red-400 disabled:opacity-40 transition-colors p-1 rounded"
+                              className="font-mono text-[10px] text-dim hover:text-hot disabled:opacity-40 transition-colors p-1"
                               title="Kaldır"
                             >
                               {deleting === job.id ? "…" : "✕"}

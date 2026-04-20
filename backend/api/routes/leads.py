@@ -14,6 +14,8 @@ router = APIRouter(prefix="/leads", tags=["leads"])
 @router.get("", response_model=LeadListOut)
 async def list_leads(
     sector: str | None = Query(None),
+    city: str | None = Query(None),
+    district: str | None = Query(None),
     status: str | None = Query(None),
     priority: str | None = Query(None),
     search: str | None = Query(None),
@@ -23,7 +25,8 @@ async def list_leads(
 ):
     repo = LeadRepository(db)
     items, total = await repo.filter(
-        sector=sector, status=status, priority=priority,
+        sector=sector, city=city, district=district,
+        status=status, priority=priority,
         search=search, limit=limit, offset=offset,
     )
     return LeadListOut(items=items, total=total, limit=limit, offset=offset)

@@ -1,5 +1,4 @@
 import { Header } from "@/components/layout/header";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import type { Lead } from "@/types";
@@ -10,14 +9,14 @@ const KEY = process.env.NEXT_PUBLIC_API_KEY ?? "changeme";
 const hdrs = { "X-API-Key": KEY };
 
 const STAGES: { name: string; color: string }[] = [
-  { name: "Yeni",     color: "border-l-blue-400" },
-  { name: "Audit",    color: "border-l-violet-400" },
-  { name: "Mesaj",    color: "border-l-yellow-400" },
-  { name: "Cevap",    color: "border-l-orange-400" },
-  { name: "Demo",     color: "border-l-pink-400" },
-  { name: "Teklif",   color: "border-l-emerald-400" },
-  { name: "Kapandi",  color: "border-l-green-500" },
-  { name: "Soguk",    color: "border-l-slate-300" },
+  { name: "Yeni",    color: "#38bdf8" },
+  { name: "Audit",   color: "#a774ff" },
+  { name: "Mesaj",   color: "#ffb648" },
+  { name: "Cevap",   color: "#fb923c" },
+  { name: "Demo",    color: "#f472b6" },
+  { name: "Teklif",  color: "#34d399" },
+  { name: "Kapandi", color: "#34d399" },
+  { name: "Soguk",   color: "#4a5876" },
 ];
 
 async function getPipelineCounts() {
@@ -50,41 +49,57 @@ export default async function PipelinePage() {
     <div className="flex flex-col flex-1">
       <Header
         title="Pipeline"
-        description={counts ? `Toplam ${total} lead` : "Lead pipeline"}
+        description={counts ? `${total} kayıt · sync: şimdi` : "API bağlantısı bekleniyor"}
       />
 
       <div className="p-6 space-y-6">
         {!counts && (
-          <p className="text-sm text-slate-400 text-center py-10">API'ye bağlanılamadı. Backend çalışıyor mu?</p>
+          <p className="font-mono text-[11px] text-dim text-center py-10 tracking-wider">
+            API&apos;ye bağlanılamadı. Backend çalışıyor mu?
+          </p>
         )}
 
-        {/* Stage cards */}
         {counts && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {STAGES.map(({ name, color }) => {
-              const count = counts[name] ?? 0;
-              return (
-                <Link key={name} href={`/leads?status=${name}`}>
-                  <Card className={`border-l-4 ${color} hover:shadow-md transition-all cursor-pointer`}>
-                    <CardContent className="p-4">
-                      <Badge value={name} className="mb-2" />
-                      <p className="text-2xl font-bold text-slate-900">{count}</p>
-                      <div className="mt-2 h-1 w-full rounded-full bg-slate-100">
+          <>
+            {/* Stage summary */}
+            <div>
+              <p className="font-mono text-[9px] text-dim tracking-[0.25em] uppercase mb-3">
+                ▸ Pipeline Durumu
+              </p>
+              <div
+                className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-stroke border border-stroke"
+              >
+                {STAGES.map(({ name, color }) => {
+                  const count = counts[name] ?? 0;
+                  const pct = total > 0 ? (count / total) * 100 : 0;
+                  return (
+                    <Link key={name} href={`/leads?status=${name}`}>
+                      <div className="bg-panel hover:bg-panel-high transition-all p-4 cursor-pointer relative group">
                         <div
-                          className="h-full rounded-full bg-slate-300"
-                          style={{ width: total > 0 ? `${(count / total) * 100}%` : "0%" }}
+                          className="absolute bottom-0 left-0 right-0 h-0.5"
+                          style={{ background: color, width: `${pct}%`, boxShadow: `0 0 6px ${color}` }}
                         />
+                        <Badge value={name} className="mb-3" />
+                        <p
+                          className="text-3xl font-mono font-bold"
+                          style={{ color }}
+                        >
+                          {count}
+                        </p>
+                        <p className="font-mono text-[9px] text-dim mt-1 tracking-wider">
+                          {pct.toFixed(0)}% toplam
+                        </p>
                       </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              );
-            })}
-          </div>
-        )}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
 
-        {/* Hot leads */}
-        <HotLeads initial={hotLeads} />
+            {/* Hot leads */}
+            <HotLeads initial={hotLeads} />
+          </>
+        )}
       </div>
     </div>
   );

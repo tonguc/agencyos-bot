@@ -41,8 +41,6 @@ export function SearchClient() {
   const reqId = useRef(0);
 
   useEffect(() => {
-    // localStorage is client-only; load after hydration to avoid SSR mismatch.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setRecent(loadRecent());
   }, []);
 
@@ -56,7 +54,7 @@ export function SearchClient() {
     setActiveSegment(null);
     try {
       const res = await searchApi.run(trimmed, 25);
-      if (id !== reqId.current) return; // stale
+      if (id !== reqId.current) return;
       setData(res);
       saveRecent(trimmed);
       setRecent(loadRecent());
@@ -75,9 +73,7 @@ export function SearchClient() {
   const filtered = useMemo(() => {
     if (!data) return [];
     if (!activeSegment) return data.results.map((r, i) => ({ r, i }));
-    return data.results
-      .map((r, i) => ({ r, i }))
-      .filter(({ r }) => r.segment === activeSegment);
+    return data.results.map((r, i) => ({ r, i })).filter(({ r }) => r.segment === activeSegment);
   }, [data, activeSegment]);
 
   const parsed = data?.parsed;
@@ -92,15 +88,16 @@ export function SearchClient() {
         onPickExample={handleExample}
       />
 
+      {/* Recent searches */}
       {!data && !loading && recent.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-slate-400">Son aramalar:</span>
+          <span className="font-mono text-[9px] text-dim tracking-[0.2em] uppercase">Son aramalar:</span>
           {recent.map((q) => (
             <button
               key={q}
               type="button"
               onClick={() => handleExample(q)}
-              className="text-xs px-2.5 py-1 rounded-full bg-white text-slate-600 border border-slate-200 hover:border-slate-300"
+              className="font-mono text-[9px] px-2.5 py-1 border border-stroke text-muted hover:border-accent hover:text-bright transition-all"
             >
               {q}
             </button>
@@ -108,25 +105,29 @@ export function SearchClient() {
         </div>
       )}
 
+      {/* Error */}
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="border border-hot/40 bg-hot/5 px-4 py-3 font-mono text-[11px] text-hot">
           {error}
         </div>
       )}
 
+      {/* Empty state */}
       {!data && !loading && !error && (
-        <div className="rounded-xl border border-dashed border-slate-200 bg-white p-10 text-center">
-          <p className="text-sm text-slate-500">
-            Ne tür bir firma bulmak istediğini doğal dilde yaz. Sonuçlar haritada gösterilir, skor ve segmente göre sıralanır.
+        <div className="border border-dashed border-stroke p-10 text-center">
+          <p className="font-mono text-[11px] text-dim tracking-wider">
+            Ne tür bir firma bulmak istediğini doğal dilde yaz.
+            Sonuçlar haritada gösterilir, skor ve segmente göre sıralanır.
           </p>
         </div>
       )}
 
       {data && (
         <>
+          {/* Parsed query tags */}
           {parsed && (
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
-              <span className="text-slate-400">Yorumlanan:</span>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              <span className="font-mono text-[9px] text-dim tracking-[0.2em] uppercase">Yorumlanan:</span>
               {parsed.city && <Tag k="Şehir" v={parsed.city} />}
               {parsed.district && <Tag k="İlçe" v={parsed.district} />}
               {parsed.sector && <Tag k="Sektör" v={parsed.sector} />}
@@ -135,26 +136,20 @@ export function SearchClient() {
             </div>
           )}
 
-          <SummaryBar
-            summary={data.summary}
-            active={activeSegment}
-            onToggle={setActiveSegment}
-          />
+          <SummaryBar summary={data.summary} active={activeSegment} onToggle={setActiveSegment} />
 
           {data.results.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-200 bg-white p-10 text-center">
-              <p className="text-sm text-slate-500">{data.error || "Sonuç bulunamadı."}</p>
-              <p className="text-xs text-slate-400 mt-2">
+            <div className="border border-dashed border-stroke p-10 text-center">
+              <p className="font-mono text-[11px] text-dim">{data.error || "Sonuç bulunamadı."}</p>
+              <p className="font-mono text-[10px] text-dim/60 mt-2">
                 Arama terimini sadeleştirmeyi dene veya şehir/ilçe ekle.
               </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-              <div className="lg:col-span-2 space-y-3 lg:max-h-[calc(100vh-340px)] lg:overflow-y-auto pr-1">
+              <div className="lg:col-span-2 space-y-2 lg:max-h-[calc(100vh-340px)] lg:overflow-y-auto pr-1">
                 {filtered.length === 0 ? (
-                  <p className="text-xs text-slate-400 italic px-1 py-4">
-                    Bu segmentte sonuç yok.
-                  </p>
+                  <p className="font-mono text-[10px] text-dim px-1 py-4">Bu segmentte sonuç yok.</p>
                 ) : (
                   filtered.map(({ r, i }) => (
                     <ResultCard
@@ -162,16 +157,15 @@ export function SearchClient() {
                       lead={r}
                       selected={selectedIdx === i}
                       onSelect={() => setSelectedIdx(selectedIdx === i ? null : i)}
+                      sector={parsed?.sector}
+                      city={parsed?.city}
+                      district={parsed?.district}
                     />
                   ))
                 )}
               </div>
               <div className="lg:col-span-3 lg:sticky lg:top-4 lg:h-[calc(100vh-340px)]">
-                <MapView
-                  results={data.results}
-                  selectedIdx={selectedIdx}
-                  onSelect={setSelectedIdx}
-                />
+                <MapView results={data.results} selectedIdx={selectedIdx} onSelect={setSelectedIdx} />
               </div>
             </div>
           )}
@@ -183,9 +177,9 @@ export function SearchClient() {
 
 function Tag({ k, v }: { k: string; v: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5">
-      <span className="text-slate-400">{k}:</span>
-      <span className="font-medium text-slate-700">{v}</span>
+    <span className="inline-flex items-center gap-1.5 font-mono text-[10px]">
+      <span className="text-dim">{k}:</span>
+      <span className="text-accent">{v}</span>
     </span>
   );
 }

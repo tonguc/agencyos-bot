@@ -130,6 +130,8 @@ export interface SearchResultItem {
   segment: SearchSegment;
   priority: string | null;
   reason: string | null;
+  score_breakdown: string[];
+  lead_id: string | null;
 }
 
 export interface SearchSummary {
