@@ -2,6 +2,7 @@ import os
 import re
 import asyncio
 import logging
+import unicodedata
 from datetime import date
 from urllib.parse import urlparse
 
@@ -368,12 +369,30 @@ _TR_COORDS: dict[str, str] = {
 }
 
 
+def _normalize_tr(s: str) -> str:
+    """Türkçe isim normalizasyonu: 'İzmir' → 'izmir'.
+
+    Python'un `"İ".lower()` çağrısı ASCII 'i' değil, U+0069 + U+0307 (combining
+    dot above) üretir. Bu yüzden dict lookup'ında birebir eşleşme tutmaz.
+    NFKD + combining-mark strip ile güvenli bir anahtar üretiyoruz.
+    """
+    s = (s or "").strip().lower()
+    s = unicodedata.normalize("NFKD", s)
+    return "".join(c for c in s if not unicodedata.combining(c))
+
+
+# Normalized lookup (combining-mark tolerant): "izmir", "i̇zmir", "İzmir" hepsi eşleşir
+_TR_COORDS_NORM: dict[str, str] = {
+    _normalize_tr(k): v for k, v in _TR_COORDS.items()
+}
+
+
 def _get_ll(ilce: str, sehir: str) -> str:
     """İlçe veya şehir adından SerpAPI Maps ll parametresi döner."""
-    for name in (ilce.lower(), sehir.lower()):
-        if name in _TR_COORDS:
-            return _TR_COORDS[name]
-    return _TR_COORDS["istanbul"]  # varsayılan
+    for name in (_normalize_tr(ilce), _normalize_tr(sehir)):
+        if name and name in _TR_COORDS_NORM:
+            return _TR_COORDS_NORM[name]
+    return _TR_COORDS_NORM["istanbul"]  # varsayılan
 
 
 async def _run_serpapi_maps(
@@ -442,13 +461,13 @@ def _filter_by_district(leads: list[dict], ilce: str) -> list[dict]:
     Adreste istenen ilçe geçmeyen lead'leri ele.
     Google Maps komşu ilçelere (örn. Büyükçekmece → Beylikdüzü) taşıyabiliyor.
     """
-    target = ilce.strip().lower()
+    target = _normalize_tr(ilce)
     if not target:
         return leads
 
     result = []
     for lead in leads:
-        adres = (lead.get("adres") or "").lower()
+        adres = _normalize_tr(lead.get("adres") or "")
         if target in adres:
             result.append(lead)
         else:
