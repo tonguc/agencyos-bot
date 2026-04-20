@@ -85,11 +85,13 @@ export function VoiceAssistant() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const hasMediaRecorder = useRef(false);
+  const hasBrowserSTT = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     hasMediaRecorder.current = !!(navigator.mediaDevices && typeof window.MediaRecorder !== "undefined");
-    if (!hasMediaRecorder.current && !buildBrowserRecognition()) setSupported(false);
+    hasBrowserSTT.current = !!buildBrowserRecognition();
+    if (!hasMediaRecorder.current && !hasBrowserSTT.current) setSupported(false);
   }, []);
 
   const stopAudio = useCallback(() => {
@@ -186,8 +188,10 @@ export function VoiceAssistant() {
 
   const startListening = useCallback(() => {
     setErrMsg("");
-    if (hasMediaRecorder.current) startMediaRecorder();
-    else startBrowserRecognition();
+    // Prefer browser STT (free, works without OPENAI_API_KEY in Chrome/Edge)
+    // Fall back to MediaRecorder + Whisper for Firefox/Safari
+    if (hasBrowserSTT.current) startBrowserRecognition();
+    else if (hasMediaRecorder.current) startMediaRecorder();
   }, [startMediaRecorder, startBrowserRecognition]);
 
   const stopListening = useCallback(() => {
