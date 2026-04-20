@@ -117,7 +117,9 @@ def hard_filter(lead: dict, playbook: dict) -> Tuple[bool, str]:
 
     puan = lead.get("puan") or 0
     website = lead.get("website")
-    if yorum > 150 and puan > 4.5 and website:
+    site_durumu = lead.get("site_durumu", "zayif")
+    # Sadece sitesi de iyi olan ve çok yorumlu leadler gerçekten "zaten güçlü"
+    if yorum > 400 and puan > 4.7 and website and site_durumu == "iyi":
         return True, "zaten güçlü"
 
     if not telefon:
@@ -768,7 +770,7 @@ def route_decision(
     if has_zombie:
         return "REVIEW", "manual_review", "Alıcı sinyali yok — zombie risk"
 
-    if confidence < 0.40:
+    if confidence < 0.50:
         return "REVIEW", "manual_review", f"Veri yetersiz (confidence={confidence:.2f})"
 
     if len(contradictions) >= 2 and confidence < 0.65:
