@@ -28,6 +28,42 @@ class SearchRequest(BaseModel):
     force_refresh: bool = False
 
 
+async def _enrich_lead_ids(results: list[dict], db: AsyncSession) -> None:
+    """Refresh lead_id and DB-sourced scores in-place.
+
+    Always called — even on cache hits — so stale lead_id values from
+    deleted leads never cause 404s on the detail page.
+    """
+    phones = [r["phone"] for r in results if r.get("phone")]
+    if not phones:
+        for r in results:
+            r.setdefault("lead_id", None)
+        return
+    db_scores = await LeadRepository(db).find_scores_by_phones(phones)
+    for r in results:
+        phone    = r.get("phone") or ""
+        db_entry = db_scores.get(phone)
+        if not db_entry:
+            r["lead_id"] = None
+            continue
+        r["lead_id"] = db_entry["id"]
+        if db_entry["status"] != "Yeni" and db_entry["opportunity_score"] is not None:
+            r["score"]    = db_entry["opportunity_score"]
+            r["priority"] = db_entry["priority"]
+            r["segment"]  = _PRIORITY_TO_SEGMENT.get(db_entry["priority"] or "", r["segment"])
+
+
+def _calc_summary(results: list[dict]) -> dict:
+    return {
+        "hot":    sum(1 for r in results if r["segment"] == "hot"),
+        "warm":   sum(1 for r in results if r["segment"] == "warm"),
+        "ok":     sum(1 for r in results if r["segment"] == "ok"),
+        "low":    sum(1 for r in results if r["segment"] == "low"),
+        "review": sum(1 for r in results if r["segment"] == "review"),
+        "total":  len(results),
+    }
+
+
 @router.post("/search")
 async def search(
     body: SearchRequest,
@@ -44,7 +80,12 @@ async def search(
         cached = await redis.get(cache_key)
         if cached:
             logger.info("[CACHE HIT] raw=%r normalized=%r key=%s", raw_query, normalized, cache_key)
-            result = json.loads(cached)
+            result  = json.loads(cached)
+            results = result.get("results", [])
+            # Always re-enrich from DB: cached lead_ids become stale when leads are
+            # deleted or after a DB reset, causing 404s on the detail page.
+            await _enrich_lead_ids(results, db)
+            result["summary"]    = _calc_summary(results)
             result["cache_hit"]  = True
             return result
 
@@ -55,30 +96,9 @@ async def search(
     result = await run_search(raw_query, limit=body.limit)
 
     # ── 3. DB skor zenginleştirme ────────────────────────────────────────
-    phones = [r["phone"] for r in result.get("results", []) if r.get("phone")]
-    db_scores = await LeadRepository(db).find_scores_by_phones(phones) if phones else {}
-
-    for r in result.get("results", []):
-        phone    = r.get("phone") or ""
-        db_entry = db_scores.get(phone)
-        if not db_entry:
-            r["lead_id"] = None
-            continue
-        r["lead_id"] = db_entry["id"]
-        if db_entry["status"] != "Yeni" and db_entry["opportunity_score"] is not None:
-            r["score"]   = db_entry["opportunity_score"]
-            r["priority"] = db_entry["priority"]
-            r["segment"] = _PRIORITY_TO_SEGMENT.get(db_entry["priority"] or "", r["segment"])
-
     results = result.get("results", [])
-    result["summary"] = {
-        "hot":    sum(1 for r in results if r["segment"] == "hot"),
-        "warm":   sum(1 for r in results if r["segment"] == "warm"),
-        "ok":     sum(1 for r in results if r["segment"] == "ok"),
-        "low":    sum(1 for r in results if r["segment"] == "low"),
-        "review": sum(1 for r in results if r["segment"] == "review"),
-        "total":  len(results),
-    }
+    await _enrich_lead_ids(results, db)
+    result["summary"] = _calc_summary(results)
 
     # ── 4. Cache'e yaz (hata/zaman aşımı yoksa) ─────────────────────────
     result["cache_hit"]    = False
