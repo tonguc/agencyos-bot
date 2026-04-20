@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Sidebar } from "@/components/layout/sidebar";
+import { VoiceAssistant } from "@/components/voice/voice-assistant";
 
 export const metadata: Metadata = {
   title: "AgencyOS",
@@ -25,6 +26,7 @@ export default function RootLayout({
       <body className="flex h-full">
         <Sidebar />
         <main className="flex-1 overflow-auto flex flex-col">{children}</main>
+        <VoiceAssistant />
       </body>
     </html>
   );

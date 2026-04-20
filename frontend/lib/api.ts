@@ -162,3 +162,12 @@ export const settingsApi = {
   testClaude: () => request<{ ok: boolean; message: string }>("/api/settings/test/claude", { method: "POST" }),
   testApify: () => request<{ ok: boolean; message: string }>("/api/settings/test/apify", { method: "POST" }),
 };
+
+// ── Voice ──────────────────────────────────────────────────────────────
+export const voiceApi = {
+  chat: (message: string, history: { role: string; content: string }[]) =>
+    request<{ reply: string }>("/api/voice/chat", {
+      method: "POST",
+      body: JSON.stringify({ message, history }),
+    }),
+};

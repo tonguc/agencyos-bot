@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from api.routes import audit, jobs, leads, outreach, proposals, scrape, search, settings
+from api.routes import audit, jobs, leads, outreach, proposals, scrape, search, settings, voice
 
 api_router = APIRouter(prefix="/api")
 
@@ -12,3 +12,4 @@ api_router.include_router(scrape.router)
 api_router.include_router(search.router)
 api_router.include_router(jobs.router)
 api_router.include_router(settings.router)
+api_router.include_router(voice.router)
