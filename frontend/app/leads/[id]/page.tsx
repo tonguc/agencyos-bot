@@ -173,13 +173,7 @@ export default async function LeadDetailPage({ params }: Props) {
         {audit && (
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Audit</CardTitle>
-                <div className="flex gap-2">
-                  {audit.urgency && <Badge value={audit.urgency} />}
-                  {audit.lead_quality && <Badge value={audit.lead_quality} />}
-                </div>
-              </div>
+              <CardTitle>Audit</CardTitle>
             </CardHeader>
             <CardContent className="space-y-5">
 
