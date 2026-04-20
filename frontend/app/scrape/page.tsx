@@ -262,7 +262,7 @@ export default function ScrapePage() {
   return (
     <div className="flex flex-col flex-1">
       <Header title="Lead Topla" description="Google Maps'ten yeni lead'ler topla" />
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         <form onSubmit={handleSubmit} className="space-y-6">
 
           {/* Sektör kartları — tam genişlik */}

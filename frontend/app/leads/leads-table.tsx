@@ -184,19 +184,19 @@ export function LeadsTable() {
   }
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-4 md:p-6 space-y-4">
 
       {/* Filters + Sort */}
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 flex-wrap">
         <Input
-          className="w-64"
+          className="w-full sm:w-64"
           placeholder="İsim veya şehir ara..."
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
         />
 
         {/* Sort buttons */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 flex-wrap">
           {SORT_OPTIONS.map(({ key, label }) => (
             <button
               key={key}
@@ -284,7 +284,7 @@ export function LeadsTable() {
                 </button>
 
                 {isOpen && (
-                  <div className="overflow-auto">
+                  <div className="overflow-x-auto -webkit-overflow-scrolling-touch">
                     <table className="min-w-full">
                       <thead>
                         <tr className="border-b border-stroke">

@@ -27,7 +27,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className="flex h-screen w-52 flex-col shrink-0 border-r border-stroke"
+      className="hidden md:flex h-screen w-52 flex-col shrink-0 border-r border-stroke"
       style={{ background: "#0d1324" }}
     >
       {/* Brand */}

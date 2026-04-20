@@ -132,7 +132,7 @@ export default function OpportunitiesPage() {
   return (
     <div className="flex flex-col flex-1">
       <Header title="Fırsatlar" description="Bugün hangi lead'lerle ilgilenmem gerekiyor?" />
-      <div className="p-6 space-y-6">
+      <div className="p-4 md:p-6 space-y-6">
 
         {/* Stat Cards */}
         {stats && (
@@ -182,7 +182,7 @@ export default function OpportunitiesPage() {
             <p className="font-mono text-[11px] text-dim tracking-[0.25em] uppercase mb-3">
               ▸ Tarama Fırsatları
             </p>
-            <div className="border border-stroke bg-panel overflow-auto">
+            <div className="border border-stroke bg-panel overflow-x-auto">
               <table className="min-w-full">
                 <thead>
                   <tr className="border-b border-stroke">

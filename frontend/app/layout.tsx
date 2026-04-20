@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Sidebar } from "@/components/layout/sidebar";
+import { MobileNav } from "@/components/layout/mobile-nav";
 import { VoiceAssistant } from "@/components/voice/voice-assistant";
 
 export const metadata: Metadata = {
@@ -25,7 +26,8 @@ export default function RootLayout({
       </head>
       <body className="flex h-full">
         <Sidebar />
-        <main className="flex-1 overflow-auto flex flex-col">{children}</main>
+        <main className="flex-1 overflow-auto flex flex-col pb-16 md:pb-0">{children}</main>
+        <MobileNav />
         <VoiceAssistant />
       </body>
     </html>

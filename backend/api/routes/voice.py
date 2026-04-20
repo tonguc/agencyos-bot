@@ -102,7 +102,7 @@ class SpeakRequest(BaseModel):
 async def speak(body: SpeakRequest):
     client = _get_openai_client()
     if client is None:
-        return Response(content=b"", media_type="audio/mpeg")
+        return Response(status_code=503, content=b"", media_type="audio/mpeg")
 
     try:
         response = await client.audio.speech.create(
@@ -113,7 +113,7 @@ async def speak(body: SpeakRequest):
         )
         return Response(content=response.content, media_type="audio/mpeg")
     except Exception:
-        return Response(content=b"", media_type="audio/mpeg")
+        return Response(status_code=502, content=b"", media_type="audio/mpeg")
 
 
 # ── Chat ───────────────────────────────────────────────────────────────
