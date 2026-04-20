@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { BarChart3, Users, Search, Sparkles, BriefcaseBusiness, Settings, Zap } from "lucide-react";
 
 const nav = [
-  { href: "/pipeline", label: "Pipeline", icon: BarChart3 },
+  { href: "/pipeline", label: "Özet",     icon: BarChart3 },
   { href: "/search",   label: "Ara",      icon: Sparkles },
   { href: "/leads",    label: "Adaylar",  icon: Users },
   { href: "/scrape",   label: "Tarama",   icon: Search },

@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 
 const nav = [
-  { href: "/pipeline", label: "Pipeline",    icon: BarChart3 },
+  { href: "/pipeline", label: "Özet",         icon: BarChart3 },
   { href: "/search",   label: "Firma Ara",   icon: Sparkles },
   { href: "/leads",    label: "Adaylar",     icon: Users },
   { href: "/scrape",   label: "Yeni Tarama", icon: Search },
