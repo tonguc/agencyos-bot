@@ -25,11 +25,11 @@ const SECTOR_LABELS: Record<string, string> = {
   hali_temizlik:    "Halı Yıkama / Ev Temizliği",
 };
 
-const PIPELINE_STATUSES = ["Yeni", "Audit", "Mesaj", "Cevap", "Demo", "Teklif", "Kapandi", "Soguk"];
+const PIPELINE_STATUSES = ["Yeni", "Audit", "Mesaj", "Cevap", "Demo", "Teklif", "Kapandi", "Arsiv"];
 
 const STATUS_DISPLAY: Record<string, string> = {
   Kapandi: "Kapandı",
-  Soguk:   "Soğuk",
+  Arsiv:   "Arşiv",
 };
 
 type SortKey = "score" | "date_desc" | "date_asc" | "name" | "google";

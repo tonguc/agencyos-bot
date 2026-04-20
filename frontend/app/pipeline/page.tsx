@@ -16,7 +16,7 @@ const STAGES: { name: string; color: string }[] = [
   { name: "Demo",    color: "#f472b6" },
   { name: "Teklif",  color: "#34d399" },
   { name: "Kapandi", color: "#34d399" },
-  { name: "Soguk",   color: "#4a5876" },
+  // Arsiv intentionally excluded — dead-end stage, not actionable on summary
 ];
 
 export default function OzetPage() {
@@ -121,9 +121,9 @@ export default function OzetPage() {
             {scoreTiers && (
               <div className="flex flex-wrap gap-px border border-stroke bg-stroke">
                 {[
-                  { key: "atesli", label: "Ateşli",  range: "≥75", color: "#ff3b4a" },
-                  { key: "ilgili", label: "İlgili",  range: "55–74", color: "#ffb648" },
-                  { key: "zayif",  label: "Zayıf",   range: "<55",  color: "#4a5876" },
+                  { key: "sicak", label: "Sıcak",  range: "≥75",   color: "#ff3b4a" },
+                  { key: "ilik",  label: "Ilık",   range: "55–74", color: "#ffb648" },
+                  { key: "soguk", label: "Soğuk",  range: "<55",   color: "#4a5876" },
                 ].map(({ key, label, range, color }) => (
                   <div key={key} className="flex-1 min-w-[120px] bg-panel px-5 py-3 flex items-center gap-3">
                     <span

@@ -5,7 +5,7 @@ from repositories.base import BaseRepository
 import uuid
 
 # Valid pipeline statuses in order
-PIPELINE_STATUSES = ["Yeni", "Audit", "Mesaj", "Cevap", "Demo", "Teklif", "Kapandi", "Soguk"]
+PIPELINE_STATUSES = ["Yeni", "Audit", "Mesaj", "Cevap", "Demo", "Teklif", "Kapandi", "Arsiv"]
 
 
 class LeadRepository(BaseRepository[Lead]):
@@ -50,15 +50,15 @@ class LeadRepository(BaseRepository[Lead]):
     async def score_distribution(self) -> dict[str, int]:
         result = await self._session.execute(
             select(
-                func.count(Lead.id).filter(Lead.opportunity_score >= 75).label("atesli"),
+                func.count(Lead.id).filter(Lead.opportunity_score >= 75).label("sicak"),
                 func.count(Lead.id).filter(
                     Lead.opportunity_score >= 55, Lead.opportunity_score < 75
-                ).label("ilgili"),
-                func.count(Lead.id).filter(Lead.opportunity_score < 55).label("zayif"),
+                ).label("ilik"),
+                func.count(Lead.id).filter(Lead.opportunity_score < 55).label("soguk"),
             )
         )
         row = result.one()
-        return {"atesli": row[0], "ilgili": row[1], "zayif": row[2]}
+        return {"sicak": row[0], "ilik": row[1], "soguk": row[2]}
 
     async def filter(
         self,

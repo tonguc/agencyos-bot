@@ -10,6 +10,7 @@ const variants: Record<string, string> = {
   teklif:    "text-ok border-ok/50 bg-ok/5",
   kapandi:   "text-ok border-ok/30 bg-ok/5",
   soguk:     "text-dim border-dim/50",
+  arsiv:     "text-dim border-dim/30",
   pending:   "text-warm border-warm/50 bg-warm/5",
   running:   "text-accent border-accent/50 bg-accent/5",
   completed: "text-ok border-ok/50 bg-ok/5",
@@ -26,6 +27,7 @@ const variants: Record<string, string> = {
 const DISPLAY: Record<string, string> = {
   kapandi:   "Kapandı",
   soguk:     "Soğuk",
+  arsiv:     "Arşiv",
 };
 
 interface BadgeProps {

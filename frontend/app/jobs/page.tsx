@@ -44,7 +44,7 @@ function getNextAction(saved: number, avg: number | undefined, status: string): 
 interface LeadStats { hot: number; warm: number; yeni: number; auditHazir: number }
 
 function computeStats(leads: Lead[]): LeadStats {
-  const active = leads.filter((l) => !["Kapandi", "Soguk"].includes(l.status));
+  const active = leads.filter((l) => !["Kapandi", "Arsiv"].includes(l.status));
   return {
     hot:        active.filter((l) => (l.opportunity_score ?? 0) >= 70).length,
     warm:       active.filter((l) => { const s = l.opportunity_score ?? 0; return s >= 45 && s < 70; }).length,
