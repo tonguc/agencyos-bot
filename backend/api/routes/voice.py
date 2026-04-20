@@ -203,26 +203,10 @@ async def voice_chat(
         action = None
 
         if tool_blocks:
-            tool = tool_blocks[0]
-            inp = tool.input  # type: ignore[attr-defined]
-            sector = inp["sector"]
-            city = inp["city"]
-            district = inp.get("district", "") or ""
-            query = (inp.get("query") or "").strip()
-            limit = int(inp.get("limit", 20))
-
-            job = await JobRepository(db).create(
-                type="collect_leads",
-                payload={"sector": sector, "city": city, "district": district, "limit": limit, "query": query},
-            )
-            await db.commit()
-            await arq.enqueue_job("run_collect_job", sector, city, district, limit, str(job.id), query)
-
-            # If Claude didn't provide text with the tool call, give a fixed short confirm
-            if not reply:
-                reply = f"Başlattım. {city} {query or sector} için {limit} lead."
-
-            action = ScrapeAction(job_id=str(job.id), sector=sector, city=city, district=district, limit=limit)
+            # Scrape via voice is disabled — unstable, wastes Apify credits.
+            # User should trigger scrapes manually from Yeni Tarama page.
+            reply = "Şu an sesli tarama devre dışı. Yeni Tarama sayfasından başlatabilirsin."
+            action = None
 
     except Exception:
         return VoiceChatResponse(reply="Hata, tekrar dene.")
