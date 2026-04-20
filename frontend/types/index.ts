@@ -155,4 +155,5 @@ export interface SearchResponse {
     gecis_orani: number;
   } | null;
   error: string | null;
+  cache_hit?: boolean;
 }

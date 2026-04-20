@@ -163,10 +163,10 @@ export const scrapeApi = {
 
 // ── Search ─────────────────────────────────────────────────────────────
 export const searchApi = {
-  run: (query: string, limit = 25) =>
+  run: (query: string, limit = 25, forceRefresh = false) =>
     request<SearchResponse>("/api/search", {
       method: "POST",
-      body: JSON.stringify({ query, limit }),
+      body: JSON.stringify({ query, limit, force_refresh: forceRefresh }),
     }),
 };
 

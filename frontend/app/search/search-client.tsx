@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { RefreshCw } from "lucide-react";
 import { searchApi } from "@/lib/api";
 import type { SearchResponse, SearchSegment } from "@/types";
 import { SearchInput } from "./search-input";
@@ -66,7 +67,7 @@ export function SearchClient() {
     }
   }, []);
 
-  const runSearch = useCallback(async (q: string, lim?: number) => {
+  const runSearch = useCallback(async (q: string, lim?: number, forceRefresh = false) => {
     const trimmed = q.trim();
     if (!trimmed) return;
     const id = ++reqId.current;
@@ -74,8 +75,11 @@ export function SearchClient() {
     setError(null);
     setSelectedIdx(null);
     setActiveSegment(null);
+    if (forceRefresh) {
+      try { window.sessionStorage.removeItem(CACHE_KEY); } catch {}
+    }
     try {
-      const res = await searchApi.run(trimmed, lim ?? limit);
+      const res = await searchApi.run(trimmed, lim ?? limit, forceRefresh);
       if (id !== reqId.current) return;
       setData(res);
       saveCache(trimmed, res);
@@ -93,6 +97,7 @@ export function SearchClient() {
   const handleSubmit = () => runSearch(query);
   const handleExample = (q: string) => { setQuery(q); runSearch(q); };
   const handleLimitChange = (n: number) => { setLimit(n); if (data) runSearch(query, n); };
+  const handleForceRefresh = () => runSearch(query, undefined, true);
 
   const filtered = useMemo(() => {
     if (!data) return [];
@@ -181,7 +186,23 @@ export function SearchClient() {
             </div>
           )}
 
-          <SummaryBar summary={data.summary} active={activeSegment} onToggle={setActiveSegment} />
+          <div className="flex items-center justify-between gap-3">
+            <SummaryBar summary={data.summary} active={activeSegment} onToggle={setActiveSegment} />
+            <button
+              type="button"
+              onClick={handleForceRefresh}
+              disabled={loading}
+              title="Cache'i atla, sıfırdan ara"
+              className={`shrink-0 inline-flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-wider px-2.5 py-1 border transition-all disabled:opacity-40 ${
+                data.cache_hit
+                  ? "border-accent/60 text-accent hover:bg-accent/10 animate-pulse"
+                  : "border-stroke text-muted hover:border-stroke-2 hover:text-bright"
+              }`}
+            >
+              <RefreshCw className="h-3 w-3" />
+              {data.cache_hit ? "Önbellekten" : "Yenile"}
+            </button>
+          </div>
 
           {data.results.length === 0 ? (
             <div className="border border-dashed border-stroke p-10 text-center">
