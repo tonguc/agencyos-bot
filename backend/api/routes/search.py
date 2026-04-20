@@ -1,13 +1,17 @@
-import hashlib
 import json
+import logging
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.query_normalizer import build_search_cache_key, normalize_query, CACHE_TTL_SECONDS
 from database import get_db
 from repositories.lead import LeadRepository
 from services.search_service import run_search
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["search"])
 
@@ -17,49 +21,54 @@ _PRIORITY_TO_SEGMENT = {
     "dusuk":  "low",
 }
 
-SEARCH_CACHE_TTL = 3600  # 1 hour
-
 
 class SearchRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=200)
-    limit: int = Field(25, ge=1, le=60)
-
-
-def _cache_key(query: str, limit: int) -> str:
-    raw = f"{query.strip().lower()}:{limit}"
-    return "search:" + hashlib.md5(raw.encode()).hexdigest()
+    limit: int = Field(20, ge=1, le=50)
+    force_refresh: bool = False
 
 
 @router.post("/search")
-async def search(body: SearchRequest, request: Request, db: AsyncSession = Depends(get_db)) -> dict:
-    cache_key = _cache_key(body.query, body.limit)
+async def search(
+    body: SearchRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    raw_query      = body.query
+    normalized     = normalize_query(raw_query)
+    cache_key      = build_search_cache_key(raw_query, body.limit)
+    redis          = getattr(request.app.state, "arq_pool", None)
 
-    # Try Redis cache first
-    redis = getattr(request.app.state, "arq_pool", None)
-    if redis:
+    # ── 1. Cache kontrol ────────────────────────────────────────────────
+    if redis and not body.force_refresh:
         cached = await redis.get(cache_key)
         if cached:
-            return json.loads(cached)
+            logger.info("[CACHE HIT] raw=%r normalized=%r key=%s", raw_query, normalized, cache_key)
+            result = json.loads(cached)
+            result["cache_hit"]  = True
+            return result
 
-    result = await run_search(body.query, limit=body.limit)
+    logger.info("[CACHE MISS] raw=%r normalized=%r key=%s", raw_query, normalized, cache_key)
 
+    # ── 2. Arama ────────────────────────────────────────────────────────
+    logger.info("[APIFY CALL] key=%s", cache_key)
+    result = await run_search(raw_query, limit=body.limit)
+
+    # ── 3. DB skor zenginleştirme ────────────────────────────────────────
     phones = [r["phone"] for r in result.get("results", []) if r.get("phone")]
-    if phones:
-        db_scores = await LeadRepository(db).find_scores_by_phones(phones)
-    else:
-        db_scores = {}
+    db_scores = await LeadRepository(db).find_scores_by_phones(phones) if phones else {}
 
     for r in result.get("results", []):
-        phone = r.get("phone") or ""
+        phone    = r.get("phone") or ""
         db_entry = db_scores.get(phone)
         if not db_entry:
             r["lead_id"] = None
             continue
         r["lead_id"] = db_entry["id"]
         if db_entry["status"] != "Yeni" and db_entry["opportunity_score"] is not None:
-            r["score"]    = db_entry["opportunity_score"]
+            r["score"]   = db_entry["opportunity_score"]
             r["priority"] = db_entry["priority"]
-            r["segment"]  = _PRIORITY_TO_SEGMENT.get(db_entry["priority"] or "", r["segment"])
+            r["segment"] = _PRIORITY_TO_SEGMENT.get(db_entry["priority"] or "", r["segment"])
 
     results = result.get("results", [])
     result["summary"] = {
@@ -71,8 +80,14 @@ async def search(body: SearchRequest, request: Request, db: AsyncSession = Depen
         "total":  len(results),
     }
 
-    # Cache successful results (not errors/timeouts)
+    # ── 4. Cache'e yaz (hata/zaman aşımı yoksa) ─────────────────────────
+    result["cache_hit"]    = False
+    result["cached_at"]    = datetime.now(timezone.utc).isoformat()
+    result["result_count"] = len(results)
+
     if redis and not result.get("error") and results:
-        await redis.set(cache_key, json.dumps(result), ex=SEARCH_CACHE_TTL)
+        await redis.set(cache_key, json.dumps(result), ex=CACHE_TTL_SECONDS)
+        logger.info("[CACHE WRITE] key=%s ttl=%dd results=%d",
+                    cache_key, CACHE_TTL_SECONDS // 86400, len(results))
 
     return result

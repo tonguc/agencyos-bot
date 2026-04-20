@@ -143,10 +143,11 @@ async def collect_by_query(
     search_string: str,
     sehir: str | None = None,
     ilce: str | None = None,
-    limit: int = 30,
+    limit: int = 20,
     sektor_filter: str | None = None,
     apify_timeout: int = 300,
-    max_reviews: int = 20,
+    max_reviews: int = 10,
+    search_only: bool = False,  # True → always SerpAPI (Firma Ara)
 ) -> list[dict]:
     """
     Free-form search against Google Maps.
@@ -156,7 +157,7 @@ async def collect_by_query(
     if not (search_string or "").strip():
         return []
 
-    use_apify = bool(os.getenv("APIFY_API_TOKEN"))
+    use_apify = bool(os.getenv("APIFY_API_TOKEN")) and not search_only
     if use_apify:
         leads = await _run_apify(
             search_term=search_string.strip(),
