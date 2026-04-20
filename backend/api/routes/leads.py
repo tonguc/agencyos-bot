@@ -65,15 +65,6 @@ async def update_lead(
     return updated
 
 
-@router.delete("/{lead_id}", status_code=204)
-async def delete_lead(lead_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    repo = LeadRepository(db)
-    lead = await repo.get(lead_id)
-    if not lead:
-        raise HTTPException(404, "Lead bulunamadi")
-    await repo.delete(lead)
-
-
 @router.delete("/bulk/sector", status_code=200)
 async def delete_leads_by_sector(
     sector: str = Query(...),
@@ -84,3 +75,13 @@ async def delete_leads_by_sector(
     deleted = await LeadRepository(db).delete_by_sector_city(sector, city or "")
     await db.commit()
     return {"deleted": deleted}
+
+
+@router.delete("/{lead_id}", status_code=204)
+async def delete_lead(lead_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    repo = LeadRepository(db)
+    lead = await repo.get(lead_id)
+    if not lead:
+        raise HTTPException(404, "Lead bulunamadi")
+    await repo.delete(lead)
+    await db.commit()
