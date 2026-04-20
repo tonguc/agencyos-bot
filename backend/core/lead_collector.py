@@ -431,8 +431,33 @@ async def _run_serpapi_maps(
     enriched = [enrich_lead(lead) for lead in converted]
     if sektor_for_filter:
         enriched = _filter_relevant(enriched, sektor_for_filter)
+    if ilce:
+        enriched = _filter_by_district(enriched, ilce)
     logger.info("%d lead SerpAPI'dan alındı: q='%s' ll=%s", len(enriched), q, ll)
     return enriched
+
+
+def _filter_by_district(leads: list[dict], ilce: str) -> list[dict]:
+    """
+    Adreste istenen ilçe geçmeyen lead'leri ele.
+    Google Maps komşu ilçelere (örn. Büyükçekmece → Beylikdüzü) taşıyabiliyor.
+    """
+    target = ilce.strip().lower()
+    if not target:
+        return leads
+
+    result = []
+    for lead in leads:
+        adres = (lead.get("adres") or "").lower()
+        if target in adres:
+            result.append(lead)
+        else:
+            logger.info(
+                "District filter: '%s' elendi (adres: %s) — istenen ilçe: %s",
+                lead.get("isim"), lead.get("adres"), ilce,
+            )
+    logger.info("District filter: %d/%d lead kaldı (ilçe=%s)", len(result), len(leads), ilce)
+    return result
 
 
 async def _run_apify(
