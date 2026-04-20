@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 
+from core.ads_enricher import apply_ads_data, fetch_ads
 from core.icp_filter import filter_leads
 from core.lead_collector import collect_by_query
 from core.lead_scorer import calculate_final_score
@@ -138,6 +139,14 @@ async def run_search(query: str, limit: int = 25) -> dict:
     if parsed["sector"]:
         try:
             playbook = load_playbook_for_sector(parsed["sector"])
+
+            # Ads enrichment: tek SerpAPI çağrısı, tüm batch'e uygulanır
+            ads_query = f"{parsed['search_string']} {parsed['city'] or ''}".strip()
+            ads = await fetch_ads(ads_query)
+            if ads:
+                logger.info("SerpAPI: %d reklam bulundu (%s)", len(ads), ads_query)
+                apply_ads_data(raw, ads)
+
             filtered = filter_leads(raw, playbook)
             filter_stats = filtered["istatistik"]
             for lead in filtered["nitelikli"]:
