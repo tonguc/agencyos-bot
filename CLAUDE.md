@@ -12,8 +12,7 @@ AgencyOS, yapay zeka destekli tam otonom bir freelance dijital ajans sistemidir.
 > "Jarvis gibi konuşarak yönetilen, 7/24 çalışan, lead bulan, teklif yazan ve proje teslim eden tek kişilik yapay zeka ajansı."
 
 **Sahip:** Tonguc Karacay  
-**Aşama:** Web SaaS'a dönüşüm (Phase 1B)  
-**Mevcut durum:** Step 2 tamamlandı, Step 3 başlıyor
+**Mevcut durum:** Step 11 tamamlandı (Sesli Asistan)
 
 ---
 
@@ -163,6 +162,7 @@ Framework glue tamamen `routes/`, `jobs/`, `telegram/` katmanlarında.
 | 8 | Lead detay (audit/outreach/proposal/history) | ✅ Tamamlandı |
 | 9 | Telegram bot → FastAPI refactor | ✅ Tamamlandı |
 | 10 | Docker + deploy | ✅ Tamamlandı |
+| 11 | Sesli asistan (STT + TTS + Claude tool use) | ✅ Tamamlandı |
 
 ---
 
@@ -221,6 +221,43 @@ curl http://localhost:8000/health
 
 ---
 
+## Sesli Asistan (Step 11)
+
+### Mimari
+- **STT:** Browser SpeechRecognition (Chrome) veya OpenAI Whisper fallback
+- **TTS:** OpenAI `tts-1` model, `nova` sesi (native Türkçe) — `OPENAI_API_KEY` gerekli
+- **Chat:** Claude Sonnet 4.6 + `trigger_scrape` tool use (prompt caching ile)
+- **VAD:** Web Audio API AnalyserNode, RMS threshold=0.018, min 1.2s konuşma, 900ms sessizlik
+
+### Önemli Kararlar
+- `max_tokens=400` — tool call JSON'u tamamlamak için yeterli olmalı (120 fazla düşüktü)
+- History: backend 10, frontend 12 mesaj — context yitirmemek için
+- Session modu: ilk tıklama başlatır, cevap sonrası otomatik dinler, tekrar tıklayınca biter
+- Scrape tetiklenince `/jobs` sayfasına yönlendirir, session devam eder
+- `query` parametresi: kullanıcının söylediği exact phrase Apify'a gider (sector değil)
+  örn: "KBB doktoru" → query="kulak burun boğaz doktoru", sector="klinik"
+
+### Kritik Buglar (çözüldü)
+- `_get_openai_client()` def satırı kaybolmuştu → TTS/STT 500 atıyordu
+- `max_tokens` çok düşük → tool call JSON kesiliyordu → job oluşmuyordu
+- Session kapanıyordu scrape sonrası → buton pasif kalıyordu
+
+### Backend Dosyaları
+- `backend/api/routes/voice.py` — STT, TTS, chat endpoint + SYSTEM_PROMPT
+- `backend/jobs/tasks/collect.py` — `run_collect_job(query=...)` kwarg
+- `backend/services/lead_service.py` — query varsa `collect_by_query`, yoksa sektör terimi
+
+### Frontend Dosyaları
+- `frontend/components/voice/voice-assistant.tsx` — tam component (VAD, session, barge-in)
+- `frontend/app/jobs/page.tsx` — 3s auto-refresh, query label gösterimi
+
+### Deploy Notu
+- `backend/entrypoint.sh` hem uvicorn hem ARQ worker'ı başlatıyor (tek container)
+- `railway.toml` repo kökünde — `backend/Dockerfile` kullan der
+- `OPENAI_API_KEY` Railway Variables'a eklenmiş
+
+---
+
 ## Önemli Dosyalar (Hızlı Navigasyon)
 
 | Dosya | Ne Yapar |
@@ -233,3 +270,7 @@ curl http://localhost:8000/health
 | `core/audit_generator.py` | Site fetch + audit generation |
 | `core/proposal_generator.py` | PDF teklif üretimi |
 | `playbooks/klinik.json` | Klinik sektör konfigürasyonu |
+| `backend/api/routes/voice.py` | Sesli asistan backend (STT/TTS/chat) |
+| `frontend/components/voice/voice-assistant.tsx` | Sesli asistan React component |
+| `railway.toml` | Railway deploy config (backend/Dockerfile) |
+| `backend/entrypoint.sh` | Startup: migration + ARQ worker + uvicorn |
