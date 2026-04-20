@@ -150,12 +150,14 @@ export function VoiceAssistant() {
         if (audio) {
           audioRef.current = audio;
           audio.onended = onEnd;
-          audio.onerror = () => { browserSpeak(text, onEnd); };
-          audio.play().catch(() => browserSpeak(text, onEnd));
+          audio.onerror = () => { console.warn("[voice] OpenAI TTS error, falling back"); browserSpeak(text, onEnd); };
+          audio.play().catch((e) => { console.warn("[voice] play() failed:", e); browserSpeak(text, onEnd); });
         } else {
+          console.warn("[voice] speak() returned null — OpenAI TTS failed, falling back to browser");
+          setNoTurkishVoice(true);
           browserSpeak(text, onEnd);
         }
-      }).catch(() => browserSpeak(text, onEnd));
+      }).catch((e) => { console.warn("[voice] speak fetch error:", e); browserSpeak(text, onEnd); });
     } else {
       const tr = pickTurkishVoice(window.speechSynthesis?.getVoices() ?? []);
       if (!tr) setNoTurkishVoice(true);
