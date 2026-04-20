@@ -163,12 +163,81 @@ _QUERY_STOPWORDS = {
     "ve", "ile", "için", "bir", "bu", "da", "de", "ya", "ki",
 }
 
+# TR → EN alias'ları: Google Maps bazen kategoriyi İngilizce döner
+# ("Otolaryngologist", "Dentist", "Law firm" vs.). Relevance filter
+# bu durumda sonuçları gereksiz yere elemesin diye token seti genişletilir.
+_QUERY_ALIASES: dict[str, tuple[str, ...]] = {
+    # KBB
+    "kulak":       ("ear", "ent", "otolaryng"),
+    "burun":       ("nose", "ent", "otolaryng"),
+    "boğaz":       ("throat", "ent", "otolaryng"),
+    "bogaz":       ("throat", "ent", "otolaryng"),
+    # Diğer medikal branşlar
+    "dermatolog":  ("dermatologist", "skin", "cilt"),
+    "kardiyolog":  ("cardiologist", "heart"),
+    "ortoped":     ("orthopedic", "orthopaedic", "orthopedist"),
+    "jinekolog":   ("gynecologist", "obgyn", "obstetric"),
+    "kadın":       ("gynecologist", "obgyn"),
+    "kadin":       ("gynecologist", "obgyn"),
+    "diş":         ("dentist", "dental"),
+    "dis":         ("dentist", "dental"),
+    "göz":         ("ophthalm", "eye", "optom"),
+    "goz":         ("ophthalm", "eye", "optom"),
+    "çocuk":       ("pediatric", "paediatric"),
+    "cocuk":       ("pediatric", "paediatric"),
+    "psikiyatr":   ("psychiatrist", "mental"),
+    "psikolog":    ("psychologist", "therapy"),
+    "fizyoterapi": ("physiotherapy", "physical therapy"),
+    "estetik":     ("aesthetic", "cosmetic", "plastic"),
+    # Sağlık kurumu
+    "klinik":      ("clinic", "medical"),
+    "hastane":     ("hospital", "medical center"),
+    "eczane":      ("pharmacy", "chemist", "drugstore"),
+    "veteriner":   ("veterinar", "vet clinic"),
+    # Hizmet
+    "kuaför":      ("hair", "barber", "salon"),
+    "kuafor":      ("hair", "barber", "salon"),
+    "güzellik":    ("beauty", "cosmetic"),
+    "guzellik":    ("beauty", "cosmetic"),
+    # Hukuk
+    "avukat":      ("lawyer", "attorney", "law firm", "law office"),
+    "hukuk":       ("law", "legal"),
+    # Oto
+    "oto":         ("auto", "car"),
+    "tamirci":     ("repair", "mechanic"),
+    "lastikçi":    ("tire", "tyre"),
+    "lastikci":    ("tire", "tyre"),
+    # Ev hizmetleri
+    "tesisat":     ("plumb",),
+    "elektrik":    ("electric",),
+    "temizlik":    ("cleaning", "cleaner"),
+    "nakliyat":    ("moving", "movers", "transport"),
+    # Restoran
+    "restoran":    ("restaurant",),
+    "kafe":        ("cafe", "coffee"),
+}
+
+
+def _expand_tokens(tokens: list[str]) -> list[str]:
+    """TR token'a denk gelen EN alias'ları ekle; eşleşme kümesini genişletir."""
+    expanded: list[str] = []
+    for tok in tokens:
+        expanded.append(tok)
+        for key, aliases in _QUERY_ALIASES.items():
+            if key in tok or tok in key:
+                expanded.extend(aliases)
+    return expanded
+
 
 def _filter_by_query_relevance(leads: list[dict], query: str) -> list[dict]:
-    """Keep only leads whose name or Google category contains a query keyword."""
-    tokens = [w.lower() for w in re.findall(r"\w+", query) if w.lower() not in _QUERY_STOPWORDS]
-    if not tokens:
+    """Keep only leads whose name or Google category contains a query keyword.
+    Google kategoriyi bazen İngilizce döner — TR/EN alias'lar da kontrol edilir.
+    """
+    base_tokens = [w.lower() for w in re.findall(r"\w+", query) if w.lower() not in _QUERY_STOPWORDS]
+    if not base_tokens:
         return leads
+
+    tokens = _expand_tokens(base_tokens)
 
     result = []
     for lead in leads:
@@ -178,7 +247,7 @@ def _filter_by_query_relevance(leads: list[dict], query: str) -> list[dict]:
         else:
             logger.info(
                 "Query relevance filter: '%s' (kategori: %s) — hiçbir token (%s) eşleşmedi",
-                lead.get("isim"), lead.get("kategori"), tokens,
+                lead.get("isim"), lead.get("kategori"), base_tokens,
             )
     logger.info("Query relevance: %d/%d lead kaldı (query=%r)", len(result), len(leads), query)
     return result
