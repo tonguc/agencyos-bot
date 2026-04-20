@@ -227,8 +227,8 @@ export default function ScrapePage() {
   return (
     <div className="flex flex-col flex-1">
       <Header title="Lead Topla" description="Google Maps'ten yeni lead'ler topla" />
-      <div className="p-6 max-w-2xl">
-        <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="p-6">
+        <form onSubmit={handleSubmit} className="space-y-6 max-w-4xl">
 
           {/* Sektör */}
           <div>
@@ -340,13 +340,13 @@ export default function ScrapePage() {
         </form>
 
         {result && (
-          <div className="mt-4 border border-ok/40 bg-ok/5 p-3 font-mono text-[13px] text-ok">
+          <div className="mt-4 max-w-4xl border border-ok/40 bg-ok/5 p-3 font-mono text-[13px] text-ok">
             İş kuyruğa alındı. Job ID:{" "}
             <span className="font-bold">{result.job_id.slice(0, 8)}</span>
           </div>
         )}
         {error && (
-          <div className="mt-4 border border-hot/40 bg-hot/5 p-3 font-mono text-[13px] text-hot">
+          <div className="mt-4 max-w-4xl border border-hot/40 bg-hot/5 p-3 font-mono text-[13px] text-hot">
             {error}
           </div>
         )}
