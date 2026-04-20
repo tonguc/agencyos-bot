@@ -54,7 +54,7 @@ export default async function PipelinePage() {
 
       <div className="p-6 space-y-6">
         {!counts && (
-          <p className="font-mono text-[11px] text-dim text-center py-10 tracking-wider">
+          <p className="font-mono text-[13px] text-dim text-center py-10 tracking-wider">
             API&apos;ye bağlanılamadı. Backend çalışıyor mu?
           </p>
         )}
@@ -63,7 +63,7 @@ export default async function PipelinePage() {
           <>
             {/* Stage summary */}
             <div>
-              <p className="font-mono text-[9px] text-dim tracking-[0.25em] uppercase mb-3">
+              <p className="font-mono text-[11px] text-dim tracking-[0.25em] uppercase mb-3">
                 ▸ Pipeline Durumu
               </p>
               <div
@@ -86,7 +86,7 @@ export default async function PipelinePage() {
                         >
                           {count}
                         </p>
-                        <p className="font-mono text-[9px] text-dim mt-1 tracking-wider">
+                        <p className="font-mono text-[11px] text-dim mt-1 tracking-wider">
                           {pct.toFixed(0)}% toplam
                         </p>
                       </div>

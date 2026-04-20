@@ -16,7 +16,7 @@ export function ScoreBar({ label, value }: ScoreBarProps) {
   const c = getColor(v);
   return (
     <div>
-      <div className="flex justify-between text-[10px] font-mono mb-1.5 tracking-wider">
+      <div className="flex justify-between text-[12px] font-mono mb-1.5 tracking-wider">
         <span className="text-muted uppercase">{label}</span>
         <span className={cn("font-bold", c.text)}>{v}</span>
       </div>

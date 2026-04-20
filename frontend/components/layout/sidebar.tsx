@@ -46,8 +46,8 @@ export function Sidebar() {
           />
         </div>
         <div>
-          <p className="font-mono font-bold text-bright text-[11px] tracking-[0.2em]">AGENCYOS</p>
-          <p className="font-mono text-[9px] text-dim tracking-[0.15em]">/ INTEL</p>
+          <p className="font-mono font-bold text-bright text-[13px] tracking-[0.2em]">AGENCYOS</p>
+          <p className="font-mono text-[11px] text-dim tracking-[0.15em]">/ INTEL</p>
         </div>
       </div>
 
@@ -60,7 +60,7 @@ export function Sidebar() {
               key={href}
               href={href}
               className={cn(
-                "flex items-center gap-3 px-3 py-2 text-[10px] font-mono font-medium tracking-[0.15em] uppercase transition-all",
+                "flex items-center gap-3 px-3 py-2 text-[12px] font-mono font-medium tracking-[0.15em] uppercase transition-all",
                 active
                   ? "text-accent bg-accent/10 border-l-2 border-accent"
                   : "text-muted hover:text-bright hover:bg-panel-high border-l-2 border-transparent"
@@ -80,7 +80,7 @@ export function Sidebar() {
             className="h-1.5 w-1.5 rounded-full bg-ok"
             style={{ boxShadow: "0 0 5px #34d399", animation: "pulse 2s ease-in-out infinite" }}
           />
-          <span className="font-mono text-[9px] text-dim tracking-[0.2em]">SYSTEM · ONLINE</span>
+          <span className="font-mono text-[11px] text-dim tracking-[0.2em]">SYSTEM · ONLINE</span>
         </div>
       </div>
     </aside>

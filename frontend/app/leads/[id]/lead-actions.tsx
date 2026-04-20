@@ -167,20 +167,20 @@ export function LeadActions({ leadId, hasAudit, hasOutreach, hasProposal, propos
       {runningJob && (
         <div className="border border-accent/30 bg-accent/5 p-3 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="font-mono text-[10px] text-accent tracking-wider uppercase">
+            <span className="font-mono text-[12px] text-accent tracking-wider uppercase">
               {runningJob.label} çalışıyor...
             </span>
             {jobData && <Badge value={jobData.status} />}
           </div>
           <Progress value={jobData?.progress_pct ?? 0} />
           {jobData?.progress_message && (
-            <p className="font-mono text-[10px] text-muted">{jobData.progress_message}</p>
+            <p className="font-mono text-[12px] text-muted">{jobData.progress_message}</p>
           )}
         </div>
       )}
 
       {error && (
-        <div className="border border-hot/40 bg-hot/5 p-3 font-mono text-[10px] text-hot">
+        <div className="border border-hot/40 bg-hot/5 p-3 font-mono text-[12px] text-hot">
           {error}
         </div>
       )}

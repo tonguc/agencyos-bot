@@ -20,7 +20,7 @@ export function SimilarLeads({ leads, currentId }: Props) {
   return (
     <div className="border border-stroke bg-panel overflow-hidden">
       <div className="px-5 py-3 bg-panel-high border-b border-stroke">
-        <p className="font-mono text-[9px] text-dim uppercase tracking-[0.25em]">
+        <p className="font-mono text-[11px] text-dim uppercase tracking-[0.25em]">
           ▸ Aynı Taramadan Diğer Adaylar
         </p>
       </div>
@@ -35,13 +35,13 @@ export function SimilarLeads({ leads, currentId }: Props) {
               <p className="font-medium text-bright text-sm group-hover:text-accent transition-colors truncate">
                 {lead.name}
               </p>
-              <p className="font-mono text-[10px] text-dim mt-0.5">
+              <p className="font-mono text-[12px] text-dim mt-0.5">
                 {lead.city}{lead.district ? ` / ${lead.district}` : ""} · {formatDate(lead.created_at)}
               </p>
             </div>
             <div className="flex items-center gap-3 shrink-0 ml-4">
               {lead.google_rating && (
-                <span className="font-mono text-[10px] text-dim">
+                <span className="font-mono text-[12px] text-dim">
                   ⭐ {lead.google_rating}
                 </span>
               )}
@@ -50,9 +50,9 @@ export function SimilarLeads({ leads, currentId }: Props) {
                   {lead.opportunity_score}
                 </span>
               ) : (
-                <span className="font-mono text-[10px] text-dim">—</span>
+                <span className="font-mono text-[12px] text-dim">—</span>
               )}
-              <span className="font-mono text-[9px] text-dim group-hover:text-accent transition-colors">→</span>
+              <span className="font-mono text-[11px] text-dim group-hover:text-accent transition-colors">→</span>
             </div>
           </Link>
         ))}

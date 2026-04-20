@@ -55,28 +55,28 @@ function StatCard({ icon, label, value, color, onClick }: {
     >
       <span className="text-xl leading-none">{icon}</span>
       <span className={`text-3xl font-mono font-bold leading-tight ${color}`}>{value}</span>
-      <span className="font-mono text-[9px] text-muted tracking-[0.15em] uppercase leading-snug">{label}</span>
+      <span className="font-mono text-[11px] text-muted tracking-[0.15em] uppercase leading-snug">{label}</span>
     </button>
   );
 }
 
 function ResultCell({ saved, avg, status }: { saved: number; avg?: number; status: string }) {
   if (status === "running") return (
-    <span className="font-mono text-[10px] text-accent animate-pulse tracking-wider">Taranıyor…</span>
+    <span className="font-mono text-[12px] text-accent animate-pulse tracking-wider">Taranıyor…</span>
   );
   if (status === "failed") return (
-    <span className="font-mono text-[10px] text-hot">Hata</span>
+    <span className="font-mono text-[12px] text-hot">Hata</span>
   );
   if (saved === 0) return (
-    <span className="font-mono text-[10px] text-dim">Sonuç yok</span>
+    <span className="font-mono text-[12px] text-dim">Sonuç yok</span>
   );
   const p = getPriority(avg);
   return (
     <div className="flex items-center gap-2">
       <span className="font-mono font-semibold text-bright text-sm">{saved}</span>
-      <span className="font-mono text-[9px] text-dim">lead</span>
+      <span className="font-mono text-[11px] text-dim">lead</span>
       {avg !== undefined && (
-        <span className={`font-mono text-[9px] px-2 py-0.5 border tracking-wider uppercase ${p.cls}`}>
+        <span className={`font-mono text-[11px] px-2 py-0.5 border tracking-wider uppercase ${p.cls}`}>
           ort. {avg}
         </span>
       )}
@@ -140,12 +140,12 @@ export default function OpportunitiesPage() {
               <span className="font-mono font-semibold text-hot text-sm">
                 🔥 {stats.hot} sıcak fırsat hazır
               </span>
-              <span className="font-mono text-[11px] text-muted ml-3">— mesaj göndermek için doğru an</span>
+              <span className="font-mono text-[13px] text-muted ml-3">— mesaj göndermek için doğru an</span>
             </div>
             <button
               type="button"
               onClick={() => router.push("/leads")}
-              className="font-mono text-[9px] uppercase tracking-wider px-4 py-1.5 border border-hot/60 text-hot hover:bg-hot/10 transition-all whitespace-nowrap"
+              className="font-mono text-[11px] uppercase tracking-wider px-4 py-1.5 border border-hot/60 text-hot hover:bg-hot/10 transition-all whitespace-nowrap"
             >
               Lead&apos;leri Aç
             </button>
@@ -154,21 +154,21 @@ export default function OpportunitiesPage() {
 
         {/* Tarama Jobs */}
         {jobs === null ? (
-          <p className="font-mono text-[11px] text-dim text-center py-10 tracking-wider">Yükleniyor…</p>
+          <p className="font-mono text-[13px] text-dim text-center py-10 tracking-wider">Yükleniyor…</p>
         ) : scrapeJobs.length === 0 ? (
           <div className="border border-dashed border-stroke p-12 text-center">
-            <p className="font-mono text-[11px] text-dim mb-3">Henüz tarama yapılmamış.</p>
+            <p className="font-mono text-[13px] text-dim mb-3">Henüz tarama yapılmamış.</p>
             <button
               type="button"
               onClick={() => router.push("/scrape")}
-              className="font-mono text-[10px] uppercase tracking-wider text-accent hover:underline"
+              className="font-mono text-[12px] uppercase tracking-wider text-accent hover:underline"
             >
               İlk taramayı başlat →
             </button>
           </div>
         ) : (
           <div>
-            <p className="font-mono text-[9px] text-dim tracking-[0.25em] uppercase mb-3">
+            <p className="font-mono text-[11px] text-dim tracking-[0.25em] uppercase mb-3">
               ▸ Tarama Fırsatları
             </p>
             <div className="border border-stroke bg-panel overflow-auto">
@@ -178,7 +178,7 @@ export default function OpportunitiesPage() {
                     {["Tarama", "Konum", "Sonuç", "Öncelik", "Sonraki Adım", ""].map((h, i) => (
                       <th
                         key={i}
-                        className="px-4 py-3 text-left font-mono text-[9px] text-dim uppercase tracking-[0.2em] whitespace-nowrap"
+                        className="px-4 py-3 text-left font-mono text-[11px] text-dim uppercase tracking-[0.2em] whitespace-nowrap"
                       >
                         {h}
                       </th>
@@ -201,11 +201,11 @@ export default function OpportunitiesPage() {
                           <span className="font-medium text-bright text-sm">
                             {SECTOR_LABELS[sector ?? ""] ?? sector ?? "—"}
                           </span>
-                          <p className="font-mono text-[10px] text-dim mt-0.5">
+                          <p className="font-mono text-[12px] text-dim mt-0.5">
                             {formatDateTime(job.started_at ?? job.created_at)}
                           </p>
                         </td>
-                        <td className="px-4 py-3.5 font-mono text-[11px] text-muted whitespace-nowrap">
+                        <td className="px-4 py-3.5 font-mono text-[13px] text-muted whitespace-nowrap">
                           {city ?? "—"}{district ? ` / ${district}` : ""}
                         </td>
                         <td className="px-4 py-3.5">
@@ -213,26 +213,26 @@ export default function OpportunitiesPage() {
                         </td>
                         <td className="px-4 py-3.5">
                           {job.status === "running" ? (
-                            <span className="font-mono text-[9px] uppercase tracking-wider px-2 py-0.5 border border-accent/50 text-accent bg-accent/5">
+                            <span className="font-mono text-[11px] uppercase tracking-wider px-2 py-0.5 border border-accent/50 text-accent bg-accent/5">
                               Devam ediyor
                             </span>
                           ) : job.status === "failed" ? (
-                            <span className="font-mono text-[9px] uppercase tracking-wider px-2 py-0.5 border border-hot/50 text-hot bg-hot/5">
+                            <span className="font-mono text-[11px] uppercase tracking-wider px-2 py-0.5 border border-hot/50 text-hot bg-hot/5">
                               Başarısız
                             </span>
                           ) : (
-                            <span className={`font-mono text-[9px] uppercase tracking-wider px-2 py-0.5 border ${priority.cls}`}>
+                            <span className={`font-mono text-[11px] uppercase tracking-wider px-2 py-0.5 border ${priority.cls}`}>
                               {priority.label}
                             </span>
                           )}
                         </td>
                         <td className="px-4 py-3.5">
                           {job.status === "failed" && job.error_message ? (
-                            <span className="font-mono text-[10px] text-hot" title={job.error_message}>
+                            <span className="font-mono text-[12px] text-hot" title={job.error_message}>
                               {job.error_message.slice(0, 45)}{job.error_message.length > 45 ? "…" : ""}
                             </span>
                           ) : (
-                            <span className="font-mono text-[11px] text-muted">{next}</span>
+                            <span className="font-mono text-[13px] text-muted">{next}</span>
                           )}
                         </td>
                         <td className="px-4 py-3.5">
@@ -247,7 +247,7 @@ export default function OpportunitiesPage() {
                                   if (district) q.set("district", district);
                                   router.push(`/leads?${q.toString()}`);
                                 }}
-                                className="font-mono text-[9px] uppercase tracking-wider px-3 py-1.5 border border-accent/50 text-accent hover:bg-accent/10 transition-all whitespace-nowrap"
+                                className="font-mono text-[11px] uppercase tracking-wider px-3 py-1.5 border border-accent/50 text-accent hover:bg-accent/10 transition-all whitespace-nowrap"
                               >
                                 Lead&apos;leri Gör
                               </button>
@@ -256,7 +256,7 @@ export default function OpportunitiesPage() {
                               type="button"
                               onClick={() => handleDelete(job.id)}
                               disabled={deleting === job.id}
-                              className="font-mono text-[10px] text-dim hover:text-hot disabled:opacity-40 transition-colors p-1"
+                              className="font-mono text-[12px] text-dim hover:text-hot disabled:opacity-40 transition-colors p-1"
                               title="Kaldır"
                             >
                               {deleting === job.id ? "…" : "✕"}

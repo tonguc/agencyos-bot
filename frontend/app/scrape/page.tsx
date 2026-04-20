@@ -158,12 +158,12 @@ function SearchableDropdown({
       {open && !disabled && (
         <div className="absolute z-50 mt-1 w-full border border-stroke bg-panel shadow-xl max-h-56 overflow-y-auto">
           {filtered.length === 0 ? (
-            <div className="px-3 py-2 font-mono text-[10px] text-dim">Sonuç yok</div>
+            <div className="px-3 py-2 font-mono text-[12px] text-dim">Sonuç yok</div>
           ) : filtered.map((o) => (
             <button
               key={o}
               type="button"
-              className={`w-full text-left px-3 py-2 font-mono text-[11px] transition-colors ${
+              className={`w-full text-left px-3 py-2 font-mono text-[13px] transition-colors ${
                 value === o
                   ? "bg-accent/10 text-accent"
                   : "text-muted hover:bg-panel-high hover:text-bright"
@@ -232,7 +232,7 @@ export default function ScrapePage() {
 
           {/* Sektör */}
           <div>
-            <p className="font-mono text-[9px] text-dim tracking-[0.25em] uppercase mb-3">▸ Sektör Seç</p>
+            <p className="font-mono text-[11px] text-dim tracking-[0.25em] uppercase mb-3">▸ Sektör Seç</p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {SECTORS.map(({ key, label, sub, Icon, color }) => {
                 const selected = sector === key;
@@ -266,7 +266,7 @@ export default function ScrapePage() {
                     >
                       {label}
                     </span>
-                    <span className="font-mono text-[9px] leading-tight text-dim">{sub}</span>
+                    <span className="font-mono text-[11px] leading-tight text-dim">{sub}</span>
                   </button>
                 );
               })}
@@ -275,7 +275,7 @@ export default function ScrapePage() {
 
           {/* Şehir */}
           <div>
-            <p className="font-mono text-[9px] text-dim tracking-[0.25em] uppercase mb-2">▸ Şehir</p>
+            <p className="font-mono text-[11px] text-dim tracking-[0.25em] uppercase mb-2">▸ Şehir</p>
             <SearchableDropdown
               options={cities}
               value={city}
@@ -286,7 +286,7 @@ export default function ScrapePage() {
 
           {/* İlçe */}
           <div>
-            <p className="font-mono text-[9px] text-dim tracking-[0.25em] uppercase mb-2">
+            <p className="font-mono text-[11px] text-dim tracking-[0.25em] uppercase mb-2">
               ▸ İlçe <span className="text-dim/50">(opsiyonel)</span>
             </p>
             <SearchableDropdown
@@ -300,14 +300,14 @@ export default function ScrapePage() {
 
           {/* Limit */}
           <div>
-            <p className="font-mono text-[9px] text-dim tracking-[0.25em] uppercase mb-3">▸ Limit</p>
+            <p className="font-mono text-[11px] text-dim tracking-[0.25em] uppercase mb-3">▸ Limit</p>
             <div className="flex gap-2 flex-wrap items-center">
               {LIMIT_PRESETS.map((v) => (
                 <button
                   key={v}
                   type="button"
                   onClick={() => handleLimitPreset(v)}
-                  className={`font-mono text-[10px] uppercase tracking-wider px-3 py-1.5 border transition-all ${
+                  className={`font-mono text-[12px] uppercase tracking-wider px-3 py-1.5 border transition-all ${
                     limit === v && !customLimit
                       ? "bg-accent/10 border-accent text-accent"
                       : "border-stroke text-muted hover:border-stroke-2 hover:text-bright"
@@ -340,13 +340,13 @@ export default function ScrapePage() {
         </form>
 
         {result && (
-          <div className="mt-4 border border-ok/40 bg-ok/5 p-3 font-mono text-[11px] text-ok">
+          <div className="mt-4 border border-ok/40 bg-ok/5 p-3 font-mono text-[13px] text-ok">
             İş kuyruğa alındı. Job ID:{" "}
             <span className="font-bold">{result.job_id.slice(0, 8)}</span>
           </div>
         )}
         {error && (
-          <div className="mt-4 border border-hot/40 bg-hot/5 p-3 font-mono text-[11px] text-hot">
+          <div className="mt-4 border border-hot/40 bg-hot/5 p-3 font-mono text-[13px] text-hot">
             {error}
           </div>
         )}

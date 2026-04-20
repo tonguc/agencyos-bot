@@ -65,7 +65,7 @@ export function OutreachCard({ leadId, outreach, phone }: Props) {
         <div className="flex items-center justify-between">
           <CardTitle>Outreach Mesajları</CardTitle>
           {data.sent_version && (
-            <span className="font-mono text-[9px] text-ok tracking-wider">
+            <span className="font-mono text-[11px] text-ok tracking-wider">
               ✓ {VERSION_LABELS[data.sent_version] ?? data.sent_version} gönderildi
               {data.sent_channel ? ` · ${data.sent_channel}` : ""}
             </span>
@@ -92,9 +92,9 @@ export function OutreachCard({ leadId, outreach, phone }: Props) {
               {/* Header row */}
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-[9px] text-dim uppercase tracking-widest">{v}</span>
-                  <span className="font-mono text-[9px] text-muted">·</span>
-                  <span className={`font-mono text-[9px] uppercase tracking-wider ${
+                  <span className="font-mono text-[11px] text-dim uppercase tracking-widest">{v}</span>
+                  <span className="font-mono text-[11px] text-muted">·</span>
+                  <span className={`font-mono text-[11px] uppercase tracking-wider ${
                     isSent ? "text-ok" : isRec ? "text-accent" : "text-muted"
                   }`}>
                     {VERSION_LABELS[v]}
@@ -102,11 +102,11 @@ export function OutreachCard({ leadId, outreach, phone }: Props) {
                   {isRec && !isSent && <Badge value="Önerilen" />}
                   {isSent && <Badge value="Gönderildi" />}
                 </div>
-                <span className="font-mono text-[9px] text-dim">{text.length} kr</span>
+                <span className="font-mono text-[11px] text-dim">{text.length} kr</span>
               </div>
 
               {/* Message preview */}
-              <pre className="whitespace-pre-wrap font-mono text-[11px] text-muted leading-relaxed">
+              <pre className="whitespace-pre-wrap font-mono text-[13px] text-muted leading-relaxed">
                 {text}
               </pre>
 
@@ -115,7 +115,7 @@ export function OutreachCard({ leadId, outreach, phone }: Props) {
                 <button
                   type="button"
                   onClick={() => copy(text, v)}
-                  className="font-mono text-[9px] uppercase tracking-wider px-3 py-1.5 border border-stroke-2 text-muted hover:border-accent hover:text-accent transition-all"
+                  className="font-mono text-[11px] uppercase tracking-wider px-3 py-1.5 border border-stroke-2 text-muted hover:border-accent hover:text-accent transition-all"
                 >
                   {copied === v ? "✓ Kopyalandı" : "Kopyala"}
                 </button>
@@ -124,7 +124,7 @@ export function OutreachCard({ leadId, outreach, phone }: Props) {
                   type="button"
                   disabled={sending === v}
                   onClick={() => handleSend(v, text)}
-                  className={`flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-wider px-3 py-1.5 border transition-all disabled:opacity-50 ${
+                  className={`flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-wider px-3 py-1.5 border transition-all disabled:opacity-50 ${
                     isSent
                       ? "border-ok/50 text-ok bg-ok/10 hover:bg-ok/20"
                       : "border-ok/40 text-ok hover:bg-ok/10"
@@ -138,7 +138,7 @@ export function OutreachCard({ leadId, outreach, phone }: Props) {
                 </button>
 
                 {!phone && (
-                  <span className="font-mono text-[9px] text-warm">⚠ Telefon yok — kişisiz açılır</span>
+                  <span className="font-mono text-[11px] text-warm">⚠ Telefon yok — kişisiz açılır</span>
                 )}
               </div>
             </div>

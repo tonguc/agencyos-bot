@@ -48,7 +48,7 @@ export function MapView({ results, selectedIdx, onSelect }: Props) {
   if (!geo) {
     return (
       <div className="h-full min-h-[280px] flex items-center justify-center border border-dashed border-stroke">
-        <p className="font-mono text-[11px] text-dim">Konum bilgisi olan sonuç yok.</p>
+        <p className="font-mono text-[13px] text-dim">Konum bilgisi olan sonuç yok.</p>
       </div>
     );
   }
@@ -112,7 +112,7 @@ export function MapView({ results, selectedIdx, onSelect }: Props) {
             />
             {/* Tooltip */}
             <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap
-              hidden group-hover:block font-mono text-[9px] text-bright bg-panel border border-stroke
+              hidden group-hover:block font-mono text-[11px] text-bright bg-panel border border-stroke
               px-2 py-1 pointer-events-none z-30">
               {r.name}
               {r.google_rating ? ` · ⭐${r.google_rating}` : ""}
@@ -125,7 +125,7 @@ export function MapView({ results, selectedIdx, onSelect }: Props) {
       <div className="absolute bottom-3 left-3 flex flex-wrap gap-2
         bg-panel/90 backdrop-blur-sm border border-stroke px-2.5 py-1.5">
         {(["hot", "warm", "review", "ok", "low"] as const).map((seg) => (
-          <span key={seg} className="inline-flex items-center gap-1.5 font-mono text-[9px] text-muted">
+          <span key={seg} className="inline-flex items-center gap-1.5 font-mono text-[11px] text-muted">
             <span className={`h-2 w-2 rounded-full shrink-0 ${SEG_DOT[seg]}`} />
             {SEGMENT_LABELS[seg]}
           </span>

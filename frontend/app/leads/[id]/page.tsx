@@ -45,8 +45,8 @@ export default async function LeadDetailPage({ params }: Props) {
     return (
       <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
-          <p className="font-mono text-[11px] text-muted">Lead bulunamadı.</p>
-          <Link href="/leads" className="font-mono text-[10px] text-accent mt-2 inline-block hover:underline">
+          <p className="font-mono text-[13px] text-muted">Lead bulunamadı.</p>
+          <Link href="/leads" className="font-mono text-[12px] text-accent mt-2 inline-block hover:underline">
             ← Geri dön
           </Link>
         </div>
@@ -70,7 +70,7 @@ export default async function LeadDetailPage({ params }: Props) {
             <Badge value={lead.status} />
             <Link
               href="/leads"
-              className="font-mono text-[9px] text-dim hover:text-accent tracking-wider transition-colors"
+              className="font-mono text-[11px] text-dim hover:text-accent tracking-wider transition-colors"
             >
               ← Lead&apos;ler
             </Link>
@@ -104,7 +104,7 @@ export default async function LeadDetailPage({ params }: Props) {
                 ["Telefon", lead.phone],
                 ["Website", lead.website ? (
                   <a href={lead.website} target="_blank" rel="noopener noreferrer"
-                    className="text-accent hover:underline break-all font-mono text-[11px]">
+                    className="text-accent hover:underline break-all font-mono text-[13px]">
                     {lead.website}
                   </a>
                 ) : null],
@@ -116,7 +116,7 @@ export default async function LeadDetailPage({ params }: Props) {
                 ["Güncelleme", formatDateTime(lead.updated_at)],
               ] as [string, React.ReactNode][]).map(([k, v]) => v != null && (
                 <div key={String(k)}>
-                  <dt className="font-mono text-[9px] text-dim uppercase tracking-[0.2em]">{k}</dt>
+                  <dt className="font-mono text-[11px] text-dim uppercase tracking-[0.2em]">{k}</dt>
                   <dd className="font-medium text-bright text-sm mt-1">{v}</dd>
                 </div>
               ))}
@@ -153,14 +153,14 @@ export default async function LeadDetailPage({ params }: Props) {
               {/* Killer insight */}
               {audit.killer_insight && (
                 <div className="border border-warm/30 bg-warm/5 p-4">
-                  <p className="font-mono text-[9px] text-warm uppercase tracking-[0.2em] mb-2">
+                  <p className="font-mono text-[11px] text-warm uppercase tracking-[0.2em] mb-2">
                     ⚡ Killer Insight
                   </p>
                   <p className="text-sm text-bright font-medium leading-relaxed">
                     {audit.killer_insight}
                   </p>
                   {audit.killer_metric && (
-                    <p className="font-mono text-[10px] text-muted mt-2">Metrik: {audit.killer_metric}</p>
+                    <p className="font-mono text-[12px] text-muted mt-2">Metrik: {audit.killer_metric}</p>
                   )}
                 </div>
               )}
@@ -168,7 +168,7 @@ export default async function LeadDetailPage({ params }: Props) {
               {/* Personal insight */}
               {audit.personal_insight && (
                 <div className="border border-stroke-2 bg-panel-high p-4">
-                  <p className="font-mono text-[9px] text-muted uppercase tracking-[0.2em] mb-2">
+                  <p className="font-mono text-[11px] text-muted uppercase tracking-[0.2em] mb-2">
                     Kişisel İçgörü
                   </p>
                   <p className="text-sm text-muted leading-relaxed">{audit.personal_insight}</p>
@@ -185,7 +185,7 @@ export default async function LeadDetailPage({ params }: Props) {
                 ].map(([k, v]) => v && (
                   <span
                     key={String(k)}
-                    className="font-mono text-[9px] border border-stroke-2 px-2 py-1 text-muted uppercase tracking-wider"
+                    className="font-mono text-[11px] border border-stroke-2 px-2 py-1 text-muted uppercase tracking-wider"
                   >
                     {k}: <span className="text-bright">{v}</span>
                   </span>
@@ -195,7 +195,7 @@ export default async function LeadDetailPage({ params }: Props) {
               {/* UX errors */}
               {Array.isArray(result?.ux_hatalar) && (result.ux_hatalar as unknown[]).length > 0 && (
                 <div>
-                  <p className="font-mono text-[9px] text-dim uppercase tracking-[0.2em] mb-3">UX Hatalar</p>
+                  <p className="font-mono text-[11px] text-dim uppercase tracking-[0.2em] mb-3">UX Hatalar</p>
                   <ul className="space-y-2">
                     {(result.ux_hatalar as {sorun: string; siddet?: string}[]).map((h, i) => (
                       <li key={i} className="flex items-start gap-2 text-sm text-muted">
@@ -212,10 +212,10 @@ export default async function LeadDetailPage({ params }: Props) {
               {/* SEO gaps */}
               {Array.isArray(result?.seo_aciklar) && (result.seo_aciklar as unknown[]).length > 0 && (
                 <div>
-                  <p className="font-mono text-[9px] text-dim uppercase tracking-[0.2em] mb-3">SEO Açıklar</p>
+                  <p className="font-mono text-[11px] text-dim uppercase tracking-[0.2em] mb-3">SEO Açıklar</p>
                   <ul className="space-y-1">
                     {(result.seo_aciklar as {sorun: string}[]).map((s, i) => (
-                      <li key={i} className="font-mono text-[11px] text-muted">· {s.sorun}</li>
+                      <li key={i} className="font-mono text-[13px] text-muted">· {s.sorun}</li>
                     ))}
                   </ul>
                 </div>
@@ -224,7 +224,7 @@ export default async function LeadDetailPage({ params }: Props) {
               {/* Hook */}
               {audit.hook_text && (
                 <div className="border border-accent/30 bg-accent/5 p-4">
-                  <p className="font-mono text-[9px] text-accent uppercase tracking-[0.2em] mb-2">
+                  <p className="font-mono text-[11px] text-accent uppercase tracking-[0.2em] mb-2">
                     Hook · {audit.hook_type}
                   </p>
                   <p className="text-sm text-bright leading-relaxed">{audit.hook_text}</p>
@@ -254,7 +254,7 @@ export default async function LeadDetailPage({ params }: Props) {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Teklif</CardTitle>
-                <span className="font-mono text-[9px] text-dim">{formatDateTime(proposal.created_at)}</span>
+                <span className="font-mono text-[11px] text-dim">{formatDateTime(proposal.created_at)}</span>
               </div>
             </CardHeader>
             <CardContent>
@@ -264,7 +264,7 @@ export default async function LeadDetailPage({ params }: Props) {
                     const v = (proposal.content as Record<string, unknown>)[k];
                     return v ? (
                       <div key={k}>
-                        <dt className="font-mono text-[9px] text-dim uppercase tracking-[0.2em]">
+                        <dt className="font-mono text-[11px] text-dim uppercase tracking-[0.2em]">
                           {k.replace(/_/g, " ")}
                         </dt>
                         <dd className="text-sm text-muted mt-1">{String(v)}</dd>

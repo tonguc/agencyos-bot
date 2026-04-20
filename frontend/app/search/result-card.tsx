@@ -88,7 +88,7 @@ export function ResultCard({ lead, selected, onSelect, sector, city, district }:
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <h3 className="font-semibold text-bright text-sm truncate">{lead.name || "(isimsiz)"}</h3>
-            <p className="mt-0.5 text-[10px] font-mono text-muted truncate tracking-wider">
+            <p className="mt-0.5 text-[12px] font-mono text-muted truncate tracking-wider">
               {lead.category || "—"}
             </p>
           </div>
@@ -101,7 +101,7 @@ export function ResultCard({ lead, selected, onSelect, sector, city, district }:
               <span className="text-xs text-dim">—</span>
             )}
             <span
-              className="text-[9px] font-mono font-medium uppercase tracking-[0.2em] mt-0.5"
+              className="text-[11px] font-mono font-medium uppercase tracking-[0.2em] mt-0.5"
               style={{ color: c.color }}
             >
               {SEGMENT_LABELS[lead.segment]}
@@ -117,7 +117,7 @@ export function ResultCard({ lead, selected, onSelect, sector, city, district }:
           </div>
         </div>
 
-        <div className="mt-3 space-y-1 text-[11px] font-mono text-muted">
+        <div className="mt-3 space-y-1 text-[13px] font-mono text-muted">
           {lead.address && (
             <div className="flex items-start gap-1.5">
               <MapPin className="h-3 w-3 shrink-0 mt-0.5 text-dim" />
@@ -152,7 +152,7 @@ export function ResultCard({ lead, selected, onSelect, sector, city, district }:
                   target="_blank"
                   rel="noreferrer"
                   onClick={(e) => e.stopPropagation()}
-                  className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wider px-2.5 py-1 border border-stroke-2 text-muted hover:text-bright hover:border-accent transition-all"
+                  className="inline-flex items-center gap-1 text-[11px] font-mono uppercase tracking-wider px-2.5 py-1 border border-stroke-2 text-muted hover:text-bright hover:border-accent transition-all"
                 >
                   <ExternalLink className="h-3 w-3" /> Maps
                 </a>
@@ -163,7 +163,7 @@ export function ResultCard({ lead, selected, onSelect, sector, city, district }:
                   target="_blank"
                   rel="noreferrer"
                   onClick={(e) => e.stopPropagation()}
-                  className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wider px-2.5 py-1 border border-stroke-2 text-muted hover:text-bright hover:border-accent transition-all"
+                  className="inline-flex items-center gap-1 text-[11px] font-mono uppercase tracking-wider px-2.5 py-1 border border-stroke-2 text-muted hover:text-bright hover:border-accent transition-all"
                 >
                   <Globe className="h-3 w-3" /> Site
                 </a>
@@ -174,7 +174,7 @@ export function ResultCard({ lead, selected, onSelect, sector, city, district }:
                   target="_blank"
                   rel="noreferrer"
                   onClick={(e) => e.stopPropagation()}
-                  className="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-wider px-2.5 py-1 border border-ok/50 text-ok hover:bg-ok/10 transition-all"
+                  className="inline-flex items-center gap-1 text-[11px] font-mono uppercase tracking-wider px-2.5 py-1 border border-ok/50 text-ok hover:bg-ok/10 transition-all"
                 >
                   <MessageSquare className="h-3 w-3" /> WhatsApp
                 </a>
@@ -186,7 +186,7 @@ export function ResultCard({ lead, selected, onSelect, sector, city, district }:
               <div className="space-y-0.5">
                 <p className="font-mono text-[8px] text-dim uppercase tracking-[0.15em] mb-1">Neden bu skor?</p>
                 {lead.score_breakdown.map((s, i) => (
-                  <div key={i} className={`flex items-start gap-1.5 font-mono text-[9px] ${signalColor(s)}`}>
+                  <div key={i} className={`flex items-start gap-1.5 font-mono text-[11px] ${signalColor(s)}`}>
                     <span className="shrink-0">{signalIcon(s)}</span>
                     <span>{s.replace(/^[+-]?\d+\s*/, "").replace(/^Elendi:\s*/, "")}</span>
                     {s.match(/^([+-]\d+)/) && (
@@ -196,7 +196,7 @@ export function ResultCard({ lead, selected, onSelect, sector, city, district }:
                 ))}
               </div>
             ) : (
-              <p className="font-mono text-[9px] text-dim">
+              <p className="font-mono text-[11px] text-dim">
                 {lead.reason || "Detaylı analiz için kaydet ve audit başlat."}
               </p>
             )}

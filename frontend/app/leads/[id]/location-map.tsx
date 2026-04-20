@@ -15,12 +15,12 @@ export function LocationMap({ address, name }: Props) {
   return (
     <div className="border border-stroke overflow-hidden">
       <div className="flex items-center justify-between px-4 py-2.5 bg-panel-high border-b border-stroke">
-        <p className="font-mono text-[9px] text-dim uppercase tracking-[0.2em]">📍 Konum</p>
+        <p className="font-mono text-[11px] text-dim uppercase tracking-[0.2em]">📍 Konum</p>
         <a
           href={mapsUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="font-mono text-[9px] text-accent hover:underline tracking-wider"
+          className="font-mono text-[11px] text-accent hover:underline tracking-wider"
         >
           Google Maps'te Aç ↗
         </a>

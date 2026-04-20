@@ -196,7 +196,7 @@ export function LeadsTable() {
               key={key}
               type="button"
               onClick={() => setSortKey(key)}
-              className={`px-2.5 py-1 text-[9px] font-mono tracking-[0.15em] uppercase border transition-all ${
+              className={`px-2.5 py-1 text-[11px] font-mono tracking-[0.15em] uppercase border transition-all ${
                 sortKey === key
                   ? "bg-accent/10 border-accent text-accent"
                   : "border-stroke text-dim hover:border-stroke-2 hover:text-muted"
@@ -210,7 +210,7 @@ export function LeadsTable() {
         <button
           type="button"
           onClick={() => setHighScoreOnly((v) => !v)}
-          className={`px-3 py-1 text-[9px] font-mono tracking-[0.2em] uppercase border transition-all ${
+          className={`px-3 py-1 text-[11px] font-mono tracking-[0.2em] uppercase border transition-all ${
             highScoreOnly
               ? "bg-hot/10 text-hot border-hot/60"
               : "border-stroke text-dim hover:border-stroke-2 hover:text-muted"
@@ -223,7 +223,7 @@ export function LeadsTable() {
           <button
             type="button"
             onClick={clearLocationFilter}
-            className="flex items-center gap-1.5 px-3 py-1 text-[9px] font-mono tracking-[0.2em] uppercase border border-accent/60 bg-accent/10 text-accent hover:bg-accent/20 transition-all"
+            className="flex items-center gap-1.5 px-3 py-1 text-[11px] font-mono tracking-[0.2em] uppercase border border-accent/60 bg-accent/10 text-accent hover:bg-accent/20 transition-all"
           >
             <span>📍 {urlCity}{urlDistrict ? ` / ${urlDistrict}` : ""}</span>
             <span className="text-accent/60">✕</span>
@@ -236,7 +236,7 @@ export function LeadsTable() {
           <Spinner className="text-muted h-5 w-5" />
         </div>
       ) : sectors.length === 0 ? (
-        <p className="font-mono text-[11px] text-dim text-center py-16 tracking-wider">
+        <p className="font-mono text-[13px] text-dim text-center py-16 tracking-wider">
           Aday bulunamadı.
         </p>
       ) : (
@@ -262,17 +262,17 @@ export function LeadsTable() {
                     <span className="font-mono font-bold text-bright text-xs tracking-wider uppercase">
                       {label}
                     </span>
-                    <span className="font-mono text-[9px] border border-stroke-2 text-muted px-2 py-0.5 tracking-wider">
+                    <span className="font-mono text-[11px] border border-stroke-2 text-muted px-2 py-0.5 tracking-wider">
                       {items.length} ADAY
                     </span>
-                    <span className="font-mono text-[9px] text-dim tracking-wider">
+                    <span className="font-mono text-[11px] text-dim tracking-wider">
                       ort. <span className={`font-semibold ${scoreStyle(avgScore)}`}>{avgScore.toFixed(0)}</span>
                     </span>
-                    <span className="font-mono text-[9px] text-dim tracking-wider">
+                    <span className="font-mono text-[11px] text-dim tracking-wider">
                       · Son tarama: <span className="text-muted">{scrapeDate}</span>
                     </span>
                   </div>
-                  <span className="font-mono text-[9px] text-dim tracking-wider shrink-0">
+                  <span className="font-mono text-[11px] text-dim tracking-wider shrink-0">
                     {isOpen ? "KAPAT ▲" : "GÖSTER ▼"}
                   </span>
                 </button>
@@ -285,7 +285,7 @@ export function LeadsTable() {
                           {["İsim", "Şehir / İlçe", "Google", "Skor", "Durum", "Tarama Tarihi", "", ""].map((h, i) => (
                             <th
                               key={i}
-                              className="px-4 py-2.5 text-left font-mono text-[9px] text-dim uppercase tracking-[0.2em] whitespace-nowrap"
+                              className="px-4 py-2.5 text-left font-mono text-[11px] text-dim uppercase tracking-[0.2em] whitespace-nowrap"
                             >
                               {h}
                             </th>
@@ -302,13 +302,13 @@ export function LeadsTable() {
                             <td className="px-4 py-3">
                               <span className="font-medium text-bright text-sm">{lead.name}</span>
                               {lead.phone && (
-                                <p className="font-mono text-[10px] text-dim mt-0.5">{lead.phone}</p>
+                                <p className="font-mono text-[12px] text-dim mt-0.5">{lead.phone}</p>
                               )}
                             </td>
-                            <td className="px-4 py-3 font-mono text-[11px] text-muted whitespace-nowrap">
+                            <td className="px-4 py-3 font-mono text-[13px] text-muted whitespace-nowrap">
                               {lead.city}{lead.district ? ` / ${lead.district}` : ""}
                             </td>
-                            <td className="px-4 py-3 font-mono text-[11px] text-muted whitespace-nowrap">
+                            <td className="px-4 py-3 font-mono text-[13px] text-muted whitespace-nowrap">
                               {lead.google_rating
                                 ? `⭐ ${lead.google_rating} (${lead.review_count})`
                                 : "—"}
@@ -327,7 +327,7 @@ export function LeadsTable() {
                                 value={lead.status}
                                 onChange={(e) => handleStatusChange(e, lead)}
                                 disabled={updatingStatus === lead.id}
-                                className="font-mono text-[9px] border border-stroke px-2 py-1 tracking-wider uppercase cursor-pointer focus:outline-none focus:border-accent disabled:opacity-50"
+                                className="font-mono text-[11px] border border-stroke px-2 py-1 tracking-wider uppercase cursor-pointer focus:outline-none focus:border-accent disabled:opacity-50"
                                 style={{ background: "#0d1324", color: "#7a8aa8" }}
                               >
                                 {PIPELINE_STATUSES.map((s) => (
@@ -335,14 +335,14 @@ export function LeadsTable() {
                                 ))}
                               </select>
                             </td>
-                            <td className="px-4 py-3 font-mono text-[10px] text-dim whitespace-nowrap">
+                            <td className="px-4 py-3 font-mono text-[12px] text-dim whitespace-nowrap">
                               {formatDate(lead.created_at)}
                             </td>
                             <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                               <button
                                 onClick={(e) => handleAudit(e, lead.id)}
                                 disabled={auditingId === lead.id}
-                                className="font-mono text-[9px] uppercase tracking-wider px-2.5 py-1 border border-accent/50 text-accent hover:bg-accent/10 disabled:opacity-40 transition-all whitespace-nowrap"
+                                className="font-mono text-[11px] uppercase tracking-wider px-2.5 py-1 border border-accent/50 text-accent hover:bg-accent/10 disabled:opacity-40 transition-all whitespace-nowrap"
                               >
                                 {auditingId === lead.id ? "..." : "Audit Başlat"}
                               </button>
@@ -351,7 +351,7 @@ export function LeadsTable() {
                               <button
                                 onClick={(e) => handleDelete(e, lead.id)}
                                 disabled={deletingId === lead.id}
-                                className="font-mono text-[10px] text-dim hover:text-hot disabled:opacity-40 transition-colors p-1"
+                                className="font-mono text-[12px] text-dim hover:text-hot disabled:opacity-40 transition-colors p-1"
                                 title="Kaldır"
                               >
                                 {deletingId === lead.id ? "…" : "✕"}

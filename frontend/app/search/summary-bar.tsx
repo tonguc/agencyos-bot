@@ -17,7 +17,7 @@ export function SummaryBar({ summary, active, onToggle }: Props) {
       <button
         type="button"
         onClick={() => onToggle(null)}
-        className={`font-mono text-[9px] tracking-[0.2em] uppercase px-3 py-1.5 border rounded-sm transition-all ${
+        className={`font-mono text-[11px] tracking-[0.2em] uppercase px-3 py-1.5 border rounded-sm transition-all ${
           active === null
             ? "bg-accent/10 text-accent border-accent"
             : "bg-transparent text-muted border-stroke hover:border-stroke-2 hover:text-bright"
@@ -36,7 +36,7 @@ export function SummaryBar({ summary, active, onToggle }: Props) {
             type="button"
             disabled={isEmpty}
             onClick={() => onToggle(isActive ? null : seg)}
-            className={`font-mono text-[9px] tracking-[0.2em] uppercase px-3 py-1.5 border rounded-sm inline-flex items-center gap-2 transition-all ${
+            className={`font-mono text-[11px] tracking-[0.2em] uppercase px-3 py-1.5 border rounded-sm inline-flex items-center gap-2 transition-all ${
               isEmpty
                 ? "text-dim/50 border-stroke/50 cursor-not-allowed opacity-40"
                 : isActive

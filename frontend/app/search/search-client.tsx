@@ -11,6 +11,7 @@ import { MapView } from "./map-view";
 const RECENT_KEY  = "agencyos.search.recent";
 const CACHE_KEY   = "agencyos.search.cache";
 const RECENT_LIMIT = 6;
+const LIMIT_OPTIONS = [10, 25, 50] as const;
 
 function loadCache(): { query: string; data: SearchResponse } | null {
   if (typeof window === "undefined") return null;
@@ -52,6 +53,7 @@ export function SearchClient() {
   const [activeSegment, setActiveSegment] = useState<SearchSegment | null>(null);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [recent, setRecent] = useState<string[]>([]);
+  const [limit, setLimit] = useState<number>(25);
   const reqId = useRef(0);
 
   useEffect(() => {
@@ -64,7 +66,7 @@ export function SearchClient() {
     }
   }, []);
 
-  const runSearch = useCallback(async (q: string) => {
+  const runSearch = useCallback(async (q: string, lim?: number) => {
     const trimmed = q.trim();
     if (!trimmed) return;
     const id = ++reqId.current;
@@ -73,7 +75,7 @@ export function SearchClient() {
     setSelectedIdx(null);
     setActiveSegment(null);
     try {
-      const res = await searchApi.run(trimmed, 25);
+      const res = await searchApi.run(trimmed, lim ?? limit);
       if (id !== reqId.current) return;
       setData(res);
       saveCache(trimmed, res);
@@ -86,10 +88,11 @@ export function SearchClient() {
     } finally {
       if (id === reqId.current) setLoading(false);
     }
-  }, []);
+  }, [limit]);
 
   const handleSubmit = () => runSearch(query);
   const handleExample = (q: string) => { setQuery(q); runSearch(q); };
+  const handleLimitChange = (n: number) => { setLimit(n); if (data) runSearch(query, n); };
 
   const filtered = useMemo(() => {
     if (!data) return [];
@@ -101,24 +104,45 @@ export function SearchClient() {
 
   return (
     <div className="p-6 space-y-5">
-      <SearchInput
-        value={query}
-        loading={loading}
-        onChange={setQuery}
-        onSubmit={handleSubmit}
-        onPickExample={handleExample}
-      />
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex-1 min-w-0">
+          <SearchInput
+            value={query}
+            loading={loading}
+            onChange={setQuery}
+            onSubmit={handleSubmit}
+            onPickExample={handleExample}
+          />
+        </div>
+        <div className="flex items-center gap-1.5 pt-[3px] shrink-0">
+          <span className="font-mono text-[11px] text-dim tracking-[0.2em] uppercase">Limit:</span>
+          {LIMIT_OPTIONS.map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => handleLimitChange(n)}
+              className={`font-mono text-[11px] px-2.5 py-1 border transition-all ${
+                limit === n
+                  ? "border-accent text-accent bg-accent/5"
+                  : "border-stroke text-muted hover:border-accent hover:text-bright"
+              }`}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Recent searches */}
       {!data && !loading && recent.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-mono text-[9px] text-dim tracking-[0.2em] uppercase">Son aramalar:</span>
+          <span className="font-mono text-[11px] text-dim tracking-[0.2em] uppercase">Son aramalar:</span>
           {recent.map((q) => (
             <button
               key={q}
               type="button"
               onClick={() => handleExample(q)}
-              className="font-mono text-[9px] px-2.5 py-1 border border-stroke text-muted hover:border-accent hover:text-bright transition-all"
+              className="font-mono text-[11px] px-2.5 py-1 border border-stroke text-muted hover:border-accent hover:text-bright transition-all"
             >
               {q}
             </button>
@@ -128,7 +152,7 @@ export function SearchClient() {
 
       {/* Error */}
       {error && (
-        <div className="border border-hot/40 bg-hot/5 px-4 py-3 font-mono text-[11px] text-hot">
+        <div className="border border-hot/40 bg-hot/5 px-4 py-3 font-mono text-[13px] text-hot">
           {error}
         </div>
       )}
@@ -136,7 +160,7 @@ export function SearchClient() {
       {/* Empty state */}
       {!data && !loading && !error && (
         <div className="border border-dashed border-stroke p-10 text-center">
-          <p className="font-mono text-[11px] text-dim tracking-wider">
+          <p className="font-mono text-[13px] text-dim tracking-wider">
             Ne tür bir firma bulmak istediğini doğal dilde yaz.
             Sonuçlar haritada gösterilir, skor ve segmente göre sıralanır.
           </p>
@@ -148,7 +172,7 @@ export function SearchClient() {
           {/* Parsed query tags */}
           {parsed && (
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-              <span className="font-mono text-[9px] text-dim tracking-[0.2em] uppercase">Yorumlanan:</span>
+              <span className="font-mono text-[11px] text-dim tracking-[0.2em] uppercase">Yorumlanan:</span>
               {parsed.city && <Tag k="Şehir" v={parsed.city} />}
               {parsed.district && <Tag k="İlçe" v={parsed.district} />}
               {parsed.sector && <Tag k="Sektör" v={parsed.sector} />}
@@ -161,8 +185,8 @@ export function SearchClient() {
 
           {data.results.length === 0 ? (
             <div className="border border-dashed border-stroke p-10 text-center">
-              <p className="font-mono text-[11px] text-dim">{data.error || "Sonuç bulunamadı."}</p>
-              <p className="font-mono text-[10px] text-dim/60 mt-2">
+              <p className="font-mono text-[13px] text-dim">{data.error || "Sonuç bulunamadı."}</p>
+              <p className="font-mono text-[12px] text-dim/60 mt-2">
                 Arama terimini sadeleştirmeyi dene veya şehir/ilçe ekle.
               </p>
             </div>
@@ -170,7 +194,7 @@ export function SearchClient() {
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
               <div className="lg:col-span-2 space-y-2 lg:max-h-[calc(100vh-340px)] lg:overflow-y-auto pr-1">
                 {filtered.length === 0 ? (
-                  <p className="font-mono text-[10px] text-dim px-1 py-4">Bu segmentte sonuç yok.</p>
+                  <p className="font-mono text-[12px] text-dim px-1 py-4">Bu segmentte sonuç yok.</p>
                 ) : (
                   filtered.map(({ r, i }) => (
                     <ResultCard
@@ -198,7 +222,7 @@ export function SearchClient() {
 
 function Tag({ k, v }: { k: string; v: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5 font-mono text-[10px]">
+    <span className="inline-flex items-center gap-1.5 font-mono text-[12px]">
       <span className="text-dim">{k}:</span>
       <span className="text-accent">{v}</span>
     </span>

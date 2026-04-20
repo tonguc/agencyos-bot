@@ -20,9 +20,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     };
 
     const sizes = {
-      sm: "h-7 px-3 text-[9px]",
-      md: "h-8 px-4 text-[10px]",
-      lg: "h-9 px-5 text-[10px]",
+      sm: "h-7 px-3 text-[11px]",
+      md: "h-8 px-4 text-[12px]",
+      lg: "h-9 px-5 text-[12px]",
     };
 
     return (

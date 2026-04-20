@@ -12,13 +12,13 @@ export function Header({ title, description, actions }: HeaderProps) {
     >
       <div>
         <div className="flex items-center gap-3">
-          <span className="text-dim font-mono text-[10px] tracking-[0.25em] uppercase">▸</span>
+          <span className="text-dim font-mono text-[12px] tracking-[0.25em] uppercase">▸</span>
           <h1 className="text-sm font-semibold text-bright tracking-[0.08em] uppercase font-mono">
             {title}
           </h1>
         </div>
         {description && (
-          <p className="text-[11px] text-muted mt-0.5 font-mono tracking-wider ml-5">
+          <p className="text-[13px] text-muted mt-0.5 font-mono tracking-wider ml-5">
             {description}
           </p>
         )}

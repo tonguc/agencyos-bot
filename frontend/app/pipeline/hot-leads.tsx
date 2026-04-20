@@ -36,7 +36,7 @@ export function HotLeads({ initial }: Props) {
 
   return (
     <div>
-      <p className="font-mono text-[9px] text-dim tracking-[0.25em] uppercase mb-3">
+      <p className="font-mono text-[11px] text-dim tracking-[0.25em] uppercase mb-3">
         ▸ Öne Çıkan Adaylar
       </p>
       <div className="border border-stroke bg-panel">
@@ -76,7 +76,7 @@ export function HotLeads({ initial }: Props) {
 
                     <div>
                       <p className="font-medium text-bright text-sm">{lead.name}</p>
-                      <p className="text-[10px] font-mono text-muted mt-0.5 tracking-wider">
+                      <p className="text-[12px] font-mono text-muted mt-0.5 tracking-wider">
                         {lead.sector}
                         {lead.city ? ` · ${lead.city}` : ""}
                         {lead.google_rating ? ` · ⭐ ${lead.google_rating}` : ""}
@@ -90,7 +90,7 @@ export function HotLeads({ initial }: Props) {
                       type="button"
                       onClick={(e) => handleDelete(e, lead.id)}
                       disabled={deletingId === lead.id}
-                      className="font-mono text-[10px] text-dim hover:text-hot disabled:opacity-40 transition-colors p-1"
+                      className="font-mono text-[12px] text-dim hover:text-hot disabled:opacity-40 transition-colors p-1"
                       title="Kaldır"
                     >
                       {deletingId === lead.id ? "…" : "✕"}

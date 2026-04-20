@@ -40,7 +40,7 @@ export function SearchInput({ value, loading, onChange, onSubmit, onPickExample 
         <button
           type="submit"
           disabled={loading || !value.trim()}
-          className="inline-flex items-center gap-2 px-5 border border-accent bg-accent/10 text-accent font-mono text-[10px] uppercase tracking-wider hover:bg-accent/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+          className="inline-flex items-center gap-2 px-5 border border-accent bg-accent/10 text-accent font-mono text-[12px] uppercase tracking-wider hover:bg-accent/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
         >
           {loading ? <Spinner className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
           {loading ? "Aranıyor..." : "Ara"}
@@ -48,13 +48,13 @@ export function SearchInput({ value, loading, onChange, onSubmit, onPickExample 
       </form>
 
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-mono text-[9px] text-dim tracking-[0.2em] uppercase">Örnek:</span>
+        <span className="font-mono text-[11px] text-dim tracking-[0.2em] uppercase">Örnek:</span>
         {EXAMPLES.map((q) => (
           <button
             key={q}
             type="button"
             onClick={() => onPickExample(q)}
-            className="font-mono text-[9px] px-2.5 py-1 border border-stroke text-muted hover:border-accent hover:text-bright transition-all"
+            className="font-mono text-[11px] px-2.5 py-1 border border-stroke text-muted hover:border-accent hover:text-bright transition-all"
           >
             {q}
           </button>

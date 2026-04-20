@@ -33,21 +33,21 @@ export function SalesOutputCard({ output }: { output: SalesOutput }) {
     <Card>
       <CardHeader>
         <CardTitle>Satış Mesajı</CardTitle>
-        <p className="font-mono text-[9px] text-dim mt-0.5 tracking-wider">Müşteriye gönderilecek versiyon</p>
+        <p className="font-mono text-[11px] text-dim mt-0.5 tracking-wider">Müşteriye gönderilecek versiyon</p>
       </CardHeader>
       <CardContent className="space-y-4">
 
         {/* SHORT */}
         <div className="border border-ok/30 bg-ok/5 p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <p className="font-mono text-[9px] text-ok uppercase tracking-[0.2em]">
+            <p className="font-mono text-[11px] text-ok uppercase tracking-[0.2em]">
               Satış Mesajı · Gönderilecek
             </p>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => copy(short, "short")}
-                className="font-mono text-[9px] uppercase tracking-wider px-3 py-1 border border-ok/40 text-ok hover:bg-ok/10 transition-all"
+                className="font-mono text-[11px] uppercase tracking-wider px-3 py-1 border border-ok/40 text-ok hover:bg-ok/10 transition-all"
               >
                 {copied === "short" ? "✓ Kopyalandı" : "Kopyala"}
               </button>
@@ -56,7 +56,7 @@ export function SalesOutputCard({ output }: { output: SalesOutput }) {
                   href={whatsappLink(short)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-mono text-[9px] uppercase tracking-wider px-3 py-1 border border-ok/60 text-ok bg-ok/10 hover:bg-ok/20 transition-all"
+                  className="font-mono text-[11px] uppercase tracking-wider px-3 py-1 border border-ok/60 text-ok bg-ok/10 hover:bg-ok/20 transition-all"
                 >
                   WhatsApp
                 </a>
@@ -64,7 +64,7 @@ export function SalesOutputCard({ output }: { output: SalesOutput }) {
             </div>
           </div>
           <p className="text-sm text-bright leading-relaxed whitespace-pre-wrap">{short}</p>
-          <p className="font-mono text-[9px] text-ok/70">{short.length} karakter</p>
+          <p className="font-mono text-[11px] text-ok/70">{short.length} karakter</p>
         </div>
 
         {/* FULL */}
@@ -74,10 +74,10 @@ export function SalesOutputCard({ output }: { output: SalesOutput }) {
             onClick={() => setFullOpen((v) => !v)}
             className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-panel-high transition-colors"
           >
-            <p className="font-mono text-[9px] text-muted uppercase tracking-[0.2em]">
+            <p className="font-mono text-[11px] text-muted uppercase tracking-[0.2em]">
               Detaylı Açıklama (İsteğe Bağlı)
             </p>
-            <span className="font-mono text-[9px] text-dim">{fullOpen ? "KAPAT ▲" : "GÖSTER ▼"}</span>
+            <span className="font-mono text-[11px] text-dim">{fullOpen ? "KAPAT ▲" : "GÖSTER ▼"}</span>
           </button>
 
           {fullOpen && (
@@ -86,7 +86,7 @@ export function SalesOutputCard({ output }: { output: SalesOutput }) {
                 <button
                   type="button"
                   onClick={() => copy(full, "full")}
-                  className="font-mono text-[9px] uppercase tracking-wider px-3 py-1 border border-stroke-2 text-muted hover:border-accent hover:text-accent transition-all"
+                  className="font-mono text-[11px] uppercase tracking-wider px-3 py-1 border border-stroke-2 text-muted hover:border-accent hover:text-accent transition-all"
                 >
                   {copied === "full" ? "✓ Kopyalandı" : "Kopyala"}
                 </button>
@@ -95,7 +95,7 @@ export function SalesOutputCard({ output }: { output: SalesOutput }) {
                     href={whatsappLink(full)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-mono text-[9px] uppercase tracking-wider px-3 py-1 border border-ok/40 text-ok hover:bg-ok/10 transition-all"
+                    className="font-mono text-[11px] uppercase tracking-wider px-3 py-1 border border-ok/40 text-ok hover:bg-ok/10 transition-all"
                   >
                     WhatsApp
                   </a>
