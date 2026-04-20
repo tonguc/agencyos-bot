@@ -45,14 +45,31 @@ function getBestMimeType(): string {
   return types.find((t) => MediaRecorder.isTypeSupported(t)) ?? "";
 }
 
-// Browser TTS fallback (when OpenAI TTS unavailable)
+// Browser TTS fallback — pick best Turkish voice (quality-ranked)
+function pickTurkishVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
+  const tr = voices.filter((v) => v.lang.toLowerCase().startsWith("tr"));
+  if (tr.length === 0) return null;
+  // Preference order: Google > Microsoft (Emel/Tolga) > remote (network) > local
+  const preferred = [
+    (v: SpeechSynthesisVoice) => /google/i.test(v.name),
+    (v: SpeechSynthesisVoice) => /emel|tolga|microsoft/i.test(v.name),
+    (v: SpeechSynthesisVoice) => !v.localService,
+    () => true,
+  ];
+  for (const test of preferred) {
+    const match = tr.find(test);
+    if (match) return match;
+  }
+  return tr[0];
+}
+
 function browserSpeak(text: string, onEnd: () => void) {
   if (typeof window === "undefined" || !window.speechSynthesis) { onEnd(); return; }
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
-  u.lang = "tr-TR"; u.rate = 1.0;
+  u.lang = "tr-TR"; u.rate = 1.0; u.pitch = 1.0;
   const trySpeak = () => {
-    const tr = window.speechSynthesis.getVoices().find((v) => v.lang.startsWith("tr"));
+    const tr = pickTurkishVoice(window.speechSynthesis.getVoices());
     if (tr) u.voice = tr;
     u.onend = onEnd; u.onerror = onEnd;
     window.speechSynthesis.speak(u);

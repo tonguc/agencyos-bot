@@ -14,31 +14,22 @@ from repositories.job import JobRepository
 
 router = APIRouter(prefix="/voice", tags=["voice"])
 
-SYSTEM_PROMPT = """Sen AgencyOS'un sesli asistanısın. Kullanıcıyla Türkçe, samimi ve kısa konuşursun.
+SYSTEM_PROMPT = """Sen AgencyOS sesli asistanısın. Türkçe, çok kısa, direkt konuş.
 
-AgencyOS özellikleri:
-- Lead Topla: Google Maps'ten sektör + şehir bazlı işletme lead'i toplar
-- Adaylar: Lead listesi ve fırsat skorları (0-100)
-- Görevler: Tarama ve audit işleri
-- Pipeline: Lead süreç takibi (Yeni → Kapandı)
+KURALLAR:
+- Selamlaşma, "tabii/anladım/elbette" gibi dolgu YOK
+- Maks 1 cümle. Gerekirse 2.
+- Eksik bilgi varsa sadece onu sor: "hangi şehir?" gibi
+- Onay aldıysan SADECE tool'u çağır, metin yazma
+- Onay sonrası kısa teyit: "Başlattım" yeterli
 
-Desteklenen sektörler:
-klinik, avukat, emlak, guzellik, egitim, ev_hizmetleri, kadin_dogum, restoran, oto_servis, klima_beyaz_esya, cilingir, tadilat, nakliyat, hali_temizlik
+Sektörler: klinik, avukat, emlak, guzellik, egitim, ev_hizmetleri, kadin_dogum, restoran, oto_servis, klima_beyaz_esya, cilingir, tadilat, nakliyat, hali_temizlik
 
-Kullanıcı tarama yapmak istiyorsa:
-1. Sektör ve şehri sor (eksikse)
-2. İlçe ve limit sor (opsiyonel, default limit=20)
-3. Kullanıcı onayladıktan sonra trigger_scrape aracını çağır
-
-Kurallar:
-- Cevaplar kısa olsun (1-3 cümle) — sesli okunacak
-- Tarama başlatmadan önce mutlaka onay al
-- Sektör adı Türkçe söylenirse doğru key'e çevir (örn: "güzellik" → "guzellik")
-- Şehir adını doğru yaz (örn: "istanbul" → "İstanbul")"""
+Türkçe→key: güzellik→guzellik, tesisat→ev_hizmetleri, halı→hali_temizlik, klima→klima_beyaz_esya"""
 
 SCRAPE_TOOL = {
     "name": "trigger_scrape",
-    "description": "Kullanıcı onayladığında Google Maps lead taraması başlatır",
+    "description": "Kullanıcı onayladığında lead taraması başlatır",
     "input_schema": {
         "type": "object",
         "properties": {
@@ -142,6 +133,11 @@ class VoiceChatResponse(BaseModel):
     action: ScrapeAction | None = None
 
 
+# System + tools with cache_control — 5dk cache, %90 ucuz
+_CACHED_SYSTEM = [{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}]
+_CACHED_TOOLS = [{**SCRAPE_TOOL, "cache_control": {"type": "ephemeral"}}]
+
+
 @router.post("/chat", response_model=VoiceChatResponse)
 async def voice_chat(
     body: VoiceChatRequest,
@@ -150,18 +146,20 @@ async def voice_chat(
 ):
     client = _get_claude_client()
     if client is None:
-        return VoiceChatResponse(reply="Asistan şu anda kullanılamıyor.")
+        return VoiceChatResponse(reply="Asistan kullanılamıyor.")
 
-    messages = [{"role": m.role, "content": m.content} for m in body.history]
+    # Keep history short — voice is fast, old context rarely needed
+    trimmed = body.history[-4:]
+    messages = [{"role": m.role, "content": m.content} for m in trimmed]
     messages.append({"role": "user", "content": body.message})
 
     try:
         response = await client.messages.create(
             model=settings.CLAUDE_MODEL,
-            max_tokens=400,
-            temperature=0.5,
-            system=SYSTEM_PROMPT,
-            tools=[SCRAPE_TOOL],
+            max_tokens=150,
+            temperature=0.3,
+            system=_CACHED_SYSTEM,  # type: ignore[arg-type]
+            tools=_CACHED_TOOLS,  # type: ignore[arg-type]
             messages=messages,
         )
 
@@ -185,30 +183,13 @@ async def voice_chat(
             await db.commit()
             await arq.enqueue_job("run_collect_job", sector, city, district, limit, str(job.id))
 
-            messages_with_result = messages + [
-                {"role": "assistant", "content": response.content},  # type: ignore[list-item]
-                {
-                    "role": "user",
-                    "content": [{
-                        "type": "tool_result",
-                        "tool_use_id": tool.id,  # type: ignore[attr-defined]
-                        "content": f"Tarama başlatıldı. Sektör: {sector}, Şehir: {city}, Limit: {limit}",
-                    }],
-                },
-            ]
-            follow = await client.messages.create(
-                model=settings.CLAUDE_MODEL,
-                max_tokens=200,
-                temperature=0.5,
-                system=SYSTEM_PROMPT,
-                messages=messages_with_result,
-            )
-            follow_parts = [b.text for b in follow.content if getattr(b, "type", None) == "text"]
-            reply = "".join(follow_parts).strip() or reply
+            # If Claude didn't provide text with the tool call, give a fixed short confirm
+            if not reply:
+                reply = f"Başlattım. {city} {sector} için {limit} lead."
 
             action = ScrapeAction(job_id=str(job.id), sector=sector, city=city, district=district, limit=limit)
 
     except Exception:
-        return VoiceChatResponse(reply="Bir hata oluştu, tekrar dene.")
+        return VoiceChatResponse(reply="Hata, tekrar dene.")
 
     return VoiceChatResponse(reply=reply, action=action)
