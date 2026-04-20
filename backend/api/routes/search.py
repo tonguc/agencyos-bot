@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends
+import hashlib
+import json
+
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,12 +11,13 @@ from services.search_service import run_search
 
 router = APIRouter(tags=["search"])
 
-# Maps stored priority → search segment
 _PRIORITY_TO_SEGMENT = {
     "yuksek": "hot",
     "orta":   "warm",
     "dusuk":  "low",
 }
+
+SEARCH_CACHE_TTL = 3600  # 1 hour
 
 
 class SearchRequest(BaseModel):
@@ -21,8 +25,22 @@ class SearchRequest(BaseModel):
     limit: int = Field(25, ge=1, le=60)
 
 
+def _cache_key(query: str, limit: int) -> str:
+    raw = f"{query.strip().lower()}:{limit}"
+    return "search:" + hashlib.md5(raw.encode()).hexdigest()
+
+
 @router.post("/search")
-async def search(body: SearchRequest, db: AsyncSession = Depends(get_db)) -> dict:
+async def search(body: SearchRequest, request: Request, db: AsyncSession = Depends(get_db)) -> dict:
+    cache_key = _cache_key(body.query, body.limit)
+
+    # Try Redis cache first
+    redis = getattr(request.app.state, "arq_pool", None)
+    if redis:
+        cached = await redis.get(cache_key)
+        if cached:
+            return json.loads(cached)
+
     result = await run_search(body.query, limit=body.limit)
 
     phones = [r["phone"] for r in result.get("results", []) if r.get("phone")]
@@ -33,21 +51,16 @@ async def search(body: SearchRequest, db: AsyncSession = Depends(get_db)) -> dic
 
     for r in result.get("results", []):
         phone = r.get("phone") or ""
-        db = db_scores.get(phone)
-        if not db:
+        db_entry = db_scores.get(phone)
+        if not db_entry:
             r["lead_id"] = None
             continue
+        r["lead_id"] = db_entry["id"]
+        if db_entry["status"] != "Yeni" and db_entry["opportunity_score"] is not None:
+            r["score"]    = db_entry["opportunity_score"]
+            r["priority"] = db_entry["priority"]
+            r["segment"]  = _PRIORITY_TO_SEGMENT.get(db_entry["priority"] or "", r["segment"])
 
-        r["lead_id"] = db["id"]
-
-        # Eğer lead daha önce audit geçmişse (status != Yeni), DB skorunu kullan.
-        # Maps-only sıfırdan puanlama yerine audit'li gerçek skor gösterilir.
-        if db["status"] != "Yeni" and db["opportunity_score"] is not None:
-            r["score"]    = db["opportunity_score"]
-            r["priority"] = db["priority"]
-            r["segment"]  = _PRIORITY_TO_SEGMENT.get(db["priority"] or "", r["segment"])
-
-    # Summary'yi güncellenmiş segmentlere göre yeniden hesapla
     results = result.get("results", [])
     result["summary"] = {
         "hot":    sum(1 for r in results if r["segment"] == "hot"),
@@ -57,5 +70,9 @@ async def search(body: SearchRequest, db: AsyncSession = Depends(get_db)) -> dic
         "review": sum(1 for r in results if r["segment"] == "review"),
         "total":  len(results),
     }
+
+    # Cache successful results (not errors/timeouts)
+    if redis and not result.get("error") and results:
+        await redis.set(cache_key, json.dumps(result), ex=SEARCH_CACHE_TTL)
 
     return result
