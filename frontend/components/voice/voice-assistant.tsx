@@ -88,7 +88,7 @@ export function VoiceAssistant() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    hasMediaRecorder.current = !!(navigator.mediaDevices?.getUserMedia && window.MediaRecorder);
+    hasMediaRecorder.current = !!(navigator.mediaDevices && typeof window.MediaRecorder !== "undefined");
     if (!hasMediaRecorder.current && !buildBrowserRecognition()) setSupported(false);
   }, []);
 
