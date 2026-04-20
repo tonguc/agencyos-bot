@@ -187,8 +187,8 @@ export function VoiceAssistant() {
       historyRef.current = [...historyRef.current, { role: "assistant", content: data.reply }].slice(-12);
       setCaption(data.reply);
       if (data.action) {
-        // Stop session after scrape — prevents TTS echo ("Başlattım") from re-triggering tool
-        historyRef.current = [];
+        // Stop session + keep minimal context so follow-up questions know scrape ran
+        historyRef.current = [{ role: "assistant", content: data.reply }];
         activeRef.current = false;
         setActive(false);
         setAction(data.action);
