@@ -120,16 +120,22 @@ async def run_search(query: str, limit: int = 25) -> dict:
             ilce=parsed["district"],
             limit=limit,
             sektor_filter=parsed["sector"],
-            apify_timeout=90,   # quick search — 90s max, full scrape uses 300s
+            apify_timeout=150,  # quick search — 150s max, full scrape uses 300s
             max_reviews=3,      # only recency signal needed; full scrape uses 20
         )
     except TimeoutError:
         return {
-            "parsed": parsed,
-            "results": [],
+            "parsed": parsed, "results": [],
             "summary": {"hot": 0, "warm": 0, "ok": 0, "low": 0, "review": 0, "total": 0},
             "filter_stats": None,
-            "error": "Arama zaman aşımına uğradı (90s). Daha az limit dene veya Yeni Tarama kullan.",
+            "error": "Arama zaman aşımına uğradı (150s). Daha az limit dene veya Yeni Tarama kullan.",
+        }
+    except RuntimeError as e:
+        return {
+            "parsed": parsed, "results": [],
+            "summary": {"hot": 0, "warm": 0, "ok": 0, "low": 0, "review": 0, "total": 0},
+            "filter_stats": None,
+            "error": str(e),
         }
 
     if not raw:
