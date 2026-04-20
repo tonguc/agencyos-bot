@@ -68,7 +68,7 @@ def _check_single_lead(lead: dict, filtre: dict) -> tuple[bool, str]:
 
     kabul = filtre.get("site_durumu_kabul")
     if kabul:
-        durum = lead.get("site_durumu", "yok")
+        durum = lead.get("site_durumu") or "yok"
         if durum not in kabul:
             return False, f"site durumu '{durum}' kabul listesinde degil"
 
