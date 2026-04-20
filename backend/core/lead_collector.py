@@ -366,6 +366,56 @@ _TR_COORDS: dict[str, str] = {
     "mersin":         "@36.8121,34.6415,12z",
     "kayseri":        "@38.7312,35.4787,12z",
     "eskişehir":      "@39.7767,30.5206,12z",
+    # Ege / Akdeniz tatil şehirleri
+    "muğla":          "@37.2153,28.3636,11z",
+    "bodrum":         "@37.0344,27.4305,13z",
+    "fethiye":        "@36.6556,29.1233,13z",
+    "marmaris":       "@36.8553,28.2714,13z",
+    "datça":          "@36.7268,27.6897,13z",
+    "milas":          "@37.3133,27.7897,13z",
+    "didim":          "@37.3710,27.2654,13z",
+    "kuşadası":       "@37.8573,27.2575,13z",
+    "marmaris":       "@36.8553,28.2714,13z",
+    "alanya":         "@36.5441,32.0000,13z",
+    "manavgat":       "@36.7867,31.4400,13z",
+    "side":           "@36.7678,31.3895,14z",
+    "kaş":            "@36.2024,29.6393,13z",
+    "kalkan":         "@36.2665,29.4153,14z",
+    "dalaman":        "@36.7716,28.7941,13z",
+    # Karadeniz
+    "trabzon":        "@41.0015,39.7178,12z",
+    "samsun":         "@41.2867,36.3300,12z",
+    "rize":           "@41.0201,40.5234,12z",
+    "ordu":           "@40.9862,37.8797,12z",
+    "giresun":        "@40.9128,38.3895,12z",
+    "zonguldak":      "@41.4564,31.7987,12z",
+    # İç Anadolu / Doğu
+    "diyarbakır":     "@37.9144,40.2306,12z",
+    "şanlıurfa":      "@37.1591,38.7969,12z",
+    "malatya":        "@38.3552,38.3095,12z",
+    "elazığ":         "@38.6810,39.2264,12z",
+    "erzurum":        "@39.9043,41.2679,12z",
+    "van":            "@38.4891,43.4089,12z",
+    "sivas":          "@39.7477,37.0179,12z",
+    # Ege iç
+    "denizli":        "@37.7765,29.0864,12z",
+    "afyonkarahisar": "@38.7640,30.5402,12z",
+    "uşak":           "@38.6823,29.4082,12z",
+    "manisa":         "@38.6191,27.4289,12z",
+    "aydın":          "@37.8444,27.8458,12z",
+    # Marmara
+    "tekirdağ":       "@40.9780,27.5124,12z",
+    "edirne":         "@41.6818,26.5623,12z",
+    "kırklareli":     "@41.7351,27.2255,12z",
+    "çanakkale":      "@40.1553,26.4142,12z",
+    "balıkesir":      "@39.6484,27.8826,12z",
+    "kocaeli":        "@40.8533,29.8815,12z",
+    "izmit":          "@40.7654,29.9408,13z",
+    "gebze":          "@40.8023,29.4307,13z",
+    "sakarya":        "@40.7731,30.3948,12z",
+    "adapazarı":      "@40.7731,30.3948,13z",
+    "bolu":           "@40.7395,31.6061,12z",
+    "düzce":          "@40.8438,31.1565,12z",
 }
 
 
@@ -451,17 +501,19 @@ async def _run_serpapi_maps(
     if sektor_for_filter:
         enriched = _filter_relevant(enriched, sektor_for_filter)
     if ilce:
-        enriched = _filter_by_district(enriched, ilce)
+        enriched = _filter_by_location(enriched, ilce, label="ilçe")
+    elif sehir:
+        enriched = _filter_by_location(enriched, sehir, label="şehir")
     logger.info("%d lead SerpAPI'dan alındı: q='%s' ll=%s", len(enriched), q, ll)
     return enriched
 
 
-def _filter_by_district(leads: list[dict], ilce: str) -> list[dict]:
+def _filter_by_location(leads: list[dict], location: str, label: str = "konum") -> list[dict]:
     """
-    Adreste istenen ilçe geçmeyen lead'leri ele.
-    Google Maps komşu ilçelere (örn. Büyükçekmece → Beylikdüzü) taşıyabiliyor.
+    Adreste istenen konum (ilçe veya şehir) geçmeyen lead'leri ele.
+    Google Maps bazen komşu şehir/ilçe sonuçları döndürebiliyor.
     """
-    target = _normalize_tr(ilce)
+    target = _normalize_tr(location)
     if not target:
         return leads
 
@@ -472,11 +524,15 @@ def _filter_by_district(leads: list[dict], ilce: str) -> list[dict]:
             result.append(lead)
         else:
             logger.info(
-                "District filter: '%s' elendi (adres: %s) — istenen ilçe: %s",
-                lead.get("isim"), lead.get("adres"), ilce,
+                "Location filter (%s): '%s' elendi (adres: %s) — aranan: %s",
+                label, lead.get("isim"), lead.get("adres"), location,
             )
-    logger.info("District filter: %d/%d lead kaldı (ilçe=%s)", len(result), len(leads), ilce)
+    logger.info("Location filter: %d/%d lead kaldı (%s=%s)", len(result), len(leads), label, location)
     return result
+
+
+# Keep old name as alias for backward compat
+_filter_by_district = _filter_by_location
 
 
 async def _run_apify(
