@@ -97,10 +97,11 @@ class LeadRepository(BaseRepository[Lead]):
         )
         return {row[0]: row[1] for row in result.all()}
 
-    async def delete_by_sector_city(self, sector: str, city: str) -> int:
-        result = await self._session.execute(
-            delete(Lead).where(Lead.sector == sector, Lead.city == city)
-        )
+    async def delete_by_sector_city(self, sector: str, city: str = "") -> int:
+        stmt = delete(Lead).where(Lead.sector == sector)
+        if city:
+            stmt = stmt.where(Lead.city == city)
+        result = await self._session.execute(stmt)
         return result.rowcount
 
     async def find_scores_by_phones(self, phones: list[str]) -> dict[str, dict]:

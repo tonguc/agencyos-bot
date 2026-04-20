@@ -81,9 +81,10 @@ export function LeadsTable() {
   const [openSectors,   setOpenSectors]   = useState<Set<string>>(
     urlSector ? new Set([urlSector]) : new Set()
   );
-  const [auditingId,     setAuditingId]     = useState<string | null>(null);
-  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
-  const [deletingId,     setDeletingId]     = useState<string | null>(null);
+  const [auditingId,       setAuditingId]       = useState<string | null>(null);
+  const [updatingStatus,   setUpdatingStatus]   = useState<string | null>(null);
+  const [deletingId,       setDeletingId]       = useState<string | null>(null);
+  const [deletingSector,   setDeletingSector]   = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -140,6 +141,17 @@ export function LeadsTable() {
       setLeads((prev) => prev.filter((l) => l.id !== leadId));
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function handleDeleteSector(sector: string) {
+    if (!confirm(`"${SECTOR_LABELS[sector] ?? sector}" sektöründeki TÜM lead'ler silinecek. Emin misin?`)) return;
+    setDeletingSector(sector);
+    try {
+      await leadsApi.deleteBySector(sector);
+      setLeads((prev) => prev.filter((l) => l.sector !== sector));
+    } finally {
+      setDeletingSector(null);
     }
   }
 
@@ -276,9 +288,20 @@ export function LeadsTable() {
                       · Son tarama: <span className="text-muted">{scrapeDate}</span>
                     </span>
                   </div>
-                  <span className="font-mono text-[11px] text-dim tracking-wider shrink-0">
-                    {isOpen ? "KAPAT ▲" : "GÖSTER ▼"}
-                  </span>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleDeleteSector(sector); }}
+                      disabled={deletingSector === sector}
+                      className="font-mono text-[11px] text-dim hover:text-hot disabled:opacity-40 transition-colors px-2 py-0.5 border border-transparent hover:border-hot/40"
+                      title="Bu sektörün tüm lead'lerini sil"
+                    >
+                      {deletingSector === sector ? "siliniyor…" : "tümünü sil"}
+                    </button>
+                    <span className="font-mono text-[11px] text-dim tracking-wider">
+                      {isOpen ? "KAPAT ▲" : "GÖSTER ▼"}
+                    </span>
+                  </div>
                 </button>
 
                 {isOpen && (

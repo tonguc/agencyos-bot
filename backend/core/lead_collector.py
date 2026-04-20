@@ -125,17 +125,46 @@ async def collect_by_query(
 ) -> list[dict]:
     """
     Free-form search against Apify Google Places.
-    Skips the per-sector regex filter unless sektor_filter is provided.
+    Applies query-relevance filter so results actually match the search term.
     """
     if not (search_string or "").strip():
         return []
-    return await _run_apify(
+    leads = await _run_apify(
         search_term=search_string.strip(),
         sehir=sehir or "",
         ilce=ilce or "",
         limit=limit,
         sektor_for_filter=sektor_filter,
     )
+    return _filter_by_query_relevance(leads, search_string.strip())
+
+
+_QUERY_STOPWORDS = {
+    "ara", "bul", "tara", "bak", "listele", "getir", "çek",
+    "doktoru", "uzmanı", "servisi", "kliniği", "merkezi", "firması",
+    "hizmeti", "şirketi", "bürosu", "ofisi",
+    "ve", "ile", "için", "bir", "bu", "da", "de", "ya", "ki",
+}
+
+
+def _filter_by_query_relevance(leads: list[dict], query: str) -> list[dict]:
+    """Keep only leads whose name or Google category contains a query keyword."""
+    tokens = [w.lower() for w in re.findall(r"\w+", query) if w.lower() not in _QUERY_STOPWORDS]
+    if not tokens:
+        return leads
+
+    result = []
+    for lead in leads:
+        text = f"{lead.get('isim') or ''} {lead.get('kategori') or ''}".lower()
+        if any(tok in text for tok in tokens):
+            result.append(lead)
+        else:
+            logger.info(
+                "Query relevance filter: '%s' (kategori: %s) — hiçbir token (%s) eşleşmedi",
+                lead.get("isim"), lead.get("kategori"), tokens,
+            )
+    logger.info("Query relevance: %d/%d lead kaldı (query=%r)", len(result), len(leads), query)
+    return result
 
 
 async def collect_google_maps(sektor: str, sehir: str, ilce: str, limit: int = 30) -> list[dict]:

@@ -72,3 +72,15 @@ async def delete_lead(lead_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     if not lead:
         raise HTTPException(404, "Lead bulunamadi")
     await repo.delete(lead)
+
+
+@router.delete("/bulk/sector", status_code=200)
+async def delete_leads_by_sector(
+    sector: str = Query(...),
+    city: str | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+):
+    """Bir sektörün (ve opsiyonel şehrin) tüm lead'lerini siler."""
+    deleted = await LeadRepository(db).delete_by_sector_city(sector, city or "")
+    await db.commit()
+    return {"deleted": deleted}

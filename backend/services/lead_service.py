@@ -63,8 +63,20 @@ async def collect_and_save(
     repo = LeadRepository(db)
     saved = 0
 
+    # Dedup: find phones that already exist in DB
+    candidate_phones = [l.get("telefon") for l in filtered["nitelikli"] if l.get("telefon")]
+    existing_phones: set[str] = set(await repo.find_by_phones(candidate_phones))
+    seen_in_batch: set[str] = set()
+
     scores = []
     for lead_data in filtered["nitelikli"]:
+        phone = lead_data.get("telefon") or ""
+        if phone:
+            if phone in existing_phones or phone in seen_in_batch:
+                logger.info("Dedup atlandı: %s (%s)", lead_data.get("isim"), phone)
+                continue
+            seen_in_batch.add(phone)
+
         score = calculate_final_score(lead_data, {}, playbook)
         if score["status"] == "rejected":
             logger.warning("Final scorer eledi (scrape): %s | %s", lead_data.get("isim"), score["reason"])
@@ -75,7 +87,7 @@ async def collect_and_save(
             city=city,
             district=lead_data.get("ilce") or district or "",
             address=lead_data.get("adres"),
-            phone=lead_data.get("telefon"),
+            phone=phone or None,
             website=lead_data.get("website"),
             source="google_maps",
             source_data=lead_data,

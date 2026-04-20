@@ -76,6 +76,15 @@ export const leadsApi = {
     }),
 
   pipeline: () => request<PipelineCounts>("/api/leads/pipeline"),
+
+  deleteBySector: (sector: string, city?: string) => {
+    const q = new URLSearchParams({ sector });
+    if (city) q.set("city", city);
+    return fetch(`${BASE}/api/leads/bulk/sector?${q}`, {
+      method: "DELETE",
+      headers: { "X-API-Key": API_KEY },
+    });
+  },
 };
 
 // ── Audit ──────────────────────────────────────────────────────────────
