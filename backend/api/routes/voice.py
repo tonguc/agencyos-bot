@@ -50,7 +50,15 @@ SCRAPE_TOOL = {
 }
 
 
-def _get_openai_client():
+@router.get("/status")
+async def voice_status():
+    return {
+        "openai": bool(settings.OPENAI_API_KEY),
+        "claude": bool(settings.CLAUDE_API_KEY),
+    }
+
+
+
     if not settings.OPENAI_API_KEY:
         return None
     try:

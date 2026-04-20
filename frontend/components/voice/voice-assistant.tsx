@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Mic, MicOff, Volume2, Zap } from "lucide-react";
+import { Mic, MicOff, Volume2, Zap, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { voiceApi } from "@/lib/api";
 
@@ -16,9 +16,16 @@ interface ScrapeAction {
   limit: number;
 }
 
-interface SpeechRecognitionEvent extends Event {
-  results: SpeechRecognitionResultList;
-}
+const SECTOR_LABELS: Record<string, string> = {
+  klinik: "Klinik", avukat: "Avukat", emlak: "Emlak", guzellik: "Güzellik",
+  egitim: "Eğitim", ev_hizmetleri: "Tesisat", kadin_dogum: "Kadın Doğum",
+  restoran: "Restoran", oto_servis: "Oto Servis", klima_beyaz_esya: "Klima / Beyaz Eşya",
+  cilingir: "Çilingir", tadilat: "Tadilat", nakliyat: "Nakliyat", hali_temizlik: "Halı & Temizlik",
+};
+
+// ── Voices ──────────────────────────────────────────────────────────────
+
+interface SpeechRecognitionEvent extends Event { results: SpeechRecognitionResultList; }
 interface SpeechRecognitionInstance extends EventTarget {
   lang: string; continuous: boolean; interimResults: boolean; maxAlternatives: number;
   start(): void; stop(): void; abort(): void;
@@ -33,295 +40,332 @@ declare global {
   }
 }
 
-const SECTOR_LABELS: Record<string, string> = {
-  klinik: "Klinik", avukat: "Avukat", emlak: "Emlak", guzellik: "Güzellik",
-  egitim: "Eğitim", ev_hizmetleri: "Tesisat", kadin_dogum: "Kadın Doğum",
-  restoran: "Restoran", oto_servis: "Oto Servis", klima_beyaz_esya: "Klima / Beyaz Eşya",
-  cilingir: "Çilingir", tadilat: "Tadilat", nakliyat: "Nakliyat", hali_temizlik: "Halı & Temizlik",
-};
-
-function getBestMimeType(): string {
-  const types = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/mp4"];
-  return types.find((t) => MediaRecorder.isTypeSupported(t)) ?? "";
-}
-
-// Browser TTS fallback — pick best Turkish voice (quality-ranked)
-function pickTurkishVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
-  const tr = voices.filter((v) => v.lang.toLowerCase().startsWith("tr"));
-  if (tr.length === 0) return null;
-  const preferred = [
-    (v: SpeechSynthesisVoice) => /google/i.test(v.name),
-    (v: SpeechSynthesisVoice) => /yelda|emel|tolga|microsoft/i.test(v.name),
-    (v: SpeechSynthesisVoice) => !v.localService,
-    () => true,
-  ];
-  for (const test of preferred) {
-    const match = tr.find(test);
-    if (match) return match;
-  }
-  return tr[0];
-}
-
-// Chrome bug workaround: speechSynthesis freezes after ~15s
-// Keep it alive by pausing/resuming every 10s while speaking
-let keepAliveTimer: ReturnType<typeof setInterval> | null = null;
-function startKeepAlive() {
-  if (keepAliveTimer) return;
-  keepAliveTimer = setInterval(() => {
-    if (window.speechSynthesis?.speaking) {
-      window.speechSynthesis.pause();
-      window.speechSynthesis.resume();
-    }
-  }, 10000);
-}
-function stopKeepAlive() {
-  if (keepAliveTimer) { clearInterval(keepAliveTimer); keepAliveTimer = null; }
-}
-
-interface BrowserSpeakResult {
-  ok: boolean;
-  usedFallbackLang: boolean; // true if no Turkish voice found
-}
-
-function browserSpeak(text: string, onEnd: () => void): Promise<BrowserSpeakResult> {
-  return new Promise((resolve) => {
-    if (typeof window === "undefined" || !window.speechSynthesis) {
-      onEnd();
-      resolve({ ok: false, usedFallbackLang: false });
-      return;
-    }
-
-    // Full reset — fixes "second question no sound" Chrome bug
-    window.speechSynthesis.cancel();
-    stopKeepAlive();
-
-    const doSpeak = () => {
-      const tr = pickTurkishVoice(window.speechSynthesis.getVoices());
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = "tr-TR";
-      u.rate = 1.0;
-      u.pitch = 1.0;
-      if (tr) u.voice = tr;
-
-      const finish = () => {
-        stopKeepAlive();
-        onEnd();
-      };
-      u.onend = finish;
-      u.onerror = finish;
-
-      // Small delay before speaking — lets Chrome fully reset after cancel()
-      setTimeout(() => {
-        window.speechSynthesis.speak(u);
-        startKeepAlive();
-        resolve({ ok: true, usedFallbackLang: !tr });
-      }, 80);
-    };
-
-    if (window.speechSynthesis.getVoices().length > 0) {
-      doSpeak();
-    } else {
-      window.speechSynthesis.onvoiceschanged = () => {
-        window.speechSynthesis.onvoiceschanged = null;
-        doSpeak();
-      };
-    }
-  });
-}
-
-// Browser STT fallback (Chrome/Edge only)
-function buildBrowserRecognition(): SpeechRecognitionInstance | null {
-  if (typeof window === "undefined") return null;
-  const Ctor = window.SpeechRecognition ?? window.webkitSpeechRecognition;
+function buildBrowserSTT(): SpeechRecognitionInstance | null {
+  const Ctor = typeof window !== "undefined" ? (window.SpeechRecognition ?? window.webkitSpeechRecognition) : undefined;
   if (!Ctor) return null;
   const r = new Ctor();
   r.lang = "tr-TR"; r.continuous = false; r.interimResults = false; r.maxAlternatives = 1;
   return r;
 }
 
+function getBestMimeType(): string {
+  const types = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/mp4"];
+  return types.find((t) => typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(t)) ?? "";
+}
+
+// Keep SpeechSynthesis alive (Chrome freezes after ~15s)
+let _synthTimer: ReturnType<typeof setInterval> | null = null;
+function synthKeepAlive(active: boolean) {
+  if (active) {
+    if (_synthTimer) return;
+    _synthTimer = setInterval(() => {
+      if (window.speechSynthesis?.speaking) {
+        window.speechSynthesis.pause(); window.speechSynthesis.resume();
+      }
+    }, 8000);
+  } else {
+    if (_synthTimer) { clearInterval(_synthTimer); _synthTimer = null; }
+  }
+}
+
+function pickTurkishVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
+  const tr = voices.filter((v) => v.lang.toLowerCase().startsWith("tr"));
+  if (!tr.length) return null;
+  for (const test of [
+    (v: SpeechSynthesisVoice) => /google/i.test(v.name),
+    (v: SpeechSynthesisVoice) => /yelda|emel|tolga/i.test(v.name),
+    (v: SpeechSynthesisVoice) => !v.localService,
+    () => true,
+  ]) { const m = tr.find(test); if (m) return m; }
+  return tr[0];
+}
+
+function browserSpeak(text: string, onEnd: () => void): boolean {
+  if (typeof window === "undefined" || !window.speechSynthesis) { onEnd(); return false; }
+  window.speechSynthesis.cancel();
+  synthKeepAlive(false);
+  const doSpeak = () => {
+    const tr = pickTurkishVoice(window.speechSynthesis.getVoices());
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "tr-TR"; u.rate = 1.0; u.pitch = 1.0;
+    if (tr) u.voice = tr;
+    u.onend = () => { synthKeepAlive(false); onEnd(); };
+    u.onerror = () => { synthKeepAlive(false); onEnd(); };
+    setTimeout(() => { window.speechSynthesis.speak(u); synthKeepAlive(true); }, 80);
+  };
+  if (window.speechSynthesis.getVoices().length > 0) doSpeak();
+  else { window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.onvoiceschanged = null; doSpeak(); }; }
+  return true;
+}
+
+// ── Component ────────────────────────────────────────────────────────────
+
 export function VoiceAssistant() {
   const router = useRouter();
   const [status, setStatus] = useState<Status>("idle");
   const [caption, setCaption] = useState("");
   const [action, setAction] = useState<ScrapeAction | null>(null);
-  const [supported, setSupported] = useState(true);
-  const [errMsg, setErrMsg] = useState("");
+  const [openaiReady, setOpenaiReady] = useState<boolean | null>(null); // null = loading
+  const [noTurkishVoice, setNoTurkishVoice] = useState(false);
+
   const historyRef = useRef<{ role: string; content: string }[]>([]);
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const browserRecogRef = useRef<SpeechRecognitionInstance | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const hasMediaRecorder = useRef(false);
-  const hasBrowserSTT = useRef(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  // MediaRecorder state
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  // VAD
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Check OpenAI availability on mount
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    hasMediaRecorder.current = !!(navigator.mediaDevices && typeof window.MediaRecorder !== "undefined");
-    hasBrowserSTT.current = !!buildBrowserRecognition();
-    if (!hasMediaRecorder.current && !hasBrowserSTT.current) setSupported(false);
+    voiceApi.status().then((s) => setOpenaiReady(s.openai)).catch(() => setOpenaiReady(false));
   }, []);
 
-  const stopAudio = useCallback(() => {
+  // ── Cleanup ──────────────────────────────────────────────────────────
+
+  const stopEverything = useCallback(() => {
+    abortRef.current?.abort(); abortRef.current = null;
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
-    window.speechSynthesis?.cancel();
-    stopKeepAlive();
+    window.speechSynthesis?.cancel(); synthKeepAlive(false);
+    if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
+    audioCtxRef.current?.close().catch(() => {}); audioCtxRef.current = null;
+    streamRef.current?.getTracks().forEach((t) => t.stop()); streamRef.current = null;
+    if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+    recorderRef.current = null;
   }, []);
 
-  const interrupt = useCallback(() => {
-    stopAudio();
-    if (abortRef.current) { abortRef.current.abort(); abortRef.current = null; }
-    if (recorderRef.current?.state === "recording") { recorderRef.current.stop(); recorderRef.current = null; }
-    if (browserRecogRef.current) { browserRecogRef.current.abort(); browserRecogRef.current = null; }
-  }, [stopAudio]);
+  useEffect(() => () => stopEverything(), [stopEverything]);
 
-  // Play reply: try OpenAI TTS (native Turkish), fall back to browser
+  // ── TTS ─────────────────────────────────────────────────────────────
+
   const playReply = useCallback((text: string, onEnd: () => void) => {
-    const tryBrowser = () => {
-      browserSpeak(text, onEnd).then((r) => {
-        if (r.ok && r.usedFallbackLang) {
-          setErrMsg("Türkçe ses yok — OPENAI_API_KEY ekle (native ses için)");
+    if (openaiReady) {
+      voiceApi.speak(text).then((audio) => {
+        if (audio) {
+          audioRef.current = audio;
+          audio.onended = onEnd;
+          audio.onerror = () => { browserSpeak(text, onEnd); };
+          audio.play().catch(() => browserSpeak(text, onEnd));
+        } else {
+          browserSpeak(text, onEnd);
         }
-      });
-    };
-    voiceApi.speak(text).then((audio) => {
-      if (audio) {
-        audioRef.current = audio;
-        audio.onended = onEnd;
-        audio.onerror = tryBrowser;
-        audio.play().catch(tryBrowser);
-      } else {
-        tryBrowser();
-      }
-    }).catch(tryBrowser);
-  }, []);
+      }).catch(() => browserSpeak(text, onEnd));
+    } else {
+      const tr = pickTurkishVoice(window.speechSynthesis?.getVoices() ?? []);
+      if (!tr) setNoTurkishVoice(true);
+      browserSpeak(text, onEnd);
+    }
+  }, [openaiReady]);
+
+  // ── Chat ─────────────────────────────────────────────────────────────
 
   const handleTranscribed = useCallback(async (text: string) => {
     if (!text.trim()) { setStatus("idle"); return; }
-    setStatus("thinking"); setCaption(""); setErrMsg(""); setAction(null);
-    historyRef.current = [...historyRef.current, { role: "user", content: text }].slice(-8);
+    setStatus("thinking"); setCaption(""); setAction(null);
 
+    historyRef.current = [...historyRef.current, { role: "user", content: text }].slice(-6);
     const abort = new AbortController();
     abortRef.current = abort;
+
     try {
       const data = await voiceApi.chat(text, historyRef.current.slice(0, -1), abort.signal);
       if (abort.signal.aborted) return;
-      historyRef.current = [...historyRef.current, { role: "assistant", content: data.reply }].slice(-8);
+
+      historyRef.current = [...historyRef.current, { role: "assistant", content: data.reply }].slice(-6);
       setCaption(data.reply);
       if (data.action) setAction(data.action);
       setStatus("speaking");
       playReply(data.reply, () => setStatus("idle"));
     } catch (e) {
       if ((e as Error)?.name === "AbortError") return;
-      setErrMsg("Bağlantı hatası"); setStatus("idle");
+      setStatus("idle");
     } finally {
       if (abortRef.current === abort) abortRef.current = null;
     }
   }, [playReply]);
 
-  // MediaRecorder-based recording (all browsers)
+  // ── VAD (silence detection) ───────────────────────────────────────────
+
+  const stopListeningAndSubmit = useCallback(() => {
+    if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
+    audioCtxRef.current?.close().catch(() => {}); audioCtxRef.current = null;
+    if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+  }, []);
+
+  const startVAD = useCallback((stream: MediaStream) => {
+    try {
+      const ctx = new AudioContext();
+      audioCtxRef.current = ctx;
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      source.connect(analyser);
+
+      const buf = new Float32Array(analyser.frequencyBinCount);
+      let silenceStart: number | null = null;
+      const SILENCE_THRESHOLD = 0.015;
+      const SILENCE_DURATION = 1200;
+
+      const check = () => {
+        if (!audioCtxRef.current) return;
+        analyser.getFloatTimeDomainData(buf);
+        const rms = Math.sqrt(buf.reduce((s, v) => s + v * v, 0) / buf.length);
+        if (rms < SILENCE_THRESHOLD) {
+          if (!silenceStart) silenceStart = Date.now();
+          else if (Date.now() - silenceStart > SILENCE_DURATION) {
+            stopListeningAndSubmit(); return;
+          }
+        } else {
+          silenceStart = null;
+        }
+        requestAnimationFrame(check);
+      };
+      requestAnimationFrame(check);
+    } catch {
+      // VAD unavailable, rely on manual stop
+    }
+  }, [stopListeningAndSubmit]);
+
+  // ── Recording ─────────────────────────────────────────────────────────
+
   const startMediaRecorder = useCallback(async () => {
     let stream: MediaStream;
-    try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
-    catch { setErrMsg("Mikrofon izni reddedildi"); return; }
-
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      setStatus("idle"); return;
+    }
+    streamRef.current = stream;
     const mimeType = getBestMimeType();
     const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
     recorderRef.current = recorder;
     chunksRef.current = [];
     recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
     recorder.onstop = async () => {
-      stream.getTracks().forEach((t) => t.stop());
+      streamRef.current?.getTracks().forEach((t) => t.stop()); streamRef.current = null;
       const blob = new Blob(chunksRef.current, { type: mimeType || "audio/webm" });
       const ext = mimeType.includes("mp4") ? "audio.mp4" : mimeType.includes("ogg") ? "audio.ogg" : "audio.webm";
       setStatus("thinking");
       try {
         const { text, error } = await voiceApi.transcribe(blob, ext);
-        if (error || !text) { setErrMsg(error ?? "Ses algılanamadı"); setStatus("idle"); return; }
+        if (error || !text) { setStatus("idle"); return; }
         await handleTranscribed(text);
-      } catch { setErrMsg("Transkripsiyon hatası"); setStatus("idle"); }
+      } catch { setStatus("idle"); }
     };
-    recorder.start();
+    recorder.start(100);
+    startVAD(stream);
     setStatus("listening");
-  }, [handleTranscribed]);
+  }, [handleTranscribed, startVAD]);
 
-  // Browser SpeechRecognition fallback (Chrome/Edge)
-  const startBrowserRecognition = useCallback(() => {
-    const recog = buildBrowserRecognition();
-    if (!recog) { setErrMsg("Ses desteği yok"); return; }
-    browserRecogRef.current = recog;
+  const startBrowserSTT = useCallback(() => {
+    const recog = buildBrowserSTT();
+    if (!recog) { startMediaRecorder(); return; }
     let gotResult = false;
     recog.onresult = (e: SpeechRecognitionEvent) => {
       gotResult = true;
-      const text = e.results[0]?.[0]?.transcript?.trim();
+      const text = e.results[0]?.[0]?.transcript?.trim() ?? "";
       if (text) handleTranscribed(text);
+      else setStatus("idle");
     };
-    recog.onerror = () => { setErrMsg("Ses algılanamadı"); setStatus("idle"); };
+    recog.onerror = () => setStatus("idle");
     recog.onend = () => { if (!gotResult) setStatus("idle"); };
     setStatus("listening");
     recog.start();
-  }, [handleTranscribed]);
+    // Auto-stop after 8s max
+    silenceTimerRef.current = setTimeout(() => recog.stop(), 8000);
+  }, [handleTranscribed, startMediaRecorder]);
 
   const startListening = useCallback(() => {
-    setErrMsg("");
-    // Prefer browser STT (free, works without OPENAI_API_KEY in Chrome/Edge)
-    // Fall back to MediaRecorder + Whisper for Firefox/Safari
-    if (hasBrowserSTT.current) startBrowserRecognition();
-    else if (hasMediaRecorder.current) startMediaRecorder();
-  }, [startMediaRecorder, startBrowserRecognition]);
-
-  const stopListening = useCallback(() => {
-    if (recorderRef.current?.state === "recording") { recorderRef.current.stop(); recorderRef.current = null; }
-    else if (browserRecogRef.current) { browserRecogRef.current.stop(); browserRecogRef.current = null; }
-  }, []);
+    // Browser STT preferred (free, low latency) — MediaRecorder+Whisper as fallback
+    if (buildBrowserSTT()) startBrowserSTT();
+    else startMediaRecorder();
+  }, [startBrowserSTT, startMediaRecorder]);
 
   const handleMicClick = useCallback(() => {
-    if (status === "listening") { stopListening(); }
-    else if (status === "idle") { startListening(); }
-    else { interrupt(); setStatus("idle"); setTimeout(() => startListening(), 50); }
-  }, [status, startListening, stopListening, interrupt]);
+    if (status === "idle") {
+      startListening();
+    } else {
+      // Barge-in: stop everything, start fresh
+      stopEverything();
+      setStatus("idle");
+      setTimeout(() => startListening(), 60);
+    }
+  }, [status, startListening, stopEverything]);
 
-  useEffect(() => () => { interrupt(); }, [interrupt]);
+  // ── UI ───────────────────────────────────────────────────────────────
 
-  const micColor = status === "listening" ? "#f43f5e" : status === "speaking" ? "#34d399" : status === "thinking" ? "#38bdf8" : "#4a5876";
-  const micBg = status === "listening" ? "rgba(244,63,94,0.12)" : status === "speaking" ? "rgba(52,211,153,0.08)" : status === "thinking" ? "rgba(56,189,248,0.08)" : "transparent";
-  const micBorder = status === "listening" ? "#f43f5e55" : status === "speaking" ? "#34d39955" : status === "thinking" ? "#38bdf855" : "#1c2742";
-  const micLabel = status === "listening" ? "Dinliyor" : status === "thinking" ? "Düşünüyor" : status === "speaking" ? "Konuşuyor" : "Asistan";
+  const micColor =
+    status === "listening" ? "#f43f5e" :
+    status === "speaking"  ? "#34d399" :
+    status === "thinking"  ? "#38bdf8" : "#4a5876";
+
+  const micBorder =
+    status === "listening" ? "#f43f5e55" :
+    status === "speaking"  ? "#34d39955" :
+    status === "thinking"  ? "#38bdf855" : "#1c2742";
 
   return (
-    <div className="fixed top-3 right-3 md:top-4 md:right-4 z-50 flex flex-col items-end gap-2">
-      {(caption || errMsg || action) && (
-        <div className="max-w-[260px] md:max-w-xs border px-3 py-2.5" style={{ background: "#0a0f1e", borderColor: action ? "#38bdf8" : "#1c2742" }}>
-          {errMsg ? (
-            <p className="font-mono text-[12px] text-hot">{errMsg}</p>
-          ) : action ? (
+    <div className="fixed top-4 right-4 z-50 flex flex-col items-end gap-2">
+
+      {/* OpenAI not configured warning */}
+      {openaiReady === false && (
+        <div className="max-w-xs border px-3 py-2 flex items-start gap-2" style={{ background: "#0a0f1e", borderColor: "#f59e0b55" }}>
+          <AlertCircle className="h-4 w-4 text-warm shrink-0 mt-0.5" />
+          <div>
+            <p className="font-mono text-[11px] text-warm tracking-wide">Native Türkçe ses için</p>
+            <p className="font-mono text-[11px] text-dim">Railway'e <span className="text-bright">OPENAI_API_KEY</span> ekle</p>
+          </div>
+        </div>
+      )}
+
+      {/* No Turkish browser voice warning */}
+      {noTurkishVoice && !openaiReady && (
+        <div className="max-w-xs border px-3 py-2" style={{ background: "#0a0f1e", borderColor: "#f43f5e44" }}>
+          <p className="font-mono text-[11px] text-hot">Sistemde Türkçe ses yok, İngilizce aksanla okunuyor</p>
+        </div>
+      )}
+
+      {/* Caption / action */}
+      {(caption || action) && (
+        <div className="max-w-xs border px-3 py-2.5" style={{ background: "#0a0f1e", borderColor: action ? "#38bdf8" : "#1c2742" }}>
+          {action ? (
             <div>
               <p className="font-mono text-[11px] text-accent tracking-wider uppercase mb-1">Tarama Başlatıldı</p>
-              <p className="font-mono text-[12px] text-bright">{SECTOR_LABELS[action.sector] ?? action.sector} · {action.city}{action.district ? ` / ${action.district}` : ""}</p>
-              {caption && <p className="font-mono text-[11px] text-muted mt-0.5">{caption}</p>}
+              <p className="font-mono text-[13px] text-bright">
+                {SECTOR_LABELS[action.sector] ?? action.sector} · {action.city}
+                {action.district ? ` / ${action.district}` : ""}
+              </p>
+              {caption && <p className="font-mono text-[12px] text-muted mt-0.5">{caption}</p>}
               <button type="button" onClick={() => { setAction(null); setCaption(""); router.push("/jobs"); }}
-                className="mt-1.5 font-mono text-[11px] uppercase tracking-wider px-2 py-1 border border-accent/40 text-accent hover:bg-accent/10 transition-all">
+                className="mt-2 font-mono text-[11px] uppercase tracking-wider px-2 py-1 border border-accent/40 text-accent hover:bg-accent/10 transition-all">
                 Görevlere Git →
               </button>
             </div>
           ) : (
-            <p className="font-mono text-[12px] leading-relaxed" style={{ color: "#94a3b8" }}>{caption}</p>
+            <p className="font-mono text-[13px] leading-relaxed" style={{ color: "#94a3b8" }}>{caption}</p>
           )}
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={handleMicClick}
-        disabled={!supported}
-        className="flex items-center gap-2 border px-3 py-2 transition-all disabled:opacity-40"
-        style={{ background: micBg, borderColor: micBorder }}
+      {/* Mic button */}
+      <button type="button" onClick={handleMicClick}
+        className="flex items-center gap-2 border px-3 py-2 transition-all"
+        style={{ background: status !== "idle" ? `${micColor}12` : "transparent", borderColor: micBorder }}
+        title={status === "listening" ? "Bitti — konuşmayı bitir" : status !== "idle" ? "Araya gir — kes ve konuş" : "Konuş"}
       >
-        {status === "speaking" ? <Volume2 className="h-4 w-4 shrink-0" style={{ color: micColor }} />
-          : status === "listening" ? <MicOff className="h-4 w-4 shrink-0" style={{ color: micColor }} />
-          : status === "thinking" ? <Zap className="h-4 w-4 shrink-0 animate-pulse" style={{ color: micColor }} />
-          : <Mic className="h-4 w-4 shrink-0" style={{ color: micColor }} />}
-        <span className="font-mono text-[11px] tracking-[0.2em] uppercase hidden sm:inline" style={{ color: micColor }}>{micLabel}</span>
+        {status === "speaking" ? <Volume2 className="h-4 w-4 shrink-0" style={{ color: micColor }} /> :
+         status === "listening" ? <MicOff className="h-4 w-4 shrink-0" style={{ color: micColor }} /> :
+         status === "thinking"  ? <Zap className="h-4 w-4 shrink-0 animate-pulse" style={{ color: micColor }} /> :
+         <Mic className="h-4 w-4 shrink-0" style={{ color: micColor }} />}
+        <span className="font-mono text-[11px] tracking-[0.2em] uppercase whitespace-nowrap" style={{ color: micColor }}>
+          {status === "listening" ? "Dinliyor" :
+           status === "thinking"  ? "Düşünüyor" :
+           status === "speaking"  ? "Konuşuyor" : "Asistan"}
+        </span>
       </button>
     </div>
   );

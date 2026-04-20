@@ -196,6 +196,8 @@ export const voiceApi = {
     return new Audio(url);
   },
 
+  status: () => request<{ openai: boolean; claude: boolean }>("/api/voice/status"),
+
   chat: (message: string, history: { role: string; content: string }[], signal?: AbortSignal) =>
     request<{ reply: string; action?: VoiceScrapeAction }>("/api/voice/chat", {
       method: "POST",
