@@ -149,16 +149,7 @@ async def run_audit(lead_id: uuid.UUID, db: AsyncSession) -> Audit:
     update_fields: dict = {"status": "Audit"}
     if refined["status"] == "ok":
         update_fields["opportunity_score"] = int(refined["final_score"])
-        # Claude's audit urgency/quality overrides the math scorer's priority.
-        # The scorer uses incomplete search-time data; Claude sees the full picture.
-        urgency = audit_result.get("urgency", "")
-        lead_quality = audit_result.get("lead_kalitesi", "")
-        if urgency in ("sicak", "yuksek") or lead_quality in ("yuksek", "iyi"):
-            update_fields["priority"] = "yuksek"
-        elif urgency == "orta" or lead_quality == "orta":
-            update_fields["priority"] = "orta"
-        else:
-            update_fields["priority"] = refined["priority"]
+        update_fields["priority"] = refined["priority"]
     await LeadRepository(db).update(lead, **update_fields)
     await log_event(db, event=ActivityEvent.AUDIT_COMPLETED,
                     lead_id=lead_id, data={"audit_id": str(audit.id),
