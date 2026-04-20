@@ -43,6 +43,7 @@ export default function OzetPage() {
       setUpdatedAt(new Date());
     } catch {
       setCounts({});
+      setScoreTiers({ atesli: 0, ilgili: 0, zayif: 0 });
     } finally {
       setLoading(false);
     }
