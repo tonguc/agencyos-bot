@@ -28,7 +28,7 @@ export function LocationMap({ address, name }: Props) {
       <iframe
         src={embedUrl}
         width="100%"
-        height="220"
+        height="380"
         loading="lazy"
         referrerPolicy="no-referrer-when-downgrade"
         className="block border-0"

@@ -78,7 +78,7 @@ export default async function LeadDetailPage({ params }: Props) {
         }
       />
 
-      <div className="p-6 space-y-5 max-w-4xl">
+      <div className="p-6 space-y-5">
 
         {/* Actions */}
         <Card>
@@ -95,19 +95,23 @@ export default async function LeadDetailPage({ params }: Props) {
         </Card>
 
         {/* Lead info + map side by side */}
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <Card>
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-5">
+        <Card className="lg:col-span-2">
           <CardHeader><CardTitle>Bilgiler</CardTitle></CardHeader>
-          <CardContent>
-            <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4">
+          <CardContent className="space-y-4">
+            {/* Website — full width, single line */}
+            {lead.website && (
+              <div>
+                <dt className="font-mono text-[11px] text-dim uppercase tracking-[0.2em] mb-1">Website</dt>
+                <a href={lead.website} target="_blank" rel="noopener noreferrer"
+                  className="text-accent hover:underline font-mono text-[13px] truncate block max-w-full">
+                  {lead.website}
+                </a>
+              </div>
+            )}
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
               {([
                 ["Telefon", lead.phone],
-                ["Website", lead.website ? (
-                  <a href={lead.website} target="_blank" rel="noopener noreferrer"
-                    className="text-accent hover:underline break-all font-mono text-[13px]">
-                    {lead.website}
-                  </a>
-                ) : null],
                 ["Adres", lead.address],
                 ["Google Puan", lead.google_rating ? `${lead.google_rating} ⭐ (${lead.review_count} yorum)` : null],
                 ["Fırsat Skoru", lead.opportunity_score],
@@ -125,7 +129,9 @@ export default async function LeadDetailPage({ params }: Props) {
         </Card>
 
         {/* Map */}
-        <LocationMap address={lead.address} name={lead.name} />
+        <div className="lg:col-span-3">
+          <LocationMap address={lead.address} name={lead.name} />
+        </div>
         </div>
 
         {/* Audit */}

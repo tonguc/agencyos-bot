@@ -54,8 +54,8 @@ function sortLeads(leads: Lead[], key: SortKey): Lead[] {
 }
 
 function scoreStyle(v: number) {
-  if (v >= 70) return "text-hot";
-  if (v >= 40) return "text-warm";
+  if (v >= 65) return "text-hot";
+  if (v >= 45) return "text-warm";
   return "text-dim";
 }
 
