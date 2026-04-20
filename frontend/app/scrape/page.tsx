@@ -263,119 +263,108 @@ export default function ScrapePage() {
     <div className="flex flex-col flex-1">
       <Header title="Lead Topla" description="Google Maps'ten yeni lead'ler topla" />
       <div className="p-6">
-        <form onSubmit={handleSubmit} className="space-y-6 max-w-4xl">
+        <form onSubmit={handleSubmit}>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-          {/* Sektör */}
-          <div>
-            <p className="font-mono text-[11px] text-dim tracking-[0.25em] uppercase mb-3">▸ Sektör Seç</p>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {SECTORS.map(({ key, label, sub, Icon, color }) => {
-                const selected = sector === key;
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setSector(key)}
-                    className="flex flex-col items-center gap-1.5 border p-3 text-center transition-all"
-                    style={
-                      selected
-                        ? {
-                            borderColor: color,
-                            backgroundColor: `${color}12`,
-                            boxShadow: `0 0 12px ${color}25`,
-                          }
-                        : {
-                            borderColor: "#1c2742",
-                            backgroundColor: "#0d1324",
-                          }
-                    }
-                  >
-                    <Icon
-                      className="h-5 w-5"
-                      strokeWidth={1.5}
-                      style={{ color: selected ? color : "#4a5876" }}
-                    />
-                    <span
-                      className="text-xs font-mono font-semibold leading-tight tracking-wide"
-                      style={{ color: selected ? color : "#e6edf7" }}
+            {/* Sol panel: Konum + Limit + Buton */}
+            <div className="space-y-5">
+              <div>
+                <p className="font-mono text-[11px] text-dim tracking-[0.25em] uppercase mb-2">▸ Şehir</p>
+                <SearchableDropdown
+                  options={cities}
+                  value={city}
+                  onChange={handleCityChange}
+                  placeholder="Şehir seçin veya yazın..."
+                />
+              </div>
+
+              <div>
+                <p className="font-mono text-[11px] text-dim tracking-[0.25em] uppercase mb-2">
+                  ▸ İlçe <span className="text-dim/50">(opsiyonel)</span>
+                </p>
+                <SearchableDropdown
+                  options={districts}
+                  value={district}
+                  onChange={setDistrict}
+                  placeholder={city ? "İlçe seçin..." : "Önce şehir seçin"}
+                  disabled={!city}
+                />
+              </div>
+
+              <div>
+                <p className="font-mono text-[11px] text-dim tracking-[0.25em] uppercase mb-3">▸ Limit</p>
+                <div className="flex gap-2 flex-wrap items-center">
+                  {LIMIT_PRESETS.map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => handleLimitPreset(v)}
+                      className={`font-mono text-[12px] uppercase tracking-wider px-3 py-1.5 border transition-all ${
+                        limit === v && !customLimit
+                          ? "bg-accent/10 border-accent text-accent"
+                          : "border-stroke text-muted hover:border-stroke-2 hover:text-bright"
+                      }`}
                     >
-                      {label}
-                    </span>
-                    <span className="font-mono text-[11px] leading-tight text-dim">{sub}</span>
-                  </button>
-                );
-              })}
+                      {v}
+                    </button>
+                  ))}
+                  <Input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={customLimit}
+                    onChange={(e) => handleCustomLimit(e.target.value)}
+                    placeholder="Manuel"
+                    className="w-24"
+                  />
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                loading={loading}
+                disabled={!sector || !city}
+                className="w-full"
+                size="lg"
+              >
+                Taramayı Başlat
+              </Button>
             </div>
-          </div>
 
-          {/* Şehir */}
-          <div>
-            <p className="font-mono text-[11px] text-dim tracking-[0.25em] uppercase mb-2">▸ Şehir</p>
-            <SearchableDropdown
-              options={cities}
-              value={city}
-              onChange={handleCityChange}
-              placeholder="Şehir seçin veya yazın..."
-            />
-          </div>
-
-          {/* İlçe */}
-          <div>
-            <p className="font-mono text-[11px] text-dim tracking-[0.25em] uppercase mb-2">
-              ▸ İlçe <span className="text-dim/50">(opsiyonel)</span>
-            </p>
-            <SearchableDropdown
-              options={districts}
-              value={district}
-              onChange={setDistrict}
-              placeholder={city ? "İlçe seçin..." : "Önce şehir seçin"}
-              disabled={!city}
-            />
-          </div>
-
-          {/* Limit */}
-          <div>
-            <p className="font-mono text-[11px] text-dim tracking-[0.25em] uppercase mb-3">▸ Limit</p>
-            <div className="flex gap-2 flex-wrap items-center">
-              {LIMIT_PRESETS.map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => handleLimitPreset(v)}
-                  className={`font-mono text-[12px] uppercase tracking-wider px-3 py-1.5 border transition-all ${
-                    limit === v && !customLimit
-                      ? "bg-accent/10 border-accent text-accent"
-                      : "border-stroke text-muted hover:border-stroke-2 hover:text-bright"
-                  }`}
-                >
-                  {v}
-                </button>
-              ))}
-              <Input
-                type="number"
-                min={1}
-                max={100}
-                value={customLimit}
-                onChange={(e) => handleCustomLimit(e.target.value)}
-                placeholder="Manuel"
-                className="w-24"
-              />
+            {/* Sağ panel: Sektör kartları */}
+            <div className="lg:col-span-2">
+              <p className="font-mono text-[11px] text-dim tracking-[0.25em] uppercase mb-3">▸ Sektör Seç</p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
+                {SECTORS.map(({ key, label, sub, Icon, color }) => {
+                  const selected = sector === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setSector(key)}
+                      className="flex flex-col items-center gap-1.5 border p-3 text-center transition-all"
+                      style={
+                        selected
+                          ? { borderColor: color, backgroundColor: `${color}12`, boxShadow: `0 0 12px ${color}25` }
+                          : { borderColor: "#1c2742", backgroundColor: "#0d1324" }
+                      }
+                    >
+                      <Icon className="h-5 w-5" strokeWidth={1.5} style={{ color: selected ? color : "#4a5876" }} />
+                      <span className="text-xs font-mono font-semibold leading-tight tracking-wide" style={{ color: selected ? color : "#e6edf7" }}>
+                        {label}
+                      </span>
+                      <span className="font-mono text-[11px] leading-tight text-dim">{sub}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
 
-          <Button
-            type="submit"
-            loading={loading}
-            disabled={!sector || !city}
-            className="w-full"
-            size="lg"
-          >
-            Taramayı Başlat
-          </Button>
+          </div>
         </form>
 
         {jobId && (
-          <div className={`mt-4 max-w-4xl px-4 py-3 flex items-center justify-between gap-4 border transition-all ${
+          <div className={`mt-6 px-4 py-3 flex items-center justify-between gap-4 border transition-all ${
             jobStatus?.status === "completed"
               ? "border-ok/40 bg-ok/5"
               : jobStatus?.status === "failed"
