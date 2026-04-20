@@ -16,28 +16,6 @@ interface ScrapeAction {
   limit: number;
 }
 
-interface SpeechRecognitionEvent extends Event {
-  results: SpeechRecognitionResultList;
-}
-interface SpeechRecognitionInstance extends EventTarget {
-  lang: string;
-  continuous: boolean;
-  interimResults: boolean;
-  maxAlternatives: number;
-  start(): void;
-  stop(): void;
-  abort(): void;
-  onresult: ((e: SpeechRecognitionEvent) => void) | null;
-  onerror: ((e: Event) => void) | null;
-  onend: (() => void) | null;
-}
-declare global {
-  interface Window {
-    SpeechRecognition?: new () => SpeechRecognitionInstance;
-    webkitSpeechRecognition?: new () => SpeechRecognitionInstance;
-  }
-}
-
 const SECTOR_LABELS: Record<string, string> = {
   klinik: "Klinik", avukat: "Avukat", emlak: "Emlak", guzellik: "Güzellik",
   egitim: "Eğitim", ev_hizmetleri: "Tesisat", kadin_dogum: "Kadın Doğum",
@@ -45,41 +23,9 @@ const SECTOR_LABELS: Record<string, string> = {
   cilingir: "Çilingir", tadilat: "Tadilat", nakliyat: "Nakliyat", hali_temizlik: "Halı & Temizlik",
 };
 
-function buildRecognition(): SpeechRecognitionInstance | null {
-  if (typeof window === "undefined") return null;
-  const Ctor = window.SpeechRecognition ?? window.webkitSpeechRecognition;
-  if (!Ctor) return null;
-  const r = new Ctor();
-  r.lang = "tr-TR";
-  r.continuous = false;
-  r.interimResults = false;
-  r.maxAlternatives = 1;
-  return r;
-}
-
-function speak(text: string, onEnd: () => void) {
-  if (typeof window === "undefined" || !window.speechSynthesis) { onEnd(); return; }
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = "tr-TR";
-  u.rate = 1.0;
-  u.pitch = 1.0;
-
-  // Wait for voices to load then pick Turkish
-  const trySpeak = () => {
-    const voices = window.speechSynthesis.getVoices();
-    const tr = voices.find((v) => v.lang === "tr-TR") ?? voices.find((v) => v.lang.startsWith("tr"));
-    if (tr) u.voice = tr;
-    u.onend = onEnd;
-    u.onerror = onEnd;
-    window.speechSynthesis.speak(u);
-  };
-
-  if (window.speechSynthesis.getVoices().length > 0) {
-    trySpeak();
-  } else {
-    window.speechSynthesis.onvoiceschanged = () => { trySpeak(); };
-  }
+function getBestMimeType(): string {
+  const types = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/mp4"];
+  return types.find((t) => MediaRecorder.isTypeSupported(t)) ?? "";
 }
 
 export function VoiceAssistant() {
@@ -90,73 +36,113 @@ export function VoiceAssistant() {
   const [supported, setSupported] = useState(true);
   const [errMsg, setErrMsg] = useState("");
   const historyRef = useRef<{ role: string; content: string }[]>([]);
-  const recogRef = useRef<SpeechRecognitionInstance | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  useEffect(() => { if (!buildRecognition()) setSupported(false); }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      setSupported(false);
+    }
+  }, []);
 
-  const handleAnswer = useCallback(async (userText: string) => {
+  const stopAudio = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+  }, []);
+
+  const handleTranscribed = useCallback(async (text: string) => {
+    if (!text.trim()) { setStatus("idle"); return; }
+
     setStatus("thinking");
     setCaption("");
     setErrMsg("");
+    setAction(null);
 
-    // Keep last 8 turns in memory
-    historyRef.current = [...historyRef.current, { role: "user", content: userText }].slice(-8);
+    historyRef.current = [...historyRef.current, { role: "user", content: text }].slice(-8);
 
     try {
-      const data = await voiceApi.chat(userText, historyRef.current.slice(0, -1));
+      const data = await voiceApi.chat(text, historyRef.current.slice(0, -1));
       historyRef.current = [...historyRef.current, { role: "assistant", content: data.reply }].slice(-8);
       setCaption(data.reply);
       if (data.action) setAction(data.action);
+
       setStatus("speaking");
-      speak(data.reply, () => setStatus("idle"));
+      const audio = await voiceApi.speak(data.reply);
+      if (!audio) { setStatus("idle"); return; }
+      audioRef.current = audio;
+      audio.onended = () => setStatus("idle");
+      audio.onerror = () => setStatus("idle");
+      audio.play();
     } catch {
       setErrMsg("Bağlantı hatası");
       setStatus("idle");
     }
   }, []);
 
-  const startListening = useCallback(() => {
-    const recog = buildRecognition();
-    if (!recog) return;
-    recogRef.current = recog;
-
-    let gotResult = false;
-
-    recog.onresult = (e: SpeechRecognitionEvent) => {
-      gotResult = true;
-      const text = e.results[0]?.[0]?.transcript?.trim();
-      if (text) handleAnswer(text);
-    };
-
-    recog.onerror = (e: Event) => {
-      const err = (e as ErrorEvent).message ?? "Mikrofon hatası";
-      setErrMsg(err.includes("not-allowed") ? "Mikrofon izni reddedildi" : "Ses algılanamadı, tekrar dene");
-      setStatus("idle");
-    };
-
-    recog.onend = () => {
-      if (!gotResult) setStatus("idle");
-    };
-
-    setStatus("listening");
-    setCaption("");
-    setAction(null);
+  const startListening = useCallback(async () => {
     setErrMsg("");
-    recog.start();
-  }, [handleAnswer]);
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      setErrMsg("Mikrofon izni reddedildi");
+      return;
+    }
+
+    const mimeType = getBestMimeType();
+    const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+    recorderRef.current = recorder;
+    chunksRef.current = [];
+
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+
+    recorder.onstop = async () => {
+      stream.getTracks().forEach((t) => t.stop());
+      const blob = new Blob(chunksRef.current, { type: mimeType || "audio/webm" });
+      const ext = mimeType.includes("mp4") ? "audio.mp4" : mimeType.includes("ogg") ? "audio.ogg" : "audio.webm";
+
+      setStatus("thinking");
+      try {
+        const { text, error } = await voiceApi.transcribe(blob, ext);
+        if (error || !text) {
+          setErrMsg(error ?? "Ses algılanamadı");
+          setStatus("idle");
+          return;
+        }
+        await handleTranscribed(text);
+      } catch {
+        setErrMsg("Transkripsiyon hatası");
+        setStatus("idle");
+      }
+    };
+
+    recorder.start();
+    setStatus("listening");
+  }, [handleTranscribed]);
+
+  const stopListening = useCallback(() => {
+    if (recorderRef.current?.state === "recording") {
+      recorderRef.current.stop();
+      recorderRef.current = null;
+    }
+  }, []);
 
   const handleMicClick = useCallback(() => {
     if (status === "listening") {
-      recogRef.current?.abort();
-      recogRef.current = null;
-      setStatus("idle");
+      stopListening();
     } else if (status === "speaking") {
-      window.speechSynthesis?.cancel();
+      stopAudio();
       setStatus("idle");
     } else if (status === "idle") {
       startListening();
     }
-  }, [status, startListening]);
+  }, [status, startListening, stopListening, stopAudio]);
+
+  useEffect(() => () => { stopAudio(); }, [stopAudio]);
 
   const micColor = status === "listening" ? "#f43f5e"
     : status === "speaking" ? "#34d399"
@@ -168,19 +154,24 @@ export function VoiceAssistant() {
     : status === "thinking" ? "rgba(56,189,248,0.08)"
     : "transparent";
 
-  const micBorder = status === "listening" ? "#f43f5e44"
-    : status === "speaking" ? "#34d39944"
-    : status === "thinking" ? "#38bdf844"
+  const micBorder = status === "listening" ? "#f43f5e55"
+    : status === "speaking" ? "#34d39955"
+    : status === "thinking" ? "#38bdf855"
     : "#1c2742";
+
+  const label = status === "listening" ? "Dinliyor — durdurmak için tıkla"
+    : status === "thinking" ? "Düşünüyor…"
+    : status === "speaking" ? "Konuşuyor — durdurmak için tıkla"
+    : "Asistan";
 
   return (
     <div className="fixed top-4 right-4 z-50 flex flex-col items-end gap-2">
 
-      {/* Caption / action strip */}
+      {/* Caption / error / action */}
       {(caption || errMsg || action) && (
         <div
-          className="max-w-xs border px-3 py-2"
-          style={{ background: "#0d1324", borderColor: action ? "#38bdf8" : "#1c2742" }}
+          className="max-w-xs border px-3 py-2.5"
+          style={{ background: "#0a0f1e", borderColor: action ? "#38bdf8" : "#1c2742" }}
         >
           {errMsg ? (
             <p className="font-mono text-[12px] text-hot">{errMsg}</p>
@@ -191,19 +182,17 @@ export function VoiceAssistant() {
                 {SECTOR_LABELS[action.sector] ?? action.sector} · {action.city}
                 {action.district ? ` / ${action.district}` : ""}
               </p>
-              <p className="font-mono text-[12px] text-dim">{caption}</p>
+              {caption && <p className="font-mono text-[12px] text-muted mt-0.5">{caption}</p>}
               <button
                 type="button"
-                onClick={() => { setAction(null); router.push("/jobs"); }}
-                className="mt-1.5 font-mono text-[11px] uppercase tracking-wider px-2 py-0.5 border border-accent/40 text-accent hover:bg-accent/10 transition-all"
+                onClick={() => { setAction(null); setCaption(""); router.push("/jobs"); }}
+                className="mt-2 font-mono text-[11px] uppercase tracking-wider px-2 py-1 border border-accent/40 text-accent hover:bg-accent/10 transition-all"
               >
                 Görevlere Git →
               </button>
             </div>
           ) : (
-            <p className="font-mono text-[13px] leading-relaxed" style={{ color: "#94a3b8" }}>
-              {caption}
-            </p>
+            <p className="font-mono text-[13px] leading-relaxed" style={{ color: "#94a3b8" }}>{caption}</p>
           )}
         </div>
       )}
@@ -213,12 +202,7 @@ export function VoiceAssistant() {
         type="button"
         onClick={handleMicClick}
         disabled={!supported || status === "thinking"}
-        title={
-          !supported ? "Tarayıcın desteklemiyor (Chrome kullan)"
-          : status === "listening" ? "Durdur"
-          : status === "speaking" ? "Sessizleştir"
-          : "Konuş"
-        }
+        title={!supported ? "MediaRecorder desteklenmiyor" : label}
         className="flex items-center gap-2 border px-3 py-2 transition-all disabled:opacity-40"
         style={{ background: micBg, borderColor: micBorder }}
       >
@@ -231,7 +215,7 @@ export function VoiceAssistant() {
         ) : (
           <Mic className="h-4 w-4 shrink-0" style={{ color: micColor }} />
         )}
-        <span className="font-mono text-[11px] tracking-[0.2em] uppercase" style={{ color: micColor }}>
+        <span className="font-mono text-[11px] tracking-[0.2em] uppercase whitespace-nowrap" style={{ color: micColor }}>
           {status === "listening" ? "Dinliyor" : status === "thinking" ? "Düşünüyor" : status === "speaking" ? "Konuşuyor" : "Asistan"}
         </span>
       </button>

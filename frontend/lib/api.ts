@@ -174,6 +174,28 @@ export interface VoiceScrapeAction {
 }
 
 export const voiceApi = {
+  transcribe: (blob: Blob, filename: string) => {
+    const form = new FormData();
+    form.append("audio", blob, filename);
+    return fetch(`${BASE}/api/voice/transcribe`, {
+      method: "POST",
+      headers: { "X-API-Key": API_KEY },
+      body: form,
+    }).then((r) => r.json() as Promise<{ text: string; error?: string }>);
+  },
+
+  speak: async (text: string): Promise<HTMLAudioElement | null> => {
+    const res = await fetch(`${BASE}/api/voice/speak`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-API-Key": API_KEY },
+      body: JSON.stringify({ text }),
+    });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    return new Audio(url);
+  },
+
   chat: (message: string, history: { role: string; content: string }[]) =>
     request<{ reply: string; action?: VoiceScrapeAction }>("/api/voice/chat", {
       method: "POST",

@@ -24,6 +24,7 @@ class Settings(BaseSettings):
 
     # External APIs
     CLAUDE_API_KEY: str = ""
+    OPENAI_API_KEY: str = ""
     APIFY_API_TOKEN: str = ""
     PAGESPEED_API_KEY: str = ""
     SERPAPI_API_KEY: str = ""

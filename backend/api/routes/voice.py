@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends
+import io
+
+from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from arq import ArqRedis
@@ -31,7 +34,7 @@ Kurallar:
 - Cevaplar kısa olsun (1-3 cümle) — sesli okunacak
 - Tarama başlatmadan önce mutlaka onay al
 - Sektör adı Türkçe söylenirse doğru key'e çevir (örn: "güzellik" → "guzellik")
-- Şehir adını büyük harfle yaz (örn: "istanbul" → "İstanbul")"""
+- Şehir adını doğru yaz (örn: "istanbul" → "İstanbul")"""
 
 SCRAPE_TOOL = {
     "name": "trigger_scrape",
@@ -46,26 +49,74 @@ SCRAPE_TOOL = {
                     "ev_hizmetleri", "kadin_dogum", "restoran", "oto_servis",
                     "klima_beyaz_esya", "cilingir", "tadilat", "nakliyat", "hali_temizlik",
                 ],
-                "description": "Sektör key'i",
             },
-            "city": {
-                "type": "string",
-                "description": "Türkçe şehir adı, örn: İstanbul",
-            },
-            "district": {
-                "type": "string",
-                "description": "İlçe adı (opsiyonel, boş bırakılabilir)",
-            },
-            "limit": {
-                "type": "integer",
-                "description": "Kaç lead toplanacak, default 20",
-                "default": 20,
-            },
+            "city": {"type": "string"},
+            "district": {"type": "string"},
+            "limit": {"type": "integer", "default": 20},
         },
         "required": ["sector", "city"],
     },
 }
 
+
+def _get_openai_client():
+    if not settings.OPENAI_API_KEY:
+        return None
+    try:
+        from openai import AsyncOpenAI
+        return AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+    except ImportError:
+        return None
+
+
+# ── STT ────────────────────────────────────────────────────────────────
+
+@router.post("/transcribe")
+async def transcribe(audio: UploadFile = File(...)):
+    client = _get_openai_client()
+    if client is None:
+        return {"text": "", "error": "OPENAI_API_KEY tanımlı değil"}
+
+    audio_bytes = await audio.read()
+    filename = audio.filename or "audio.webm"
+
+    try:
+        result = await client.audio.transcriptions.create(
+            model="whisper-1",
+            file=(filename, io.BytesIO(audio_bytes), audio.content_type or "audio/webm"),
+            language="tr",
+        )
+        return {"text": result.text.strip()}
+    except Exception as e:
+        return {"text": "", "error": str(e)}
+
+
+# ── TTS ────────────────────────────────────────────────────────────────
+
+class SpeakRequest(BaseModel):
+    text: str
+    voice: str = "nova"
+
+
+@router.post("/speak")
+async def speak(body: SpeakRequest):
+    client = _get_openai_client()
+    if client is None:
+        return Response(content=b"", media_type="audio/mpeg")
+
+    try:
+        response = await client.audio.speech.create(
+            model="tts-1",
+            voice=body.voice,  # type: ignore[arg-type]
+            input=body.text,
+            response_format="mp3",
+        )
+        return Response(content=response.content, media_type="audio/mpeg")
+    except Exception:
+        return Response(content=b"", media_type="audio/mpeg")
+
+
+# ── Chat ───────────────────────────────────────────────────────────────
 
 class ChatMessage(BaseModel):
     role: str
@@ -99,7 +150,7 @@ async def voice_chat(
 ):
     client = _get_claude_client()
     if client is None:
-        return VoiceChatResponse(reply="Asistan şu anda kullanılamıyor, API anahtarını kontrol et.")
+        return VoiceChatResponse(reply="Asistan şu anda kullanılamıyor.")
 
     messages = [{"role": m.role, "content": m.content} for m in body.history]
     messages.append({"role": "user", "content": body.message})
@@ -114,11 +165,8 @@ async def voice_chat(
             messages=messages,
         )
 
-        # Extract text reply
         text_parts = [b.text for b in response.content if getattr(b, "type", None) == "text"]
         reply = "".join(text_parts).strip()
-
-        # Check for tool use
         tool_blocks = [b for b in response.content if getattr(b, "type", None) == "tool_use"]
         action = None
 
@@ -130,7 +178,6 @@ async def voice_chat(
             district = inp.get("district", "") or ""
             limit = int(inp.get("limit", 20))
 
-            # Execute scrape job
             job = await JobRepository(db).create(
                 type="collect_leads",
                 payload={"sector": sector, "city": city, "district": district, "limit": limit},
@@ -138,7 +185,6 @@ async def voice_chat(
             await db.commit()
             await arq.enqueue_job("run_collect_job", sector, city, district, limit, str(job.id))
 
-            # Second call: get Claude's confirmation message
             messages_with_result = messages + [
                 {"role": "assistant", "content": response.content},  # type: ignore[list-item]
                 {
@@ -146,7 +192,7 @@ async def voice_chat(
                     "content": [{
                         "type": "tool_result",
                         "tool_use_id": tool.id,  # type: ignore[attr-defined]
-                        "content": f"Tarama başlatıldı. Job ID: {job.id}. Sektör: {sector}, Şehir: {city}, Limit: {limit}",
+                        "content": f"Tarama başlatıldı. Sektör: {sector}, Şehir: {city}, Limit: {limit}",
                     }],
                 },
             ]
@@ -160,15 +206,9 @@ async def voice_chat(
             follow_parts = [b.text for b in follow.content if getattr(b, "type", None) == "text"]
             reply = "".join(follow_parts).strip() or reply
 
-            action = ScrapeAction(
-                job_id=str(job.id),
-                sector=sector,
-                city=city,
-                district=district,
-                limit=limit,
-            )
+            action = ScrapeAction(job_id=str(job.id), sector=sector, city=city, district=district, limit=limit)
 
     except Exception:
-        return VoiceChatResponse(reply="Bir hata oluştu, lütfen tekrar dene.")
+        return VoiceChatResponse(reply="Bir hata oluştu, tekrar dene.")
 
     return VoiceChatResponse(reply=reply, action=action)
