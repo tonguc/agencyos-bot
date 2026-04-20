@@ -78,6 +78,9 @@ def hard_filter(lead: dict, playbook: dict) -> Tuple[bool, str]:
     if not telefon:
         return True, "telefon yok"
 
+    if lead.get("permanently_closed"):
+        return True, "kalıcı olarak kapalı"
+
     son_yorum = lead.get("son_yorum_gun")
     if son_yorum is not None and son_yorum > 365:
         return True, "ölü profil"

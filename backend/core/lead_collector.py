@@ -135,6 +135,8 @@ async def _run_apify(
         "maxCrawledPlacesPerSearch": limit,
         "language": "tr",
         "countryCode": "tr",
+        "maxReviews": 20,          # son yorumların tarihini hesaplamak için
+        "reviewsSort": "newest",   # en yeni yorumlar önce gelsin
     }
 
     async with API_SEMAPHORE:
@@ -188,20 +190,68 @@ def enrich_lead(raw: dict) -> dict:
     website = _normalize_url(website_raw)
     telefon = _format_phone(raw.get("phone") or raw.get("phoneNumber") or raw.get("phoneUnformatted"))
 
+    today = date.today()
+
+    # ── Review velocity (son yorumların tarihlerinden) ──────────────────
+    reviews = raw.get("reviews") or []
+    review_dates: list[date] = []
+    for r in reviews:
+        ds = r.get("publishedAtDate") or r.get("publishAt") or ""
+        if isinstance(ds, str) and len(ds) >= 10:
+            try:
+                review_dates.append(date.fromisoformat(ds[:10]))
+            except ValueError:
+                pass
+
+    son_yorum_gun: int | None = None
+    review_last_30d: int | None = None
+    review_last_90d: int | None = None
+
+    if review_dates:
+        review_dates.sort(reverse=True)
+        son_yorum_gun  = (today - review_dates[0]).days
+        review_last_30d = sum(1 for d in review_dates if (today - d).days <= 30)
+        review_last_90d = sum(1 for d in review_dates if (today - d).days <= 90)
+
+    # ── GMB derinliği ────────────────────────────────────────────────────
+    photos = raw.get("imageUrls") or raw.get("images") or []
+    gmb_photo_count: int | None = len(photos) if isinstance(photos, list) else None
+
+    desc = raw.get("description")
+    gmb_has_description: bool | None = bool(desc.strip()) if isinstance(desc, str) else (
+        None if desc is None else bool(desc)
+    )
+
+    qa = raw.get("questionsAndAnswers")
+    gmb_has_qa: bool | None = (bool(qa) if qa is not None else None)
+
+    # ── Zombie / kapalı işletme ──────────────────────────────────────────
+    permanently_closed = raw.get("permanentlyClosed") or raw.get("isClosed") or False
+
     lead = {
-        "isim": raw.get("title") or raw.get("name"),
-        "adres": raw.get("address"),
-        "telefon": telefon,
-        "website": website,
-        "yorum_sayisi": raw.get("reviewsCount") or 0,
-        "puan": raw.get("totalScore") or 0,
-        "kategori": raw.get("categoryName"),
-        "enlem": raw.get("location", {}).get("lat") if isinstance(raw.get("location"), dict) else None,
-        "boylam": raw.get("location", {}).get("lng") if isinstance(raw.get("location"), dict) else None,
-        "maps_url": raw.get("url"),
-        "site_durumu": _site_durumu(website),
-        "kaynak": "google_maps",
-        "toplama_tarihi": date.today().isoformat(),
+        "isim":           raw.get("title") or raw.get("name"),
+        "adres":          raw.get("address"),
+        "telefon":        telefon,
+        "website":        website,
+        "yorum_sayisi":   raw.get("reviewsCount") or 0,
+        "puan":           raw.get("totalScore") or 0,
+        "kategori":       raw.get("categoryName"),
+        "enlem":          raw.get("location", {}).get("lat") if isinstance(raw.get("location"), dict) else None,
+        "boylam":         raw.get("location", {}).get("lng") if isinstance(raw.get("location"), dict) else None,
+        "maps_url":       raw.get("url"),
+        "site_durumu":    _site_durumu(website),
+        "kaynak":         "google_maps",
+        "toplama_tarihi": today.isoformat(),
+        # Review velocity
+        "son_yorum_gun":  son_yorum_gun,
+        "review_last_30d": review_last_30d,
+        "review_last_90d": review_last_90d,
+        # GMB derinliği
+        "gmb_photo_count":      gmb_photo_count,
+        "gmb_has_description":  gmb_has_description,
+        "gmb_has_qa":           gmb_has_qa,
+        # Zombie sinyali
+        "permanently_closed":   permanently_closed,
     }
     return lead
 
