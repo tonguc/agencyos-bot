@@ -96,11 +96,9 @@ export function LeadsTable() {
         search:   search      || undefined,
       });
       setLeads(data.items);
-      if (!urlSector && data.items.length > 0) {
-        const latest = data.items.reduce((a, b) =>
-          new Date(a.created_at) > new Date(b.created_at) ? a : b
-        );
-        setOpenSectors((prev) => new Set([...prev, latest.sector]));
+      // Open all sector groups by default so leads are visible without extra clicks
+      if (data.items.length > 0) {
+        setOpenSectors(new Set(data.items.map((l) => l.sector)));
       }
     } catch {
       setLeads([]);
