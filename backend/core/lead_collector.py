@@ -123,6 +123,7 @@ async def collect_by_query(
     limit: int = 30,
     sektor_filter: str | None = None,
     apify_timeout: int = 300,
+    max_reviews: int = 20,
 ) -> list[dict]:
     """
     Free-form search against Apify Google Places.
@@ -137,6 +138,7 @@ async def collect_by_query(
         limit=limit,
         sektor_for_filter=sektor_filter,
         apify_timeout=apify_timeout,
+        max_reviews=max_reviews,
     )
     return _filter_by_query_relevance(leads, search_string.strip())
 
@@ -187,6 +189,7 @@ async def _run_apify(
     limit: int,
     sektor_for_filter: str | None,
     apify_timeout: int = 300,
+    max_reviews: int = 20,
 ) -> list[dict]:
     token = os.getenv("APIFY_API_TOKEN")
     if not token:
@@ -205,7 +208,7 @@ async def _run_apify(
         "maxCrawledPlacesPerSearch": limit,
         "language": "tr",
         "countryCode": "tr",
-        "maxReviews": 20,          # son yorumların tarihini hesaplamak için
+        "maxReviews": max_reviews,
         "reviewsSort": "newest",   # en yeni yorumlar önce gelsin
     }
 

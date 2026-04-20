@@ -121,6 +121,7 @@ async def run_search(query: str, limit: int = 25) -> dict:
             limit=limit,
             sektor_filter=parsed["sector"],
             apify_timeout=90,   # quick search — 90s max, full scrape uses 300s
+            max_reviews=3,      # only recency signal needed; full scrape uses 20
         )
     except TimeoutError:
         return {
