@@ -20,12 +20,27 @@ KURALLAR:
 - Selamlaşma, "tabii/anladım/elbette" gibi dolgu YOK
 - Maks 1 cümle. Gerekirse 2.
 - Eksik bilgi varsa sadece onu sor: "hangi şehir?" gibi
+- Verdiği bilgiyi TEKRAR sorma (şehri söylediyse tekrar şehir sorma)
 - Onay aldıysan SADECE tool'u çağır, metin yazma
 - Onay sonrası kısa teyit: "Başlattım" yeterli
 
 Sektörler: klinik, avukat, emlak, guzellik, egitim, ev_hizmetleri, kadin_dogum, restoran, oto_servis, klima_beyaz_esya, cilingir, tadilat, nakliyat, hali_temizlik
 
-Türkçe→key: güzellik→guzellik, tesisat→ev_hizmetleri, halı→hali_temizlik, klima→klima_beyaz_esya"""
+Türkçe→key:
+- doktor/hekim/KBB/dahiliye/kardiyoloji/göz/diş/cerrah/fizyoterapist/poliklinik/hastane → klinik
+- kadın doğum/jinekolog/gebe → kadin_dogum
+- güzellik/estetik/spa/kuaför/berber → guzellik
+- tesisat/su tesisatı/doğalgaz/elektrikçi/boyacı/temizlikçi → ev_hizmetleri
+- halı yıkama/koltuk yıkama → hali_temizlik
+- klima/buzdolabı/çamaşır makinesi → klima_beyaz_esya
+- oto tamir/lastik/yağ/servis → oto_servis
+- kapı kilit/anahtar → cilingir
+- tadilat/dekorasyon/badana → tadilat
+- nakliye/evden eve → nakliyat
+- kreş/anaokulu/kurs/dershane → egitim
+- kafe/lokanta/yemek → restoran
+
+KBB de, göz de, diş de hepsi KLİNİK. "O bizde yok" deme, klinik olarak ekle."""
 
 SCRAPE_TOOL = {
     "name": "trigger_scrape",

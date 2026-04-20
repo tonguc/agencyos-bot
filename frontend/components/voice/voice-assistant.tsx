@@ -184,7 +184,11 @@ export function VoiceAssistant() {
 
       historyRef.current = [...historyRef.current, { role: "assistant", content: data.reply }].slice(-6);
       setCaption(data.reply);
-      if (data.action) setAction(data.action);
+      if (data.action) {
+        setAction(data.action);
+        // Auto-navigate to jobs page when a scrape is triggered
+        router.push("/jobs");
+      }
       setStatus("speaking");
       playReply(data.reply, () => goIdleOrRestart());
     } catch (e) {
@@ -193,7 +197,7 @@ export function VoiceAssistant() {
     } finally {
       if (abortRef.current === abort) abortRef.current = null;
     }
-  }, [playReply]);
+  }, [playReply, router, goIdleOrRestart]);
 
   // ── VAD (silence detection) ───────────────────────────────────────────
 
@@ -322,12 +326,18 @@ export function VoiceAssistant() {
     status === "speaking"  ? "#34d39955" :
     status === "thinking"  ? "#38bdf855" : "#1c2742";
 
+  const statusLabel =
+    status === "listening" ? "Dinliyor" :
+    status === "thinking"  ? "Düşünüyor" :
+    status === "speaking"  ? "Konuşuyor" :
+    active ? "Hazır" : "Asistan";
+
   return (
-    <div className="fixed top-4 right-4 z-50 flex flex-col items-end gap-2">
+    <div className="fixed bottom-6 right-6 md:bottom-8 md:right-8 z-50 flex flex-col items-end gap-3 pb-16 md:pb-0">
 
       {/* OpenAI not configured warning */}
       {openaiReady === false && (
-        <div className="max-w-xs border px-3 py-2 flex items-start gap-2" style={{ background: "#0a0f1e", borderColor: "#f59e0b55" }}>
+        <div className="max-w-xs border px-3 py-2 flex items-start gap-2 rounded-lg" style={{ background: "#0a0f1e", borderColor: "#f59e0b55" }}>
           <AlertCircle className="h-4 w-4 text-warm shrink-0 mt-0.5" />
           <div>
             <p className="font-mono text-[11px] text-warm tracking-wide">Native Türkçe ses için</p>
@@ -338,47 +348,55 @@ export function VoiceAssistant() {
 
       {/* No Turkish browser voice warning */}
       {noTurkishVoice && !openaiReady && (
-        <div className="max-w-xs border px-3 py-2" style={{ background: "#0a0f1e", borderColor: "#f43f5e44" }}>
+        <div className="max-w-xs border px-3 py-2 rounded-lg" style={{ background: "#0a0f1e", borderColor: "#f43f5e44" }}>
           <p className="font-mono text-[11px] text-hot">Sistemde Türkçe ses yok, İngilizce aksanla okunuyor</p>
         </div>
       )}
 
-      {/* Caption / action */}
-      {(caption || action) && (
-        <div className="max-w-xs border px-3 py-2.5" style={{ background: "#0a0f1e", borderColor: action ? "#38bdf8" : "#1c2742" }}>
-          {action ? (
-            <div>
-              <p className="font-mono text-[11px] text-accent tracking-wider uppercase mb-1">Tarama Başlatıldı</p>
-              <p className="font-mono text-[13px] text-bright">
-                {SECTOR_LABELS[action.sector] ?? action.sector} · {action.city}
-                {action.district ? ` / ${action.district}` : ""}
-              </p>
-              {caption && <p className="font-mono text-[12px] text-muted mt-0.5">{caption}</p>}
-              <button type="button" onClick={() => { setAction(null); setCaption(""); router.push("/jobs"); }}
-                className="mt-2 font-mono text-[11px] uppercase tracking-wider px-2 py-1 border border-accent/40 text-accent hover:bg-accent/10 transition-all">
-                Görevlere Git →
-              </button>
-            </div>
-          ) : (
-            <p className="font-mono text-[13px] leading-relaxed" style={{ color: "#94a3b8" }}>{caption}</p>
-          )}
+      {/* Scrape action card — auto-navigates to /jobs */}
+      {action && (
+        <div className="max-w-xs border px-3 py-2.5 rounded-lg" style={{ background: "#0a0f1e", borderColor: "#38bdf8" }}>
+          <p className="font-mono text-[11px] text-accent tracking-wider uppercase mb-1">Tarama Başlatıldı</p>
+          <p className="font-mono text-[13px] text-bright">
+            {SECTOR_LABELS[action.sector] ?? action.sector} · {action.city}
+            {action.district ? ` / ${action.district}` : ""}
+          </p>
         </div>
       )}
 
-      {/* Mic button */}
+      {/* Status label (only when active, above orb) */}
+      {active && (
+        <span className="font-mono text-[10px] tracking-[0.2em] uppercase px-2 py-0.5 rounded" style={{ color: micColor, background: `${micColor}10` }}>
+          {statusLabel}
+        </span>
+      )}
+
+      {/* Orb button */}
       <button type="button" onClick={handleMicClick}
-        className="flex items-center gap-2 border px-3 py-2 transition-all"
-        style={{ background: active ? `${micColor}12` : "transparent", borderColor: micBorder }}
+        className="relative flex items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-full transition-all duration-300 group"
+        style={{
+          background: active
+            ? `radial-gradient(circle, ${micColor}40 0%, ${micColor}15 50%, #0a0f1e 100%)`
+            : "radial-gradient(circle, #1c2742 0%, #0a0f1e 70%)",
+          boxShadow: active
+            ? `0 0 24px ${micColor}55, 0 0 48px ${micColor}25, inset 0 0 16px ${micColor}20`
+            : "0 4px 12px rgba(0,0,0,0.4)",
+          border: `1px solid ${active ? micColor : "#1c2742"}`,
+        }}
         title={active ? "Sohbeti sonlandır" : "Sohbeti başlat"}
+        aria-label={active ? "Sohbeti sonlandır" : "Sohbeti başlat"}
       >
-        {status === "speaking" ? <Volume2 className="h-4 w-4 shrink-0" style={{ color: micColor }} /> :
-         status === "listening" ? <MicOff className="h-4 w-4 shrink-0" style={{ color: micColor }} /> :
-         status === "thinking"  ? <Zap className="h-4 w-4 shrink-0 animate-pulse" style={{ color: micColor }} /> :
-         <Mic className="h-4 w-4 shrink-0" style={{ color: micColor }} />}
-        <span className="font-mono text-[11px] tracking-[0.2em] uppercase whitespace-nowrap" style={{ color: micColor }}>
-          {status === "listening" ? "Dinliyor" :
-           status === "thinking"  ? "Düşünüyor" :
-           status === "speaking"  ? "Konuşuyor" : "Asistan"}
+        {/* Pulse ring when listening/speaking */}
+        {(status === "listening" || status === "speaking") && (
+          <span className="absolute inset-0 rounded-full animate-ping" style={{ background: `${micColor}30` }} />
+        )}
+
+        {/* Icon */}
+        <span className="relative z-10">
+          {status === "speaking" ? <Volume2 className="h-5 w-5 md:h-6 md:w-6" style={{ color: micColor }} /> :
+           status === "thinking"  ? <Zap className="h-5 w-5 md:h-6 md:w-6 animate-pulse" style={{ color: micColor }} /> :
+           status === "listening" ? <MicOff className="h-5 w-5 md:h-6 md:w-6" style={{ color: micColor }} /> :
+           <Mic className="h-5 w-5 md:h-6 md:w-6" style={{ color: micColor }} />}
         </span>
       </button>
     </div>
