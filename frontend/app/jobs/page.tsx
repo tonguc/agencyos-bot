@@ -219,7 +219,7 @@ export default function OpportunitiesPage() {
                       <tr key={job.id} className="hover:bg-panel-high transition-colors">
                         <td className="px-4 py-3.5">
                           <span className="font-medium text-bright text-sm">
-                            {query || SECTOR_LABELS[sector ?? ""] ?? sector ?? "—"}
+                            {query || (SECTOR_LABELS[sector ?? ""] ?? sector ?? "—")}
                           </span>
                           <p className="font-mono text-[12px] text-dim mt-0.5">
                             {formatDateTime(job.started_at ?? job.created_at)}
