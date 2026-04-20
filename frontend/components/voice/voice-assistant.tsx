@@ -49,10 +49,9 @@ function getBestMimeType(): string {
 function pickTurkishVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
   const tr = voices.filter((v) => v.lang.toLowerCase().startsWith("tr"));
   if (tr.length === 0) return null;
-  // Preference order: Google > Microsoft (Emel/Tolga) > remote (network) > local
   const preferred = [
     (v: SpeechSynthesisVoice) => /google/i.test(v.name),
-    (v: SpeechSynthesisVoice) => /emel|tolga|microsoft/i.test(v.name),
+    (v: SpeechSynthesisVoice) => /yelda|emel|tolga|microsoft/i.test(v.name),
     (v: SpeechSynthesisVoice) => !v.localService,
     () => true,
   ];
@@ -63,19 +62,71 @@ function pickTurkishVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice 
   return tr[0];
 }
 
-function browserSpeak(text: string, onEnd: () => void) {
-  if (typeof window === "undefined" || !window.speechSynthesis) { onEnd(); return; }
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = "tr-TR"; u.rate = 1.0; u.pitch = 1.0;
-  const trySpeak = () => {
-    const tr = pickTurkishVoice(window.speechSynthesis.getVoices());
-    if (tr) u.voice = tr;
-    u.onend = onEnd; u.onerror = onEnd;
-    window.speechSynthesis.speak(u);
-  };
-  if (window.speechSynthesis.getVoices().length > 0) trySpeak();
-  else { window.speechSynthesis.onvoiceschanged = trySpeak; }
+// Chrome bug workaround: speechSynthesis freezes after ~15s
+// Keep it alive by pausing/resuming every 10s while speaking
+let keepAliveTimer: ReturnType<typeof setInterval> | null = null;
+function startKeepAlive() {
+  if (keepAliveTimer) return;
+  keepAliveTimer = setInterval(() => {
+    if (window.speechSynthesis?.speaking) {
+      window.speechSynthesis.pause();
+      window.speechSynthesis.resume();
+    }
+  }, 10000);
+}
+function stopKeepAlive() {
+  if (keepAliveTimer) { clearInterval(keepAliveTimer); keepAliveTimer = null; }
+}
+
+interface BrowserSpeakResult {
+  ok: boolean;
+  usedFallbackLang: boolean; // true if no Turkish voice found
+}
+
+function browserSpeak(text: string, onEnd: () => void): Promise<BrowserSpeakResult> {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined" || !window.speechSynthesis) {
+      onEnd();
+      resolve({ ok: false, usedFallbackLang: false });
+      return;
+    }
+
+    // Full reset — fixes "second question no sound" Chrome bug
+    window.speechSynthesis.cancel();
+    stopKeepAlive();
+
+    const doSpeak = () => {
+      const tr = pickTurkishVoice(window.speechSynthesis.getVoices());
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "tr-TR";
+      u.rate = 1.0;
+      u.pitch = 1.0;
+      if (tr) u.voice = tr;
+
+      const finish = () => {
+        stopKeepAlive();
+        onEnd();
+      };
+      u.onend = finish;
+      u.onerror = finish;
+
+      // Small delay before speaking — lets Chrome fully reset after cancel()
+      setTimeout(() => {
+        window.speechSynthesis.speak(u);
+        startKeepAlive();
+        resolve({ ok: true, usedFallbackLang: !tr });
+      }, 80);
+    };
+
+    if (window.speechSynthesis.getVoices().length > 0) {
+      doSpeak();
+    } else {
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.onvoiceschanged = null;
+        doSpeak();
+      };
+    }
+  });
 }
 
 // Browser STT fallback (Chrome/Edge only)
@@ -114,6 +165,7 @@ export function VoiceAssistant() {
   const stopAudio = useCallback(() => {
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
     window.speechSynthesis?.cancel();
+    stopKeepAlive();
   }, []);
 
   const interrupt = useCallback(() => {
@@ -123,18 +175,25 @@ export function VoiceAssistant() {
     if (browserRecogRef.current) { browserRecogRef.current.abort(); browserRecogRef.current = null; }
   }, [stopAudio]);
 
-  // Play reply: try OpenAI TTS, fall back to browser
+  // Play reply: try OpenAI TTS (native Turkish), fall back to browser
   const playReply = useCallback((text: string, onEnd: () => void) => {
+    const tryBrowser = () => {
+      browserSpeak(text, onEnd).then((r) => {
+        if (r.ok && r.usedFallbackLang) {
+          setErrMsg("Türkçe ses yok — OPENAI_API_KEY ekle (native ses için)");
+        }
+      });
+    };
     voiceApi.speak(text).then((audio) => {
       if (audio) {
         audioRef.current = audio;
         audio.onended = onEnd;
-        audio.onerror = () => { browserSpeak(text, onEnd); };
-        audio.play().catch(() => { browserSpeak(text, onEnd); });
+        audio.onerror = tryBrowser;
+        audio.play().catch(tryBrowser);
       } else {
-        browserSpeak(text, onEnd);
+        tryBrowser();
       }
-    }).catch(() => browserSpeak(text, onEnd));
+    }).catch(tryBrowser);
   }, []);
 
   const handleTranscribed = useCallback(async (text: string) => {
