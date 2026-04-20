@@ -128,7 +128,7 @@ def calc_opportunity(lead: dict, audit: dict) -> tuple[int, list[str]]:
     if 3.8 <= puan <= 4.2:
         add(10, f"Puan orta ({puan})")
     elif 0 < puan < 3.8:
-        add(6, f"Puan düşük ({puan})")
+        add(14, f"Puan düşük ({puan})")  # düşük puan = itibar yönetimi fırsatı
     elif puan > 4.6:
         add(-10, f"Puan yüksek ({puan})")
 
@@ -519,7 +519,7 @@ def route_decision(
     if len(contradictions) >= 2 and confidence < 0.65:
         return "REVIEW", "manual_review", contradictions[0]
 
-    if final >= 80 and confidence >= 0.60 and intent >= 45 and not contradictions:
+    if final >= 80 and confidence >= 0.50 and intent >= 45 and not contradictions:
         return "HOT", "generate_full_audit", "Güçlü fırsat — tam audit"
 
     if final >= 80:

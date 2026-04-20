@@ -93,18 +93,13 @@ export function ResultCard({ lead, selected, onSelect, sector, city, district }:
             </p>
           </div>
           <div className="flex flex-col items-end shrink-0">
-            {lead.score !== null ? (
-              <span className="text-xl font-mono font-bold" style={{ color: c.color }}>
-                {lead.score}
-              </span>
-            ) : (
-              <span className="text-xs text-dim">—</span>
-            )}
             <span
-              className="text-[11px] font-mono font-medium uppercase tracking-[0.2em] mt-0.5"
+              className="text-[11px] font-mono font-medium uppercase tracking-[0.2em]"
               style={{ color: c.color }}
             >
-              {SEGMENT_LABELS[lead.segment]}
+              {lead.lead_id || lead.segment === "low"
+                ? SEGMENT_LABELS[lead.segment]
+                : "Ön Analiz"}
             </span>
             {saving && (
               <span className="text-[8px] font-mono text-accent mt-1 animate-pulse">kaydediliyor…</span>
@@ -144,10 +139,10 @@ export function ResultCard({ lead, selected, onSelect, sector, city, district }:
 
         {selected && (
           <div className="mt-3 pt-3 border-t border-stroke space-y-3">
-            {lead.segment === "review" && (
+            {!lead.lead_id && lead.segment !== "low" && (
               <div className="border border-review/40 bg-review/5 px-2.5 py-1.5 text-[11px] font-mono text-review">
-                Ön skor — hızlı aramada yalnız Maps sinyalleri kullanıldı.
-                Kesin değerlendirme için kaydet ve <span className="font-bold">Yeni Tarama</span> çalıştır.
+                Ön analiz — hızlı aramada yalnız Maps sinyalleri kullanıldı.
+                Kesin değerlendirme için <span className="font-bold">Yeni Tarama</span> çalıştır.
               </div>
             )}
             {/* Action buttons */}

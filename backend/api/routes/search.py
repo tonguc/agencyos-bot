@@ -18,7 +18,7 @@ router = APIRouter(tags=["search"])
 _PRIORITY_TO_SEGMENT = {
     "yuksek": "hot",
     "orta":   "warm",
-    "dusuk":  "low",
+    "dusuk":  "review",  # DB leads are never "Elendi" — they passed the collection pipeline
 }
 
 
@@ -47,7 +47,7 @@ async def _enrich_lead_ids(results: list[dict], db: AsyncSession) -> None:
             r["lead_id"] = None
             continue
         r["lead_id"] = db_entry["id"]
-        if db_entry["status"] != "Yeni" and db_entry["opportunity_score"] is not None:
+        if db_entry["opportunity_score"] is not None:
             r["score"]    = db_entry["opportunity_score"]
             r["priority"] = db_entry["priority"]
             r["segment"]  = _PRIORITY_TO_SEGMENT.get(db_entry["priority"] or "", r["segment"])
