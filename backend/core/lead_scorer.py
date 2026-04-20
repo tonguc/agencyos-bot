@@ -421,18 +421,32 @@ def calc_pattern_multiplier(lead: dict, audit: dict, playbook: dict) -> tuple[fl
 # --------------------------------------------------
 
 def calc_confidence(lead: dict, audit: dict) -> float:
-    """Veri bütünlüğü. Routing kararını etkiler, skoru etkilemez."""
-    CORE = ["yorum_sayisi", "puan", "website", "son_yorum_gun", "telefon"]
-    ENRICH = [
+    """Veri bütünlüğü. Routing kararını etkiler, skoru etkilemez.
+
+    Website yoksa o field'a bağımlı sinyaller paydadan düşülür —
+    yokluğu zaten fırsat sinyali; confidence penalty olmamalı.
+    """
+    has_website = bool(lead.get("website"))
+
+    # website artık CORE'da değil: site_durumu/URL'nin yokluğu negatif sinyal
+    # değil, satış fırsatı. Yokluğunu iki kez cezalandırmayız.
+    CORE = ["yorum_sayisi", "puan", "son_yorum_gun", "telefon"]
+
+    # has_cta / has_online_booking sadece site olunca anlamlı.
+    SITE_ONLY_ENRICH = {"has_cta", "has_online_booking"}
+    ALL_ENRICH = [
         "instagram_post_90d", "review_last_30d", "has_cta",
         "has_online_booking", "has_whatsapp",
         "gmb_photo_count", "competitor_ads_count",
         "in_organic_top10",
     ]
-    AUDIT_F = ["genel_skor", "pagespeed", "ssl"]
+    ENRICH = [f for f in ALL_ENRICH if has_website or f not in SITE_ONLY_ENRICH]
 
-    c = sum(1 for f in CORE if lead.get(f) is not None) / len(CORE)
-    e = sum(1 for f in ENRICH if lead.get(f) is not None) / len(ENRICH)
+    # pagespeed sadece site olunca anlamlı.
+    AUDIT_F = ["genel_skor", "ssl"] + (["pagespeed"] if has_website else [])
+
+    c = sum(1 for f in CORE   if lead.get(f)  is not None) / len(CORE)
+    e = sum(1 for f in ENRICH if lead.get(f)  is not None) / len(ENRICH)
     a = sum(1 for f in AUDIT_F if audit.get(f) is not None) / len(AUDIT_F)
 
     return round(0.40 * c + 0.40 * e + 0.20 * a, 2)
@@ -518,7 +532,10 @@ def route_decision(
     if final >= 60:
         return "WARM", "generate_light_audit", "Orta fırsat — hafif audit"
 
-    return "LOW", "archive_only", "Yeterli sinyal yok"
+    # LOW kaldırıldı. Scorer "Elendi" üretmez; bu karar ICP/hard_filter'a ait.
+    # final < 60 ama hard_filter geçmişse → veri eksik veya sinyaller zayıf →
+    # "Ön Skor" göster, kullanıcı audit başlatarak gerçek değerlendirsin.
+    return "REVIEW", "manual_review", f"Sinyal zayıf — audit ile doğrula (final={final:.0f})"
 
 
 # --------------------------------------------------

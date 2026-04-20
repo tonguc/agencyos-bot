@@ -84,7 +84,21 @@ Sadece valid JSON don.
 """
 
 
-DATA_HOOK_PROMPT = (
+AUDIT_PROMPT_SITE_YOK_UYARI = """
+===========================
+KRITIK: BU LEAD'IN WEB SITESI YOK
+===========================
+- "SSL yok", "title yok", "meta yok", "H1 yok" gibi maddeler KESINLIKLE YAZMA.
+  Bunlar site olmadan zaten var olmaz — listelemek analiz kalitesini dusurur.
+- Bunun yerine tek odak: site yoklugunun PAZARLAMA ETKISI.
+  Ornek yaklasim: "Mahalledeki hasta 'Buyukcekmece uzman doktor' arayinca sizi goremiyor —
+  randevu almadan rakibe gidiyor."
+- killer_insight.bulgu: site yoklugunun kacirdigi hasta/musteri sayisini ya da
+  rakibin one gecmesini rakamla anlat. Teknik listeyi degil, somut kaybi yaz.
+- ux_hatalar, seo_aciklar, donusum_engelleri: hepsi site yoklugu uzerinden kurgulanmali;
+  teknik eksikler degil, "siteniz olmadigi icin musteri ne goruyor / ne hissediyor"
+  perspektifinden yaz.
+"""
     "Hook sablon: {sablon}\n"
     "Bilgiler: ilce={ilce}, sektor={sektor}, rakip_durumu=aktif, aciklama={rakip_aciklama}.\n"
     "2 cumlede sablonu doldur. Rakam kullan (ornek: '3 rakip ads yapiyor'). "
@@ -160,7 +174,19 @@ FOLLOWUP_PROMPT_LAST = (
 
 def build_audit_prompt(lead: dict, playbook: dict, site: dict) -> str:
     dil = playbook.get("audit_dil_kurallari", {})
-    return AUDIT_PROMPT.format(
+    url = site.get("url") or "(yok)"
+    site_yok = url == "(yok)"
+    # Site yoksa teknik alt-eksiklikleri (SSL/title/meta/H1) ayrı maddeler gibi
+    # sıralamaması için ek kural bloğu inject edilir.
+    extra_rule = AUDIT_PROMPT_SITE_YOK_UYARI if site_yok else ""
+    base = AUDIT_PROMPT
+    if extra_rule:
+        # "LEAD VERİSİ" bloğundan önce inject et
+        base = base.replace(
+            "===========================\nLEAD VERISI",
+            extra_rule + "\n===========================\nLEAD VERISI",
+        )
+    return base.format(
         display_name=playbook["display_name"],
         yasak_kelimeler=dil.get("yasak", []),
         killer_ornekleri="\n".join(f"- {x}" for x in playbook.get("killer_insight_ornekleri", [])),
@@ -168,7 +194,7 @@ def build_audit_prompt(lead: dict, playbook: dict, site: dict) -> str:
         adres=lead.get("adres") or "",
         yorum_sayisi=lead.get("yorum_sayisi", 0),
         puan=lead.get("puan", 0),
-        url=site.get("url") or "(yok)",
+        url=url,
         hiz_skoru=site.get("hiz_skoru", 0),
         form_var=site.get("form_var", False),
         tel_var=site.get("tel_var", False),
