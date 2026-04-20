@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Stethoscope, Scale, Home, Sparkles, GraduationCap, Wrench, Baby, Utensils,
@@ -8,7 +8,8 @@ import {
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { scrapeApi } from "@/lib/api";
+import { scrapeApi, jobsApi } from "@/lib/api";
+import type { Job } from "@/types";
 
 const CITIES: Record<string, string[]> = {
   "Adana":           ["Ceyhan","Çukurova","Karaisalı","Karataş","Kozan","Sarıçam","Seyhan","Yüreğir"],
@@ -188,8 +189,31 @@ export default function ScrapePage() {
   const [limit, setLimit] = useState(20);
   const [customLimit, setCustomLimit] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ job_id: string } | null>(null);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [jobStatus, setJobStatus] = useState<Job | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+  }, []);
+
+  useEffect(() => {
+    if (!jobId) return;
+    pollRef.current = setInterval(async () => {
+      try {
+        const job = await jobsApi.get(jobId);
+        setJobStatus(job);
+        if (job.status === "completed" || job.status === "failed") {
+          stopPolling();
+          if (job.status === "completed") {
+            setTimeout(() => router.push("/jobs"), 2500);
+          }
+        }
+      } catch { stopPolling(); }
+    }, 3000);
+    return stopPolling;
+  }, [jobId, stopPolling, router]);
 
   const cities = Object.keys(CITIES).sort((a, b) => a.localeCompare(b, "tr"));
   const districts = city ? (CITIES[city] ?? []) : [];
@@ -215,10 +239,12 @@ export default function ScrapePage() {
     if (!sector || !city) return;
     setLoading(true);
     setError(null);
-    setResult(null);
+    setJobId(null);
+    setJobStatus(null);
+    stopPolling();
     try {
       const res = await scrapeApi.run(sector, city, district, limit);
-      setResult({ job_id: res.job_id });
+      setJobId(res.job_id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Hata oluştu");
     } finally {
@@ -341,16 +367,42 @@ export default function ScrapePage() {
           </Button>
         </form>
 
-        {result && (
-          <div className="mt-4 max-w-4xl border border-ok/40 bg-ok/5 px-4 py-3 flex items-center justify-between gap-4">
+        {jobId && (
+          <div className={`mt-4 max-w-4xl px-4 py-3 flex items-center justify-between gap-4 border transition-all ${
+            jobStatus?.status === "completed"
+              ? "border-ok/40 bg-ok/5"
+              : jobStatus?.status === "failed"
+              ? "border-hot/40 bg-hot/5"
+              : "border-accent/30 bg-accent/5"
+          }`}>
             <div>
-              <p className="font-mono text-[13px] text-ok font-semibold">Tarama başlatıldı</p>
-              <p className="font-mono text-[12px] text-ok/70 mt-0.5">Lead'ler arka planda toplanıyor. Fırsatlar sayfasından takip edebilirsin.</p>
+              {!jobStatus || jobStatus.status === "pending" || jobStatus.status === "running" ? (
+                <>
+                  <p className="font-mono text-[13px] text-accent font-semibold flex items-center gap-2">
+                    <span className="inline-block w-2 h-2 rounded-full bg-accent animate-pulse" />
+                    Tarama devam ediyor…
+                  </p>
+                  <p className="font-mono text-[12px] text-accent/60 mt-0.5">
+                    {jobStatus?.progress_message || "Lead'ler toplanıyor, bu 1-2 dakika sürebilir."}
+                  </p>
+                </>
+              ) : jobStatus.status === "completed" ? (
+                <>
+                  <p className="font-mono text-[13px] text-ok font-semibold">
+                    Tarama tamamlandı — {(jobStatus.result as { saved?: number })?.saved ?? 0} lead kaydedildi
+                  </p>
+                  <p className="font-mono text-[12px] text-ok/60 mt-0.5">Fırsatlar sayfasına yönlendiriliyorsun…</p>
+                </>
+              ) : (
+                <p className="font-mono text-[13px] text-hot font-semibold">
+                  Tarama başarısız: {jobStatus.error_message || "Bilinmeyen hata"}
+                </p>
+              )}
             </div>
             <button
               type="button"
               onClick={() => router.push("/jobs")}
-              className="font-mono text-[11px] uppercase tracking-wider px-4 py-1.5 border border-ok/50 text-ok hover:bg-ok/10 transition-all whitespace-nowrap shrink-0"
+              className="font-mono text-[11px] uppercase tracking-wider px-4 py-1.5 border border-accent/40 text-accent hover:bg-accent/10 transition-all whitespace-nowrap shrink-0"
             >
               Fırsatlara Git →
             </button>

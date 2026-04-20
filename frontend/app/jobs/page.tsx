@@ -116,7 +116,8 @@ export default function OpportunitiesPage() {
     }
   }
 
-  const scrapeJobs = jobs?.filter((j) => j.type === "collect_leads") ?? [];
+  const scrapeJobs = (jobs?.filter((j) => j.type === "collect_leads") ?? [])
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   return (
     <div className="flex flex-col flex-1">
