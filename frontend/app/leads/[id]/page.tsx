@@ -110,20 +110,55 @@ export default async function LeadDetailPage({ params }: Props) {
               </div>
             )}
             <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
-              {([
-                ["Telefon", lead.phone],
-                ["Adres", lead.address],
-                ["Google Puan", lead.google_rating ? `${lead.google_rating} ⭐ (${lead.review_count} yorum)` : null],
-                ["Fırsat Skoru", lead.opportunity_score],
-                ["Öncelik", lead.priority],
-                ["Eklenme", formatDateTime(lead.created_at)],
-                ["Güncelleme", formatDateTime(lead.updated_at)],
-              ] as [string, React.ReactNode][]).map(([k, v]) => v != null && (
-                <div key={String(k)}>
-                  <dt className="font-mono text-[11px] text-dim uppercase tracking-[0.2em]">{k}</dt>
-                  <dd className="font-medium text-bright text-sm mt-1">{v}</dd>
+              {lead.phone && (
+                <div>
+                  <dt className="font-mono text-[11px] text-dim uppercase tracking-[0.2em]">Telefon</dt>
+                  <dd className="font-medium text-bright text-sm mt-1">{lead.phone}</dd>
                 </div>
-              ))}
+              )}
+              {lead.address && (
+                <div className="col-span-2">
+                  <dt className="font-mono text-[11px] text-dim uppercase tracking-[0.2em]">Adres</dt>
+                  <dd className="font-medium text-bright text-sm mt-1">{lead.address}</dd>
+                </div>
+              )}
+              {lead.google_rating != null && (
+                <div>
+                  <dt className="font-mono text-[11px] text-dim uppercase tracking-[0.2em]">Google Puan</dt>
+                  <dd className="font-medium text-bright text-sm mt-1">
+                    {lead.google_rating} ⭐ ({lead.review_count} yorum)
+                  </dd>
+                </div>
+              )}
+              {lead.opportunity_score != null && (
+                <div>
+                  <dt className="font-mono text-[11px] text-dim uppercase tracking-[0.2em]">Fırsat Skoru</dt>
+                  <dd className={`font-mono font-bold text-lg mt-1 ${
+                    lead.opportunity_score >= 65 ? "text-hot" :
+                    lead.opportunity_score >= 45 ? "text-warm" : "text-dim"
+                  }`}>{lead.opportunity_score}</dd>
+                </div>
+              )}
+              {lead.priority && (
+                <div>
+                  <dt className="font-mono text-[11px] text-dim uppercase tracking-[0.2em]">Öncelik</dt>
+                  <dd className={`font-mono font-semibold text-sm mt-1 uppercase tracking-wider ${
+                    lead.priority === "yuksek" ? "text-hot" :
+                    lead.priority === "orta"   ? "text-warm" : "text-dim"
+                  }`}>
+                    {lead.priority === "yuksek" ? "Yüksek" :
+                     lead.priority === "orta"   ? "Orta"   : "Düşük"}
+                  </dd>
+                </div>
+              )}
+              <div>
+                <dt className="font-mono text-[11px] text-dim uppercase tracking-[0.2em]">Eklenme</dt>
+                <dd className="font-medium text-bright text-sm mt-1">{formatDateTime(lead.created_at)}</dd>
+              </div>
+              <div>
+                <dt className="font-mono text-[11px] text-dim uppercase tracking-[0.2em]">Güncelleme</dt>
+                <dd className="font-medium text-bright text-sm mt-1">{formatDateTime(lead.updated_at)}</dd>
+              </div>
             </dl>
           </CardContent>
         </Card>
