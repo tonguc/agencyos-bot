@@ -185,8 +185,8 @@ async def voice_chat(
     try:
         response = await client.messages.create(
             model=settings.CLAUDE_MODEL,
-            max_tokens=120,
-            temperature=0.5,
+            max_tokens=400,
+            temperature=0.4,
             system=_CACHED_SYSTEM,  # type: ignore[arg-type]
             tools=_CACHED_TOOLS,  # type: ignore[arg-type]
             messages=messages,
