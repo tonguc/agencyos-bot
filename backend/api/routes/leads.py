@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -43,8 +44,12 @@ async def create_lead(body: LeadCreate, db: AsyncSession = Depends(get_db)):
 
 @router.get("/pipeline", response_model=PipelineOut)
 async def pipeline_counts(db: AsyncSession = Depends(get_db)):
-    counts = await LeadRepository(db).pipeline_counts()
-    return PipelineOut(counts=counts)
+    repo = LeadRepository(db)
+    counts, score_tiers = await asyncio.gather(
+        repo.pipeline_counts(),
+        repo.score_distribution(),
+    )
+    return PipelineOut(counts=counts, score_tiers=score_tiers)
 
 
 @router.get("/{lead_id}", response_model=LeadOut)

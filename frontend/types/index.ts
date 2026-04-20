@@ -25,6 +25,7 @@ export interface LeadListResponse {
 
 export interface PipelineCounts {
   counts: Record<string, number>;
+  score_tiers: Record<string, number>;
 }
 
 export interface Audit {

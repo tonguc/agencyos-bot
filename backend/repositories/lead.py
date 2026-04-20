@@ -47,6 +47,19 @@ class LeadRepository(BaseRepository[Lead]):
         counts = {row[0]: row[1] for row in result.all()}
         return {s: counts.get(s, 0) for s in PIPELINE_STATUSES}
 
+    async def score_distribution(self) -> dict[str, int]:
+        result = await self._session.execute(
+            select(
+                func.count(Lead.id).filter(Lead.opportunity_score >= 75).label("atesli"),
+                func.count(Lead.id).filter(
+                    Lead.opportunity_score >= 55, Lead.opportunity_score < 75
+                ).label("ilgili"),
+                func.count(Lead.id).filter(Lead.opportunity_score < 55).label("zayif"),
+            )
+        )
+        row = result.one()
+        return {"atesli": row[0], "ilgili": row[1], "zayif": row[2]}
+
     async def filter(
         self,
         *,

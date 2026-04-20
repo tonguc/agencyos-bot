@@ -57,6 +57,7 @@ class LeadListOut(BaseModel):
 
 class PipelineOut(BaseModel):
     counts: dict[str, int]
+    score_tiers: dict[str, int]
 
 
 class ScrapeRequest(BaseModel):

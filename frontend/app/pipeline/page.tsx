@@ -21,10 +21,11 @@ const STAGES: { name: string; color: string }[] = [
 
 export default function OzetPage() {
   const router = useRouter();
-  const [counts, setCounts]     = useState<Record<string, number> | null>(null);
-  const [hotLeads, setHotLeads] = useState<Lead[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  const [counts, setCounts]         = useState<Record<string, number> | null>(null);
+  const [scoreTiers, setScoreTiers] = useState<Record<string, number> | null>(null);
+  const [hotLeads, setHotLeads]     = useState<Lead[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [updatedAt, setUpdatedAt]   = useState<Date | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -33,6 +34,7 @@ export default function OzetPage() {
         leadsApi.list({ status: "Yeni", limit: 5 }),
       ]);
       setCounts(pipelineData.counts);
+      setScoreTiers(pipelineData.score_tiers);
       const hot = (leadsData.items ?? [])
         .filter((l) => (l.opportunity_score ?? 0) > 0)
         .sort((a, b) => (b.opportunity_score ?? 0) - (a.opportunity_score ?? 0))
@@ -113,6 +115,29 @@ export default function OzetPage() {
                 })}
               </div>
             </div>
+
+            {/* Score tiers */}
+            {scoreTiers && (
+              <div className="flex flex-wrap gap-px border border-stroke bg-stroke">
+                {[
+                  { key: "atesli", label: "Ateşli",  range: "≥75", color: "#ff3b4a" },
+                  { key: "ilgili", label: "İlgili",  range: "55–74", color: "#ffb648" },
+                  { key: "zayif",  label: "Zayıf",   range: "<55",  color: "#4a5876" },
+                ].map(({ key, label, range, color }) => (
+                  <div key={key} className="flex-1 min-w-[120px] bg-panel px-5 py-3 flex items-center gap-3">
+                    <span
+                      className="inline-block h-2 w-2 rounded-full shrink-0"
+                      style={{ background: color, boxShadow: `0 0 5px ${color}` }}
+                    />
+                    <span className="font-mono text-[12px] text-dim">{label}</span>
+                    <span className="font-mono text-[11px] text-dim opacity-50">{range}</span>
+                    <span className="font-mono font-bold text-[15px] ml-auto" style={{ color }}>
+                      {scoreTiers[key] ?? 0}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Hot leads */}
             <HotLeads initial={hotLeads} />
