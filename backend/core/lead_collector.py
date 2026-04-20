@@ -226,6 +226,12 @@ async def _run_apify(
         except requests.Timeout:
             logger.warning(f"Apify zaman aşımı ({apify_timeout}s) — {search_term} @ {location}")
             raise TimeoutError(f"Apify {apify_timeout}s içinde yanıt vermedi")
+        except requests.HTTPError as e:
+            status = e.response.status_code if e.response is not None else "?"
+            logger.error(f"Apify HTTP {status} — {search_term} @ {location}: {e}")
+            if status == 402:
+                raise RuntimeError("Apify kredisi tükendi — konsol.apify.com'dan bakiye yükle")
+            return []
         except requests.RequestException as e:
             logger.exception(f"Apify API çağrısı başarısız ({search_term} @ {location}): {e}")
             return []
