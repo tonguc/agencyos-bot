@@ -188,9 +188,6 @@ export function VoiceAssistant() {
       setCaption(data.reply);
       if (data.action) {
         setAction(data.action);
-        // End session so we don't loop back into listening after navigating away
-        activeRef.current = false;
-        setActive(false);
         router.push("/jobs");
       }
       setStatus("speaking");

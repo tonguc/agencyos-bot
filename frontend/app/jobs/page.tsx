@@ -116,6 +116,14 @@ export default function OpportunitiesPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Auto-refresh while any job is running
+  useEffect(() => {
+    const hasRunning = jobs?.some((j) => j.status === "running" || j.status === "pending");
+    if (!hasRunning) return;
+    const id = setInterval(load, 3000);
+    return () => clearInterval(id);
+  }, [jobs, load]);
+
   async function handleDelete(id: string) {
     setDeleting(id);
     try {
@@ -201,6 +209,7 @@ export default function OpportunitiesPage() {
                     const city     = job.payload?.city     as string | undefined;
                     const district = job.payload?.district as string | undefined;
                     const sector   = job.payload?.sector   as string | undefined;
+                    const query    = job.payload?.query    as string | undefined;
                     const saved    = (job.result?.saved    as number | undefined) ?? 0;
                     const avg      = job.result?.avg_score as number | undefined;
                     const priority = getPriority(avg);
@@ -210,7 +219,7 @@ export default function OpportunitiesPage() {
                       <tr key={job.id} className="hover:bg-panel-high transition-colors">
                         <td className="px-4 py-3.5">
                           <span className="font-medium text-bright text-sm">
-                            {SECTOR_LABELS[sector ?? ""] ?? sector ?? "—"}
+                            {query || SECTOR_LABELS[sector ?? ""] ?? sector ?? "—"}
                           </span>
                           <p className="font-mono text-[12px] text-dim mt-0.5">
                             {formatDateTime(job.started_at ?? job.created_at)}
