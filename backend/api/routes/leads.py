@@ -1,9 +1,11 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import delete as sql_delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
+from models.lead import Lead
 from repositories.lead import LeadRepository
 from schemas.lead import LeadCreate, LeadListOut, LeadOut, LeadUpdate, PipelineOut
 from services.lead_service import update_status
@@ -79,9 +81,8 @@ async def delete_leads_by_sector(
 
 @router.delete("/{lead_id}", status_code=204)
 async def delete_lead(lead_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    repo = LeadRepository(db)
-    lead = await repo.get(lead_id)
-    if not lead:
+    # Use SQL-level delete so SQLAlchemy doesn't attempt async lazy-load of
+    # relationships (audits, outreach, etc.) — DB ON DELETE CASCADE handles children.
+    result = await db.execute(sql_delete(Lead).where(Lead.id == lead_id))
+    if result.rowcount == 0:
         raise HTTPException(404, "Lead bulunamadi")
-    await repo.delete(lead)
-    await db.commit()

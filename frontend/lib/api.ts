@@ -69,21 +69,26 @@ export const leadsApi = {
       body: JSON.stringify(body),
     }),
 
-  delete: (id: string) =>
-    fetch(`${BASE}/api/leads/${id}`, {
-      method: "DELETE",
-      headers: { "X-API-Key": API_KEY },
-    }),
-
-  pipeline: () => request<PipelineCounts>("/api/leads/pipeline"),
-
-  deleteBySector: (sector: string, city?: string) => {
-    const q = new URLSearchParams({ sector });
-    if (city) q.set("city", city);
-    return fetch(`${BASE}/api/leads/bulk/sector?${q}`, {
+  delete: async (id: string) => {
+    const res = await fetch(`${BASE}/api/leads/${id}`, {
       method: "DELETE",
       headers: { "X-API-Key": API_KEY },
     });
+    if (!res.ok && res.status !== 404) {
+      throw new Error(`Delete failed: ${res.status}`);
+    }
+  },
+
+  pipeline: () => request<PipelineCounts>("/api/leads/pipeline"),
+
+  deleteBySector: async (sector: string, city?: string) => {
+    const q = new URLSearchParams({ sector });
+    if (city) q.set("city", city);
+    const res = await fetch(`${BASE}/api/leads/bulk/sector?${q}`, {
+      method: "DELETE",
+      headers: { "X-API-Key": API_KEY },
+    });
+    if (!res.ok) throw new Error(`Bulk delete failed: ${res.status}`);
   },
 };
 

@@ -48,6 +48,12 @@ export default function OzetPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Auto-refresh every 30s so counts stay current without manual click
+  useEffect(() => {
+    const id = setInterval(load, 30_000);
+    return () => clearInterval(id);
+  }, [load]);
+
   const total = counts ? Object.values(counts).reduce((s, n) => s + n, 0) : 0;
   const timeStr = updatedAt
     ? updatedAt.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
