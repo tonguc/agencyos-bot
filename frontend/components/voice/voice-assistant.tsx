@@ -167,7 +167,7 @@ export function VoiceAssistant() {
 
   const goIdleOrRestart = useCallback(() => {
     setStatus("idle");
-    if (activeRef.current) setTimeout(() => { if (activeRef.current) startListeningRef.current?.(); }, 250);
+    if (activeRef.current) setTimeout(() => { if (activeRef.current) startListeningRef.current?.(); }, 120);
   }, []);
 
   const handleTranscribed = useCallback(async (text: string) => {
@@ -219,7 +219,7 @@ export function VoiceAssistant() {
       const buf = new Float32Array(analyser.frequencyBinCount);
       let silenceStart: number | null = null;
       const SILENCE_THRESHOLD = 0.015;
-      const SILENCE_DURATION = 1200;
+      const SILENCE_DURATION = 700;
 
       const check = () => {
         if (!audioCtxRef.current) return;
@@ -380,18 +380,13 @@ export function VoiceAssistant() {
             : `radial-gradient(circle, #38bdf820 0%, #1c2742 70%)`,
           boxShadow: active
             ? `0 0 24px ${micColor}55, 0 0 48px ${micColor}25, inset 0 0 16px ${micColor}20`
-            : `0 0 16px #38bdf830, 0 4px 12px rgba(0,0,0,0.4)`,
-          border: `1px solid ${active ? micColor : "#38bdf866"}`,
+            : `0 0 12px #38bdf825, 0 4px 12px rgba(0,0,0,0.4)`,
+          border: `1px solid ${active ? micColor : "#38bdf855"}`,
         }}
         title={active ? "Sohbeti sonlandır" : "Sohbeti başlat"}
         aria-label={active ? "Sohbeti sonlandır" : "Sohbeti başlat"}
       >
-        {/* Breathing pulse when idle (attention-grabber) */}
-        {!active && (
-          <span className="absolute inset-0 rounded-full animate-pulse" style={{ background: "#38bdf815" }} />
-        )}
-
-        {/* Pulse ring when listening/speaking */}
+        {/* Pulse ring only when actively listening/speaking */}
         {(status === "listening" || status === "speaking") && (
           <span className="absolute inset-0 rounded-full animate-ping" style={{ background: `${micColor}30` }} />
         )}
