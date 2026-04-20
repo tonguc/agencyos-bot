@@ -39,6 +39,7 @@ export function VoiceAssistant() {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -47,11 +48,11 @@ export function VoiceAssistant() {
     }
   }, []);
 
-  const stopAudio = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
+  // Cancel everything in-flight and reset to idle
+  const interrupt = useCallback(() => {
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+    if (abortRef.current) { abortRef.current.abort(); abortRef.current = null; }
+    if (recorderRef.current?.state === "recording") { recorderRef.current.stop(); recorderRef.current = null; }
   }, []);
 
   const handleTranscribed = useCallback(async (text: string) => {
@@ -64,22 +65,30 @@ export function VoiceAssistant() {
 
     historyRef.current = [...historyRef.current, { role: "user", content: text }].slice(-8);
 
+    const abort = new AbortController();
+    abortRef.current = abort;
+
     try {
-      const data = await voiceApi.chat(text, historyRef.current.slice(0, -1));
+      const data = await voiceApi.chat(text, historyRef.current.slice(0, -1), abort.signal);
+      if (abort.signal.aborted) return;
+
       historyRef.current = [...historyRef.current, { role: "assistant", content: data.reply }].slice(-8);
       setCaption(data.reply);
       if (data.action) setAction(data.action);
 
       setStatus("speaking");
       const audio = await voiceApi.speak(data.reply);
-      if (!audio) { setStatus("idle"); return; }
+      if (abort.signal.aborted || !audio) { setStatus("idle"); return; }
       audioRef.current = audio;
       audio.onended = () => setStatus("idle");
       audio.onerror = () => setStatus("idle");
       audio.play();
-    } catch {
+    } catch (e) {
+      if ((e as Error)?.name === "AbortError") return;
       setErrMsg("Bağlantı hatası");
       setStatus("idle");
+    } finally {
+      if (abortRef.current === abort) abortRef.current = null;
     }
   }, []);
 
@@ -133,16 +142,18 @@ export function VoiceAssistant() {
 
   const handleMicClick = useCallback(() => {
     if (status === "listening") {
-      stopListening();
-    } else if (status === "speaking") {
-      stopAudio();
-      setStatus("idle");
+      stopListening(); // stop → recorder.onstop → transcribe
     } else if (status === "idle") {
       startListening();
+    } else {
+      // "thinking" veya "speaking": her şeyi kes, hemen dinlemeye geç
+      interrupt();
+      setStatus("idle");
+      setTimeout(() => startListening(), 50);
     }
-  }, [status, startListening, stopListening, stopAudio]);
+  }, [status, startListening, stopListening, interrupt]);
 
-  useEffect(() => () => { stopAudio(); }, [stopAudio]);
+  useEffect(() => () => { interrupt(); }, [interrupt]);
 
   const micColor = status === "listening" ? "#f43f5e"
     : status === "speaking" ? "#34d399"
@@ -201,7 +212,7 @@ export function VoiceAssistant() {
       <button
         type="button"
         onClick={handleMicClick}
-        disabled={!supported || status === "thinking"}
+        disabled={!supported}
         title={!supported ? "MediaRecorder desteklenmiyor" : label}
         className="flex items-center gap-2 border px-3 py-2 transition-all disabled:opacity-40"
         style={{ background: micBg, borderColor: micBorder }}

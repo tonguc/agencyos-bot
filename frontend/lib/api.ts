@@ -196,9 +196,10 @@ export const voiceApi = {
     return new Audio(url);
   },
 
-  chat: (message: string, history: { role: string; content: string }[]) =>
+  chat: (message: string, history: { role: string; content: string }[], signal?: AbortSignal) =>
     request<{ reply: string; action?: VoiceScrapeAction }>("/api/voice/chat", {
       method: "POST",
       body: JSON.stringify({ message, history }),
+      signal,
     }),
 };
