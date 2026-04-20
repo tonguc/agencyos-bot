@@ -58,7 +58,7 @@ async def voice_status():
     }
 
 
-
+def _get_openai_client():
     if not settings.OPENAI_API_KEY:
         return None
     try:
