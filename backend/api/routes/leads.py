@@ -56,7 +56,8 @@ async def create_lead(body: LeadCreate, db: AsyncSession = Depends(get_db)):
                 "site_durumu":  None if not body.website else "zayif",
             }
             playbook = load_playbook_for_sector(body.sector)
-            score = calculate_final_score(lead_dict, {}, playbook)
+            # Manuel eklenen lead'lerde hard_filter'ı atla — kullanıcı zaten seçti.
+            score = calculate_final_score(lead_dict, {}, playbook, skip_hard_filter=True)
             if score["status"] == "ok":
                 await repo.update(lead,
                     opportunity_score=int(score["final_score"]),

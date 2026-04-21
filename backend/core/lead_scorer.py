@@ -542,15 +542,24 @@ def route_decision(
 # 9. FINAL SCORE
 # --------------------------------------------------
 
-def calculate_final_score(lead: dict, audit: dict, playbook: dict) -> dict:
+def calculate_final_score(
+    lead: dict,
+    audit: dict,
+    playbook: dict,
+    skip_hard_filter: bool = False,
+) -> dict:
     """
     V2: Pattern çarpan, Fit çarpan, double counting azaltıldı.
 
     final = min(100, (0.65·Opp + 0.35·Intent) × Pattern_Mul × Fit_Mul)
+
+    skip_hard_filter=True → kullanıcı lead'i seçmiş (audit / manual add).
+    Bu aşamada "telefon yok" gibi sebeplerle eleme yapılmaz; skor her zaman hesaplanır.
     """
-    is_blocked, reason = hard_filter(lead, playbook)
-    if is_blocked:
-        return {"status": "rejected", "reason": reason}
+    if not skip_hard_filter:
+        is_blocked, reason = hard_filter(lead, playbook)
+        if is_blocked:
+            return {"status": "rejected", "reason": reason}
 
     opp,      opp_signals  = calc_opportunity(lead, audit)
     intent,   int_signals  = calc_intent(lead, audit)

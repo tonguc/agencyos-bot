@@ -145,7 +145,11 @@ async def run_audit(lead_id: uuid.UUID, db: AsyncSession) -> Audit:
         "pagespeed": site_data.get("hiz_skoru"),
         "ssl": site_data.get("ssl"),
     }
-    refined = calculate_final_score(lead_dict, audit_for_scorer, playbook)
+    # Audit aşamasında hard_filter'ı atla — kullanıcı bu lead'i seçti.
+    # "telefon yok" gibi sebeplerle skoru null bırakmak yerine her zaman hesapla.
+    refined = calculate_final_score(
+        lead_dict, audit_for_scorer, playbook, skip_hard_filter=True,
+    )
     update_fields: dict = {"status": "Audit"}
     if refined["status"] == "ok":
         update_fields["opportunity_score"] = int(refined["final_score"])
