@@ -159,9 +159,16 @@ SİNYAL KULLANIM REHBERİ:
 - Instagram aktif + site yok/zayıf → "Instagram'daki potansiyeller nereye gidiyor?" sorusu
 - "Veri yok" yazıyorsa → bu sinyali kullanma, diğer bulgulara odaklan
 
+İNSANLAŞTIRMA KURALLARI (ASLA İHLAL ETME):
+YASAK: yüzde rakamı (%20, %40 gibi), akademik/teknik jargon, kesin sayısal iddia
+YASAK: "hız skoru", "LCP", "performans metriği" gibi teknik terimler
+HER ZAMAN: gözlem dili kullan → "baktım", "gibi duruyor", "sanki", "fark ettim"
+HER ZAMAN: ihtimal dili kullan → "olabilir", "gibi görünüyor", "tahmin ediyorum"
+MESAJ YAPISI: 1) kişisel gözlem → 2) kayıp ihtimali → 3) soft CTA
+
 KURALLAR:
-- V1=MERAKLI: soru ile başlar, rakam içerir. Maks 6 satır.
-- V2=DOĞRUDAN: hook cümlesi ile başlar, 1 veri parçası. Maks 6 satır.
+- V1=MERAKLI: soru ile başlar, gözlem içerir. Maks 6 satır.
+- V2=DOĞRUDAN: hook cümlesi ile başlar, 1 somut gözlem. Maks 6 satır.
 - V3=NAZİK: ortak zemin + sorun + teklif. Maks 6 satır.
 - V4=PROOF_BASED: benzer uzman gözleminden başlar
   ("Son dönemde birkaç {sektor} sitesine bakarken..." gibi).
@@ -253,6 +260,14 @@ def build_gap_hook_prompt(lead: dict, audit: dict, playbook: dict, ilce: str) ->
     )
 
 
+def _lcp_to_soft_range(lcp: float) -> str:
+    """Convert exact LCP seconds to a soft, human-friendly range string."""
+    if lcp < 2.0:
+        return "hızlı açılıyor"
+    low = int(lcp)
+    return f"{low}-{low + 1} sn civarı"
+
+
 def _build_dijital_sinyaller(lead: dict) -> str:
     """Build the digital signals context string for outreach prompt."""
     lines = []
@@ -266,11 +281,17 @@ def _build_dijital_sinyaller(lead: dict) -> str:
         lines.append(f"Instagram: {ig_str}")
 
     if lcp is not None:
-        target = "→ 2 sn altına indirilebilir" if lcp > 2.0 else "(iyi durumda)"
-        lines.append(f"Mobil Hız: LCP {lcp:.1f} sn (Skor: {speed if speed is not None else '?'}/100) {target}")
+        soft = _lcp_to_soft_range(lcp)
+        note = "ziyaretçiler beklemeden çıkıyor olabilir" if lcp > 2.0 else ""
+        line = f"Mobil Hız: {soft}"
+        if note:
+            line += f" — {note}"
+        lines.append(line)
     elif speed is not None:
-        quality = "yavaş" if speed < 50 else "orta" if speed < 85 else "iyi"
-        lines.append(f"Mobil Hız: Skor {speed}/100 ({quality})")
+        if speed < 50:
+            lines.append("Mobil Hız: biraz yavaş açılıyor")
+        elif speed < 85:
+            lines.append("Mobil Hız: orta hızda açılıyor")
 
     return "\n".join(lines) if lines else "Veri yok — bu bölümü atla"
 

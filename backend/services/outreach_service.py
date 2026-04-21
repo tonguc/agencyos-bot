@@ -122,22 +122,26 @@ def _synthetic_audit(lead_dict: dict) -> dict:
 
     bulgu = " + ".join(eksikler) if eksikler else "dijital varlık zayıf"
 
-    # Build a data-driven kisisel_insight when signals are available
-    if has_ig and lcp is not None:
+    # Build a data-driven kisisel_insight when signals are available.
+    # Tone: observation + possibility, no exact numbers or percentages.
+    low = int(lcp) if lcp is not None else 0
+    lcp_soft = f"{low}-{low + 1} sn civarı" if lcp is not None and lcp >= 2.0 else ""
+
+    if has_ig and lcp is not None and lcp >= 2.0:
         kisisel = (
-            f"Instagram'da aktif görünüyorsunuz ama siteniz mobilden "
-            f"{lcp:.1f} saniyede açılıyor — 2 saniyenin altına indirilebilir, "
-            f"bu da gelen trafiğin önemli bir kısmını dönüşüme taşır."
+            f"Instagram'da aktif olduğunuzu gördüm. "
+            f"Sitenize de baktım, mobilden biraz yavaş açılıyor ({lcp_soft}). "
+            f"Instagram'dan gelen ziyaretçiler burada beklemeden çıkıyor olabilir."
         )
     elif has_ig and not lead_dict.get("website"):
         kisisel = (
-            "Instagram'da aktif olduğunuzu görüyorum — ama profilden gelen "
-            "potansiyel müşteriler nereye yönlendiriliyor?"
+            "Instagram'da aktif olduğunuzu gördüm — ama profilden gelen "
+            "ziyaretçileri yönlendirecek bir site yok gibi görünüyor."
         )
-    elif lcp is not None and lcp > 2.0:
+    elif lcp is not None and lcp >= 2.0:
         kisisel = (
-            f"Siteniz mobilden {lcp:.1f} saniyede açılıyor. "
-            f"2 saniyenin altına indirildiğinde dönüşüm oranı genellikle %20-40 artıyor."
+            f"Sitenize baktım, mobilden biraz yavaş açılıyor ({lcp_soft}). "
+            f"Bu yüzden gelen ziyaretçilerin bir kısmı çıkıyor olabilir."
         )
     else:
         kisisel = ""
