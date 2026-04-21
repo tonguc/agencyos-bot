@@ -36,11 +36,12 @@ function signalColor(s: string): string {
 }
 
 export function ResultCard({ lead, selected, onSelect, sector, city, district }: Props) {
-  // Kaydedilmemiş lead'lerde renk/label "Ön Analiz"e sabitlenir (mor).
-  // Aramanın ön-segmentinin rengini (kırmızı/sarı/yeşil) taşımak yanıltıcıydı.
+  // Etiket her zaman segment (FIRSAT/ADAY/...) — üstteki tab'larla hizalı.
+  // Kaydedilmemişse renk mor (tentative), kaydedilmişse segment rengi (doğrulanmış).
+  // "Ön Analiz" ayrı bir etiket değil, sadece durum (mor renk + "~" skoru).
   const isUnsaved = !lead.lead_id;
   const c = isUnsaved ? SEGMENT_COLORS.review : SEGMENT_COLORS[lead.segment];
-  const label = isUnsaved ? "Ön Analiz" : SEGMENT_LABELS[lead.segment];
+  const label = SEGMENT_LABELS[lead.segment];
   const wa = whatsappLink(lead.phone);
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -151,8 +152,8 @@ export function ResultCard({ lead, selected, onSelect, sector, city, district }:
           <div className="mt-3 pt-3 border-t border-stroke space-y-3">
             {isUnsaved && (
               <div className="border border-review/40 bg-review/5 px-2.5 py-1.5 text-[11px] font-mono text-review">
-                Ön analiz — hızlı aramada yalnız Maps sinyalleri kullanıldı.
-                Kesin değerlendirme için <span className="font-bold">Yeni Tarama</span> çalıştır.
+                Tahmini skor — hızlı aramada yalnız Maps sinyalleri kullanıldı.
+                Kesin FIRSAT SKORU için kaydet ve <span className="font-bold">audit</span> çalıştır.
               </div>
             )}
             {/* Action buttons */}
