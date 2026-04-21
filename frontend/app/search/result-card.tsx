@@ -36,7 +36,11 @@ function signalColor(s: string): string {
 }
 
 export function ResultCard({ lead, selected, onSelect, sector, city, district }: Props) {
-  const c = SEGMENT_COLORS[lead.segment];
+  // Kaydedilmemiş lead'lerde renk/label "Ön Analiz"e sabitlenir (mor).
+  // Aramanın ön-segmentinin rengini (kırmızı/sarı/yeşil) taşımak yanıltıcıydı.
+  const isUnsaved = !lead.lead_id;
+  const c = isUnsaved ? SEGMENT_COLORS.review : SEGMENT_COLORS[lead.segment];
+  const label = isUnsaved ? "Ön Analiz" : SEGMENT_LABELS[lead.segment];
   const wa = whatsappLink(lead.phone);
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -97,10 +101,16 @@ export function ResultCard({ lead, selected, onSelect, sector, city, district }:
               className="text-[11px] font-mono font-medium uppercase tracking-[0.2em]"
               style={{ color: c.color }}
             >
-              {lead.lead_id || lead.segment === "low"
-                ? SEGMENT_LABELS[lead.segment]
-                : "Ön Analiz"}
+              {label}
             </span>
+            {isUnsaved && lead.score != null && (
+              <span
+                className="text-[10px] font-mono text-dim mt-0.5"
+                title="Tahmini skor — audit ile doğrulanacak"
+              >
+                ~{lead.score}
+              </span>
+            )}
             {saving && (
               <span className="text-[8px] font-mono text-accent mt-1 animate-pulse">kaydediliyor…</span>
             )}
@@ -139,7 +149,7 @@ export function ResultCard({ lead, selected, onSelect, sector, city, district }:
 
         {selected && (
           <div className="mt-3 pt-3 border-t border-stroke space-y-3">
-            {!lead.lead_id && lead.segment !== "low" && (
+            {isUnsaved && (
               <div className="border border-review/40 bg-review/5 px-2.5 py-1.5 text-[11px] font-mono text-review">
                 Ön analiz — hızlı aramada yalnız Maps sinyalleri kullanıldı.
                 Kesin değerlendirme için <span className="font-bold">Yeni Tarama</span> çalıştır.
