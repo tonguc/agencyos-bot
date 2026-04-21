@@ -59,18 +59,19 @@ function sortLeads(leads: Lead[], key: SortKey): Lead[] {
   });
 }
 
-function scoreStyle(v: number) {
-  if (v >= 70) return "text-hot";
-  if (v >= 55) return "text-warm";
-  if (v >= 35) return "text-ok";
-  return "text-dim";
-}
+const SCORE_COLORS: [number, string, string][] = [
+  // [threshold, hex color, label]
+  [70, "#ff3b4a", "Fırsat"],
+  [55, "#ffb648", "Aday"],
+  [35, "#34d399", "Orta"],
+  [0,  "#4a5876", "Elendi"],
+];
 
-function scoreLabel(v: number): string {
-  if (v >= 70) return "Fırsat";
-  if (v >= 55) return "Aday";
-  if (v >= 35) return "Orta";
-  return "Elendi";
+function scoreInfo(v: number): { color: string; label: string } {
+  for (const [threshold, color, label] of SCORE_COLORS) {
+    if (v >= threshold) return { color, label };
+  }
+  return { color: "#4a5876", label: "Elendi" };
 }
 
 export function LeadsTable() {
@@ -349,16 +350,19 @@ export function LeadsTable() {
                                 : "—"}
                             </td>
                             <td className="px-4 py-3">
-                              {lead.opportunity_score != null ? (
-                                <div className="flex flex-col leading-tight">
-                                  <span className={`font-mono font-bold text-sm ${scoreStyle(lead.opportunity_score)}`}>
-                                    {lead.opportunity_score}
-                                  </span>
-                                  <span className={`font-mono text-[10px] uppercase tracking-[0.15em] ${scoreStyle(lead.opportunity_score)}`}>
-                                    {scoreLabel(lead.opportunity_score)}
-                                  </span>
-                                </div>
-                              ) : (
+                              {lead.opportunity_score != null ? (() => {
+                                const { color, label } = scoreInfo(lead.opportunity_score);
+                                return (
+                                  <div className="flex flex-col leading-tight">
+                                    <span className="font-mono font-bold text-sm" style={{ color }}>
+                                      {lead.opportunity_score}
+                                    </span>
+                                    <span className="font-mono text-[10px] uppercase tracking-[0.15em]" style={{ color }}>
+                                      {label}
+                                    </span>
+                                  </div>
+                                );
+                              })() : (
                                 <span className="text-dim font-mono">—</span>
                               )}
                             </td>
