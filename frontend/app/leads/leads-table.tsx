@@ -291,7 +291,7 @@ export function LeadsTable() {
                       {items.length} ADAY
                     </span>
                     <span className="font-mono text-[11px] text-dim tracking-wider">
-                      ort. <span className={`font-semibold ${scoreStyle(avgScore)}`}>{avgScore.toFixed(0)}</span>
+                      ort. <span className="font-semibold" style={{ color: scoreInfo(avgScore).color }}>{avgScore.toFixed(0)}</span>
                     </span>
                     <span className="font-mono text-[11px] text-dim tracking-wider">
                       · Son tarama: <span className="text-muted">{scrapeDate}</span>
