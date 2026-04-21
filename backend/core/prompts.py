@@ -150,6 +150,15 @@ EN ACITAN NOKTA: {en_acitan}
 KİŞİSEL GÖZLEM: {kisisel_insight}
 İLÇE/ŞEHİR: {adres}
 
+DİJİTAL SİNYALLER (somut satış argümanı olarak kullan, varsa):
+{dijital_sinyaller}
+
+SİNYAL KULLANIM REHBERİ:
+- Instagram aktif + Mobil yavaş → V3'te "sosyal medya trafiğin siteye gelince dönüşmüyor" açısı
+- Sadece Mobil yavaş → çözüm çerçevesiyle yaz: "X sn → 2 sn altına indirilebilir"
+- Instagram aktif + site yok/zayıf → "Instagram'daki potansiyeller nereye gidiyor?" sorusu
+- "Veri yok" yazıyorsa → bu sinyali kullanma, diğer bulgulara odaklan
+
 KURALLAR:
 - V1=MERAKLI: soru ile başlar, rakam içerir. Maks 6 satır.
 - V2=DOĞRUDAN: hook cümlesi ile başlar, 1 veri parçası. Maks 6 satır.
@@ -244,6 +253,28 @@ def build_gap_hook_prompt(lead: dict, audit: dict, playbook: dict, ilce: str) ->
     )
 
 
+def _build_dijital_sinyaller(lead: dict) -> str:
+    """Build the digital signals context string for outreach prompt."""
+    lines = []
+    has_ig = lead.get("has_instagram", False)
+    ig_url = lead.get("instagram_url")
+    lcp = lead.get("mobile_lcp")
+    speed = lead.get("mobile_speed_score")
+
+    if has_ig:
+        ig_str = f"aktif ({ig_url})" if ig_url else "aktif (profil URL'si belirsiz)"
+        lines.append(f"Instagram: {ig_str}")
+
+    if lcp is not None:
+        target = "→ 2 sn altına indirilebilir" if lcp > 2.0 else "(iyi durumda)"
+        lines.append(f"Mobil Hız: LCP {lcp:.1f} sn (Skor: {speed if speed is not None else '?'}/100) {target}")
+    elif speed is not None:
+        quality = "yavaş" if speed < 50 else "orta" if speed < 85 else "iyi"
+        lines.append(f"Mobil Hız: Skor {speed}/100 ({quality})")
+
+    return "\n".join(lines) if lines else "Veri yok — bu bölümü atla"
+
+
 def build_outreach_prompt(lead: dict, audit: dict, hook: dict, playbook: dict, varsayilan_onerilen: str) -> str:
     out = playbook["outreach"]
     killer = audit.get("killer_insight", {}) or {}
@@ -264,6 +295,7 @@ def build_outreach_prompt(lead: dict, audit: dict, hook: dict, playbook: dict, v
         killer_rakam=killer.get("rakam", ""),
         en_acitan=audit.get("en_acitan_nokta", ""),
         kisisel_insight=audit.get("kisisel_insight", ""),
+        dijital_sinyaller=_build_dijital_sinyaller(lead),
         varsayilan_onerilen=varsayilan_onerilen,
     )
 

@@ -103,11 +103,45 @@ async def generate_followup(lead_id: uuid.UUID, db: AsyncSession) -> str:
 def _synthetic_audit(lead_dict: dict) -> dict:
     """Minimal audit stub when no real audit exists."""
     eksikler = []
+    has_ig = lead_dict.get("has_instagram", False)
+    lcp = lead_dict.get("mobile_lcp")
+    speed = lead_dict.get("mobile_speed_score")
+
     if not lead_dict.get("website"):
-        eksikler.append("web sitesi yok")
+        if has_ig:
+            eksikler.append("Instagram aktif ama web sitesi yok")
+        else:
+            eksikler.append("web sitesi yok")
+    elif lcp is not None and lcp > 3.0:
+        eksikler.append(f"mobil site yavaş (LCP {lcp:.1f} sn)")
+    elif speed is not None and speed < 50:
+        eksikler.append(f"mobil site yavaş ({speed}/100)")
+
     if (lead_dict.get("yorum_sayisi") or 0) < 10:
-        eksikler.append(f"yorum dusuk ({lead_dict.get('yorum_sayisi', 0)})")
-    bulgu = " + ".join(eksikler) if eksikler else "dijital varlik zayif"
+        eksikler.append(f"yorum düşük ({lead_dict.get('yorum_sayisi', 0)})")
+
+    bulgu = " + ".join(eksikler) if eksikler else "dijital varlık zayıf"
+
+    # Build a data-driven kisisel_insight when signals are available
+    if has_ig and lcp is not None:
+        kisisel = (
+            f"Instagram'da aktif görünüyorsunuz ama siteniz mobilden "
+            f"{lcp:.1f} saniyede açılıyor — 2 saniyenin altına indirilebilir, "
+            f"bu da gelen trafiğin önemli bir kısmını dönüşüme taşır."
+        )
+    elif has_ig and not lead_dict.get("website"):
+        kisisel = (
+            "Instagram'da aktif olduğunuzu görüyorum — ama profilden gelen "
+            "potansiyel müşteriler nereye yönlendiriliyor?"
+        )
+    elif lcp is not None and lcp > 2.0:
+        kisisel = (
+            f"Siteniz mobilden {lcp:.1f} saniyede açılıyor. "
+            f"2 saniyenin altına indirildiğinde dönüşüm oranı genellikle %20-40 artıyor."
+        )
+    else:
+        kisisel = ""
+
     return {
         "killer_insight": {"bulgu": bulgu, "etki": "musteri kaybi", "rakam": ""},
         "ux_hatalar": [], "seo_aciklar": [],
@@ -115,5 +149,5 @@ def _synthetic_audit(lead_dict: dict) -> dict:
         "skorlar": {"ux": 0, "seo": 0, "donusum": 0},
         "urgency": "orta", "lead_kalitesi": "ilik",
         "genel_skor": 40, "en_acitan_nokta": bulgu,
-        "kisisel_insight": "", "_synthetic": True,
+        "kisisel_insight": kisisel, "_synthetic": True,
     }

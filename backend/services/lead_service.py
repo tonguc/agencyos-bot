@@ -25,6 +25,7 @@ def lead_to_core_dict(lead) -> dict:
     district = lead.district or ""
     city = lead.city or ""
     address = lead.address or f"{district}, {city}".strip(", ")
+    source = lead.source_data or {}
     return {
         "page_id": str(lead.id),
         "isim": lead.name or "",
@@ -34,6 +35,11 @@ def lead_to_core_dict(lead) -> dict:
         "website": lead.website,
         "yorum_sayisi": lead.review_count or 0,
         "puan": lead.google_rating or 0.0,
+        # Enrichment signals stored in source_data during scrape/search
+        "instagram_url": source.get("instagram_url"),
+        "has_instagram": source.get("has_instagram", False),
+        "mobile_speed_score": source.get("mobile_speed_score"),
+        "mobile_lcp": source.get("mobile_lcp"),
     }
 
 
