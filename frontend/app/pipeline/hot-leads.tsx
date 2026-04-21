@@ -11,9 +11,9 @@ interface Props {
 }
 
 function scoreColor(score: number) {
-  if (score >= 75) return "#ff3b4a";
-  if (score >= 55) return "#ffb648";
-  return "#7a8aa8";
+  if (score >= 70) return "#e53935";
+  if (score >= 55) return "#fb8c00";
+  return "#9e9e9e";
 }
 
 export function HotLeads({ initial }: Props) {

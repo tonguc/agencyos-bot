@@ -14,11 +14,11 @@
   --color-accent: #38bdf8;
 
   /* Signal levels */
-  --color-hot: #ff3b4a;
-  --color-warm: #ffb648;
-  --color-review: #a774ff;
-  --color-ok: #34d399;
-  --color-low: #64748b;
+  --color-hot: #e53935;
+  --color-warm: #fb8c00;
+  --color-review: #d4a017;
+  --color-ok: #6b8db5;
+  --color-low: #9e9e9e;
 
   /* Text */
   --color-bright: #e6edf7;

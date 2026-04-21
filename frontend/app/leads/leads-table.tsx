@@ -61,10 +61,10 @@ function sortLeads(leads: Lead[], key: SortKey): Lead[] {
 
 const SCORE_COLORS: [number, string, string][] = [
   // [threshold, hex color, label]
-  [70, "#ff3b4a", "Fırsat"],
-  [55, "#ffb648", "Aday"],
-  [35, "#34d399", "Orta"],
-  [0,  "#4a5876", "Elendi"],
+  [70, "#e53935", "Fırsat"],
+  [55, "#fb8c00", "Aday"],
+  [35, "#6b8db5", "Orta"],
+  [0,  "#9e9e9e", "Elendi"],
 ];
 
 function scoreInfo(v: number): { color: string; label: string } {

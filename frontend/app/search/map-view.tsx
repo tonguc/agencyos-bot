@@ -11,11 +11,11 @@ interface Props {
 }
 
 const SEG_STYLE: Record<string, { bg: string; ring: string; glow: string }> = {
-  hot:    { bg: "#ff3b4a", ring: "#ff3b4a", glow: "0 0 8px #ff3b4a99" },
-  warm:   { bg: "#ffb648", ring: "#ffb648", glow: "0 0 8px #ffb64899" },
-  ok:     { bg: "#34d399", ring: "#34d399", glow: "0 0 8px #34d39999" },
-  low:    { bg: "#64748b", ring: "#64748b", glow: "none" },
-  review: { bg: "#a774ff", ring: "#a774ff", glow: "0 0 8px #a774ff99" },
+  hot:    { bg: "#e53935", ring: "#e53935", glow: "0 0 8px #e5393599" },
+  warm:   { bg: "#fb8c00", ring: "#fb8c00", glow: "0 0 8px #fb8c0099" },
+  ok:     { bg: "#6b8db5", ring: "#6b8db5", glow: "0 0 8px #6b8db599" },
+  low:    { bg: "#9e9e9e", ring: "#9e9e9e", glow: "none" },
+  review: { bg: "#d4a017", ring: "#d4a017", glow: "0 0 8px #d4a01799" },
 };
 
 const SEG_DOT: Record<string, string> = {
