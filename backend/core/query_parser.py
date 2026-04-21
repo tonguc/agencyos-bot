@@ -182,11 +182,16 @@ _SECTOR_KEYWORDS: list[tuple[re.Pattern, str, str | None]] = [
     (re.compile(r"\b(g[uü]zellik)", re.I | re.U), "guzellik", "routine"),
 
     # Eğitim
+    (re.compile(r"\b(anaokul|ana\s+okul|kreş|okul\s+[oö]nces|okul\s+oncesi)", re.I | re.U),
+     "egitim", "course"),
+    (re.compile(r"\b(ilkokul|ortaokul|lise|[oö]zel\s+okul|devlet\s+okul)", re.I | re.U),
+     "egitim", "course"),
     (re.compile(r"\b(dil\s+kurs|ingilizce\s+kurs|almanca\s+kurs|fransizca\s+kurs)",
                 re.I | re.U), "egitim", "course"),
     (re.compile(r"\b(yks|tyt|ayt|lgs|[oö]zel\s+ders|et[uü]t\s+merkez)", re.I | re.U),
      "egitim", "exam_prep"),
     (re.compile(r"\b(kurs|e[gğ]itim\s+merkez|akademi)", re.I | re.U), "egitim", "course"),
+    (re.compile(r"\b(okul)\b", re.I | re.U), "egitim", "course"),
 
     # Oto servis
     (re.compile(r"\b(oto\s+tamir|oto\s+servis|lastik[çc][ıi]|kaporta|mekanik\s+servis|"

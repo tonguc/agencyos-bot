@@ -18,7 +18,7 @@ _SECTOR_SEARCH_TERMS: dict[str, str] = {
     "avukat":          "avukat hukuk bürosu",
     "emlak":           "emlak danışmanı",
     "guzellik":        "güzellik salonu kuaför",
-    "egitim":          "eğitim kursu dil okulu",
+    "egitim":          "anaokulu kreş ilkokul özel okul",
     "ev_hizmetleri":   "tesisatçı elektrikçi kombi servisi",
     "kadin_dogum":     "kadın hastalıkları ve doğum uzmanı jinekoloji",
     "restoran":        "restoran lokanta",
