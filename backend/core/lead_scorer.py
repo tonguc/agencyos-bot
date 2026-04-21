@@ -1,23 +1,26 @@
 """
-Lead Scorer V2 — 5 katmanlı karar motoru (multiplier-based, minimal double counting).
+Lead Scorer V3 — satış-öncelikli, pure-score routing.
 
 Formül:
-  combined = 0.65 × Opportunity + 0.35 × Intent
+  combined = 0.75 × Opportunity + 0.25 × Intent
   boosted  = combined × Pattern_Multiplier        (1.00–1.15)
   final    = min(100, boosted × Fit_Multiplier)   (Fit: 0.85–1.10)
 
-Katmanlar:
-  HARD FILTER        → kurumsal/zincir, telefonsuz, ölü, zaten güçlü
-  OPPORTUNITY 0-100  → Maps + Website + SEO + Audit eksikleri (sadece bunlar)
-  INTENT      0-100  → Maps aktivite + Sosyal + Dijital yatırım
-  FIT_MUL     .85-1.10 → ICP çarpanı (hedef sektör/ilçe/tip, churn riski)
-  PATTERN_MUL 1.00-1.15 → sinyal kombinasyonları + sektör spesifik, max %15 boost
+Sonra satış floor'u uygulanır:
+  website yok + telefon var + yorum<30 → min 70 (güçlü fırsat)
+  website yok + telefon var + fit≥0.95 → min 65 (kontrollü floor)
 
-Routing:
-  REVIEW  → confidence<0.50 | zombie risk | ≥2 çelişki+orta conf
-  HOT     → final≥80 + conf≥0.60 + intent≥45 + çelişki yok
-  WARM    → final≥60, veya final≥80 ama conf/çelişki sınırda
-  LOW     → final<60
+Katmanlar:
+  HARD FILTER        → kurumsal/zincir, kalıcı kapalı, zaten güçlü
+  OPPORTUNITY 0-100  → Maps + Website (+40) + SEO + Audit eksikleri
+  INTENT      0-100  → Maps aktivite + Sosyal + Dijital yatırım
+  FIT_MUL     .85-1.10 → ICP çarpanı
+  PATTERN_MUL 1.00-1.15 → sinyal kombinasyonları, max %15 boost
+
+Routing (sadece skora göre, confidence routing yok):
+  REVIEW  → zombie risk | final<55
+  HOT     → final≥70
+  WARM    → 55 ≤ final < 70
 """
 
 from __future__ import annotations
@@ -77,10 +80,6 @@ def hard_filter(lead: dict, playbook: dict) -> Tuple[bool, str]:
     if lead.get("permanently_closed"):
         return True, "kalıcı olarak kapalı"
 
-    son_yorum = lead.get("son_yorum_gun")
-    if son_yorum is not None and son_yorum > 365:
-        return True, "ölü profil"
-
     yorum = lead.get("yorum_sayisi") or 0
     puan = lead.get("puan") or 0
     website = lead.get("website")
@@ -136,7 +135,10 @@ def calc_opportunity(lead: dict, audit: dict) -> tuple[int, list[str]]:
     website = lead.get("website")
     site_durumu = lead.get("site_durumu")
     if not website:
-        add(20, "Website yok")
+        add(40, "Website yok")
+        if telefon:
+            # Telefon var + site yok = en temiz satış fırsatı (sabit boost)
+            add(10, "Telefon var + site yok (direkt fırsat)")
     elif site_durumu == "zayif":
         add(12, "Site zayıf")
     elif site_durumu == "orta":
@@ -390,9 +392,8 @@ def calc_pattern_multiplier(lead: dict, audit: dict, playbook: dict) -> tuple[fl
     if competitor_ads is not None and competitor_ads >= 2 and self_ads is False:
         fire(0.04, "Rakip reklam + self yok")
 
-    # Telefon + website yok → acil dijital varlık ihtiyacı
-    if telefon and not website:
-        fire(0.03, "Telefon var + website yok")
+    # Telefon + website yok sinyali opportunity katmanında sabit +10 olarak işleniyor
+    # (pattern multiplier'da çift sayımı önlemek için burada yok).
 
     # ── Sektör-spesifik ──────────────────────────────
     sub_cli = lead.get("clinic_subsector")
@@ -508,33 +509,23 @@ def route_decision(
     confidence: float,
     contradictions: list[str],
 ) -> tuple[str, str, str]:
-    has_zombie = any("zombie" in c for c in contradictions)
+    """Pure-score routing. Confidence sadece zombie flag'i için kullanılır,
+    tek başına karar vermez (veri kalitesi ≠ fırsat yokluğu).
 
-    if has_zombie:
+    Eşikler:
+      HOT    → final ≥ 70
+      WARM   → 55 ≤ final < 70
+      REVIEW → final < 55 | zombie risk
+    """
+    if any("zombie" in c for c in contradictions):
         return "REVIEW", "manual_review", "Alıcı sinyali yok — zombie risk"
 
-    if confidence < 0.50:
-        return "REVIEW", "manual_review", f"Veri yetersiz (conf={confidence:.2f})"
-
-    if len(contradictions) >= 2 and confidence < 0.65:
-        return "REVIEW", "manual_review", contradictions[0]
-
-    if final >= 80 and confidence >= 0.50 and intent >= 45 and not contradictions:
+    if final >= 70:
         return "HOT", "generate_full_audit", "Güçlü fırsat — tam audit"
 
-    if final >= 80:
-        reason = contradictions[0] if contradictions else (
-            f"Conf düşük ({confidence:.2f})" if confidence < 0.60 else
-            f"Intent sınırda ({intent})"
-        )
-        return "WARM", "generate_light_audit", reason
-
-    if final >= 60:
+    if final >= 55:
         return "WARM", "generate_light_audit", "Orta fırsat — hafif audit"
 
-    # LOW kaldırıldı. Scorer "Elendi" üretmez; bu karar ICP/hard_filter'a ait.
-    # final < 60 ama hard_filter geçmişse → veri eksik veya sinyaller zayıf →
-    # "Ön Skor" göster, kullanıcı audit başlatarak gerçek değerlendirsin.
     return "REVIEW", "manual_review", f"Sinyal zayıf — audit ile doğrula (final={final:.0f})"
 
 
@@ -549,12 +540,14 @@ def calculate_final_score(
     skip_hard_filter: bool = False,
 ) -> dict:
     """
-    V2: Pattern çarpan, Fit çarpan, double counting azaltıldı.
+    V3: Satış-öncelikli skorlama.
 
-    final = min(100, (0.65·Opp + 0.35·Intent) × Pattern_Mul × Fit_Mul)
+    final = min(100, (0.75·Opp + 0.25·Intent) × Pattern_Mul × Fit_Mul)
+
+    Ağırlık 0.75/0.25 → dijital boşluk (fırsat) birincil sinyal.
+    Satış floor'u → website yok + telefon var olan lead'ler kaçmasın.
 
     skip_hard_filter=True → kullanıcı lead'i seçmiş (audit / manual add).
-    Bu aşamada "telefon yok" gibi sebeplerle eleme yapılmaz; skor her zaman hesaplanır.
     """
     if not skip_hard_filter:
         is_blocked, reason = hard_filter(lead, playbook)
@@ -567,8 +560,27 @@ def calculate_final_score(
     pat_mul,  pat_signals  = calc_pattern_multiplier(lead, audit, playbook)
     confidence             = calc_confidence(lead, audit)
 
-    combined = 0.65 * opp + 0.35 * intent
+    combined = 0.75 * opp + 0.25 * intent
     final    = round(min(100.0, max(0.0, combined * pat_mul * fit_mul)), 1)
+
+    # ── Satış floor'u: kaçan lead'i minimize et ─────────────────────────────
+    # Website yok + telefon var = doğrudan satış fırsatı.
+    # +40 opportunity bonusu intent/multiplier erozyonuyla 70 altına düşebiliyor.
+    # Kontrollü floor ile FIRSAT bandında tutuyoruz.
+    website = lead.get("website")
+    telefon = lead.get("telefon")
+    yorum   = lead.get("yorum_sayisi") or 0
+    floor   = 0.0
+    if not website and telefon:
+        if yorum < 30:
+            # Küçük/bilinmez firma + site yok → en temiz satış fırsatı
+            floor = 70.0
+        elif fit_mul >= 0.95:
+            # Fit uyumu bozulmamışsa en azından güçlü ADAY bandında kalsın
+            floor = 65.0
+    if floor and final < floor:
+        opp_signals.append(f"Satış floor'u uygulandı → {floor:.0f}")
+        final = floor
 
     contradictions              = detect_contradictions(lead, audit, opp, intent)
     segment, action, reason_sum = route_decision(final, intent, confidence, contradictions)

@@ -134,8 +134,8 @@ export default async function LeadDetailPage({ params }: Props) {
                 <div>
                   <dt className="font-mono text-[11px] text-dim uppercase tracking-[0.2em]">Fırsat Skoru</dt>
                   <dd className={`font-mono font-bold text-lg mt-1 ${
-                    lead.opportunity_score >= 80 ? "text-hot" :
-                    lead.opportunity_score >= 60 ? "text-warm" : "text-dim"
+                    lead.opportunity_score >= 70 ? "text-hot" :
+                    lead.opportunity_score >= 55 ? "text-warm" : "text-dim"
                   }`}>{lead.opportunity_score}</dd>
                 </div>
               )}

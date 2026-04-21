@@ -50,9 +50,9 @@ class LeadRepository(BaseRepository[Lead]):
     async def score_distribution(self) -> dict[str, int]:
         result = await self._session.execute(
             select(
-                func.count(Lead.id).filter(Lead.opportunity_score >= 75).label("sicak"),
+                func.count(Lead.id).filter(Lead.opportunity_score >= 70).label("sicak"),
                 func.count(Lead.id).filter(
-                    Lead.opportunity_score >= 55, Lead.opportunity_score < 75
+                    Lead.opportunity_score >= 55, Lead.opportunity_score < 70
                 ).label("ilik"),
                 func.count(Lead.id).filter(Lead.opportunity_score < 55).label("soguk"),
             )
