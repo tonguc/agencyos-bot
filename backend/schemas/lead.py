@@ -63,7 +63,7 @@ class ScrapeRequest(BaseModel):
     sector: str
     city: str
     district: str = ""
-    limit: int = 20
+    limit: int = 15
 
     @field_validator("limit")
     @classmethod

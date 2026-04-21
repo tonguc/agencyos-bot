@@ -193,7 +193,7 @@ export default function ScrapePage() {
   const [sector, setSector] = useState("");
   const [city, setCity] = useState("");
   const [district, setDistrict] = useState("");
-  const [limit, setLimit] = useState(20);
+  const [limit, setLimit] = useState(15);
   const [customLimit, setCustomLimit] = useState("");
   const [loading, setLoading] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
