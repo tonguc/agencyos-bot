@@ -5,7 +5,7 @@ export const SEGMENT_LABELS: Record<SearchSegment, string> = {
   warm:   "Aday",
   ok:     "Orta",
   low:    "Elendi",
-  review: "Ön Skor",
+  review: "İncele",
 };
 
 export const SEGMENT_COLORS: Record<
