@@ -74,10 +74,6 @@ def hard_filter(lead: dict, playbook: dict) -> Tuple[bool, str]:
         if brand in isim:
             return True, f"kurumsal / zincir ({brand})"
 
-    telefon = lead.get("telefon")
-    if not telefon:
-        return True, "telefon yok"
-
     if lead.get("permanently_closed"):
         return True, "kalıcı olarak kapalı"
 
@@ -117,6 +113,10 @@ def calc_opportunity(lead: dict, audit: dict) -> tuple[int, list[str]]:
     # A. Maps / Profil sağlığı
     yorum = lead.get("yorum_sayisi") or 0
     puan = lead.get("puan") or 0
+    telefon = lead.get("telefon")
+
+    if not telefon:
+        add(-5, "Telefon yok (ulaşım güçleşir)")
 
     if yorum < 10:
         add(15, f"Yorum az ({yorum})")
