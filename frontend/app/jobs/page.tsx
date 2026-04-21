@@ -148,10 +148,10 @@ export default function OpportunitiesPage() {
         {/* Stat Cards */}
         {stats && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-stroke border border-stroke">
-            <StatCard icon="🔥" label="Sıcak Fırsat"               value={stats.hot}        color="text-hot"    onClick={() => router.push("/leads")} />
-            <StatCard icon="💛" label="Orta Fırsat"                 value={stats.warm}       color="text-warm"   onClick={() => router.push("/leads")} />
-            <StatCard icon="🆕" label="Henüz İşlenmemiş"           value={stats.yeni}       color="text-accent" onClick={() => router.push("/leads")} />
-            <StatCard icon="📋" label="Audit Hazır, Mesaj Bekleyen" value={stats.auditHazir} color="text-review" onClick={() => router.push("/leads")} />
+            <StatCard icon="🔥" label="Sıcak Fırsat"               value={stats.hot}        color="text-hot"    onClick={() => router.push("/leads?high_score=1")} />
+            <StatCard icon="💛" label="Orta Fırsat"                 value={stats.warm}       color="text-warm"   onClick={() => router.push("/leads?min_score=55&max_score=69")} />
+            <StatCard icon="🆕" label="Henüz İşlenmemiş"           value={stats.yeni}       color="text-accent" onClick={() => router.push("/leads?status=Yeni")} />
+            <StatCard icon="📋" label="Audit Hazır, Mesaj Bekleyen" value={stats.auditHazir} color="text-review" onClick={() => router.push("/leads?status=Audit")} />
           </div>
         )}
 
@@ -166,7 +166,7 @@ export default function OpportunitiesPage() {
             </div>
             <button
               type="button"
-              onClick={() => router.push("/leads")}
+              onClick={() => router.push("/leads?high_score=1")}
               className="font-mono text-[11px] uppercase tracking-wider px-4 py-1.5 border border-hot/60 text-hot hover:bg-hot/10 transition-all whitespace-nowrap"
             >
               Lead&apos;leri Aç

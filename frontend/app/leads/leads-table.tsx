@@ -77,15 +77,19 @@ function scoreInfo(v: number): { color: string; label: string } {
 export function LeadsTable() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const urlSector   = searchParams.get("sector")   ?? "";
-  const urlCity     = searchParams.get("city")     ?? "";
-  const urlDistrict = searchParams.get("district") ?? "";
+  const urlSector    = searchParams.get("sector")    ?? "";
+  const urlCity      = searchParams.get("city")      ?? "";
+  const urlDistrict  = searchParams.get("district")  ?? "";
+  const urlStatus    = searchParams.get("status")    ?? "";
+  const urlHighScore = searchParams.get("high_score") === "1";
+  const urlMinScore  = parseInt(searchParams.get("min_score") ?? "0")   || 0;
+  const urlMaxScore  = parseInt(searchParams.get("max_score") ?? "9999") || 9999;
 
   const [leads,         setLeads]         = useState<Lead[]>([]);
   const [loading,       setLoading]       = useState(true);
   const [search,        setSearch]        = useState("");
   const [searchInput,   setSearchInput]   = useState("");
-  const [highScoreOnly, setHighScoreOnly] = useState(false);
+  const [highScoreOnly, setHighScoreOnly] = useState(urlHighScore);
   const [sortKey,       setSortKey]       = useState<SortKey>("score");
   const [openSectors,   setOpenSectors]   = useState<Set<string>>(
     urlSector ? new Set([urlSector]) : new Set()
@@ -176,9 +180,14 @@ export function LeadsTable() {
     }
   }
 
-  const filteredLeads = highScoreOnly
-    ? leads.filter((l) => (l.opportunity_score ?? 0) >= 70)
-    : leads;
+  const filteredLeads = leads.filter((l) => {
+    const score = l.opportunity_score ?? 0;
+    if (highScoreOnly && score < 70) return false;
+    if (urlMinScore > 0 && score < urlMinScore) return false;
+    if (urlMaxScore < 9999 && score > urlMaxScore) return false;
+    if (urlStatus && l.status !== urlStatus) return false;
+    return true;
+  });
 
   const grouped = filteredLeads.reduce<Record<string, Lead[]>>((acc, lead) => {
     if (!acc[lead.sector]) acc[lead.sector] = [];
@@ -243,6 +252,30 @@ export function LeadsTable() {
         >
           Yüksek Skor 70+
         </button>
+
+        {urlStatus && (
+          <button
+            type="button"
+            onClick={() => router.push(`/leads${urlSector ? `?sector=${urlSector}` : ""}`)}
+            className="flex items-center gap-1.5 px-3 py-1 text-[11px] font-mono tracking-[0.2em] uppercase border border-accent/60 bg-accent/10 text-accent hover:bg-accent/20 transition-all"
+          >
+            <span>Durum: {urlStatus}</span>
+            <span className="text-accent/60">✕</span>
+          </button>
+        )}
+
+        {(urlMinScore > 0 || urlMaxScore < 9999 || urlHighScore) && (
+          <button
+            type="button"
+            onClick={() => { setHighScoreOnly(false); router.push("/leads"); }}
+            className="flex items-center gap-1.5 px-3 py-1 text-[11px] font-mono tracking-[0.2em] uppercase border border-hot/60 bg-hot/10 text-hot hover:bg-hot/20 transition-all"
+          >
+            <span>
+              {urlHighScore ? "Fırsat 70+" : `Skor ${urlMinScore}–${urlMaxScore < 9999 ? urlMaxScore : "∞"}`}
+            </span>
+            <span className="text-hot/60">✕</span>
+          </button>
+        )}
 
         {(urlCity || urlDistrict) && (
           <button
