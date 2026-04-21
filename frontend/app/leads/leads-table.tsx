@@ -60,9 +60,17 @@ function sortLeads(leads: Lead[], key: SortKey): Lead[] {
 }
 
 function scoreStyle(v: number) {
-  if (v >= 65) return "text-hot";
-  if (v >= 45) return "text-warm";
+  if (v >= 70) return "text-hot";
+  if (v >= 55) return "text-warm";
+  if (v >= 35) return "text-ok";
   return "text-dim";
+}
+
+function scoreLabel(v: number): string {
+  if (v >= 70) return "Fırsat";
+  if (v >= 55) return "Aday";
+  if (v >= 35) return "Orta";
+  return "Elendi";
 }
 
 export function LeadsTable() {
@@ -342,9 +350,14 @@ export function LeadsTable() {
                             </td>
                             <td className="px-4 py-3">
                               {lead.opportunity_score != null ? (
-                                <span className={`font-mono font-bold text-sm ${scoreStyle(lead.opportunity_score)}`}>
-                                  {lead.opportunity_score}
-                                </span>
+                                <div className="flex flex-col leading-tight">
+                                  <span className={`font-mono font-bold text-sm ${scoreStyle(lead.opportunity_score)}`}>
+                                    {lead.opportunity_score}
+                                  </span>
+                                  <span className={`font-mono text-[10px] uppercase tracking-[0.15em] ${scoreStyle(lead.opportunity_score)}`}>
+                                    {scoreLabel(lead.opportunity_score)}
+                                  </span>
+                                </div>
                               ) : (
                                 <span className="text-dim font-mono">—</span>
                               )}
