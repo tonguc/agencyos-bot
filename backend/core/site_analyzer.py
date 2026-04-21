@@ -11,6 +11,8 @@ Her lead için doldurduğu alanlar:
   has_phone_visible    bool — HTML'de telefon numarası
   has_form             bool — <form> tag'i var
   site_durumu          str  — "iyi" | "zayif" (CTA/booking varsa "iyi")
+  instagram_url        str|None — sitede bulunan Instagram profil linki
+  has_instagram        bool — instagram_url var mı?
 
 Not: site_durumu "yok" değerini korumaz — website alanı None ise lead atlanır.
 "yok" zaten lead_collector._site_durumu tarafından atanır.
@@ -94,6 +96,12 @@ _HREF_RE = re.compile(r'href=["\']([^"\']*)["\']', re.IGNORECASE)
 # Extract button/a tag inner text
 _BUTTON_A_RE = re.compile(r"<(?:button|a)[^>]*>(.*?)</(?:button|a)>", re.IGNORECASE | re.DOTALL)
 
+# Instagram profile URL: instagram.com/{username} (kullanıcı adı slug'ı)
+_INSTAGRAM_RE = re.compile(
+    r'https?://(?:www\.)?instagram\.com/([A-Za-z0-9_.]{1,30})/?(?:["\'\s>]|$)',
+    re.IGNORECASE,
+)
+
 
 def _analyze_html(html: str) -> dict:
     """
@@ -129,6 +137,15 @@ def _analyze_html(html: str) -> dict:
     else:
         site_durumu = "zayif"
 
+    # Instagram — sitedeki ilk instagram.com/{username} linki
+    ig_match = _INSTAGRAM_RE.search(html)
+    instagram_url: str | None = None
+    if ig_match:
+        username = ig_match.group(1).lower()
+        # "stories", "p", "reel" gibi içerik URL'lerini değil profil URL'lerini al
+        if username not in {"stories", "p", "reel", "explore", "tv", "accounts", "about"}:
+            instagram_url = f"https://instagram.com/{username}"
+
     return {
         "has_cta": has_cta,
         "has_whatsapp": has_whatsapp,
@@ -136,6 +153,8 @@ def _analyze_html(html: str) -> dict:
         "has_phone_visible": has_phone_visible,
         "has_form": has_form,
         "site_durumu": site_durumu,
+        "instagram_url": instagram_url,
+        "has_instagram": instagram_url is not None,
     }
 
 
@@ -149,6 +168,8 @@ def _blank_signals(site_durumu_original: Optional[str] = None) -> dict:
         "has_form": False,
         "site_durumu": site_durumu_original or "zayif",
         "indexed_pages": None,
+        "instagram_url": None,
+        "has_instagram": False,
     }
 
 

@@ -14,11 +14,14 @@ real scrape from the same query to save them.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
+from config import settings
 from core.icp_filter import filter_leads
 from core.lead_collector import collect_by_query
 from core.lead_scorer import calculate_final_score
+from core.pagespeed_enricher import enrich_pagespeed
 from core.playbook import load_playbook_for_sector
 from core.query_parser import parse_search_query
 from core.serp_enricher import enrich_keyword_coverage
@@ -83,12 +86,16 @@ def _normalize_lead(lead: dict, score_info: dict | None) -> dict:
         "lat":            lead.get("enlem"),
         "lng":            lead.get("boylam"),
         "maps_url":       lead.get("maps_url"),
-        "site_status":    lead.get("site_durumu"),
-        "score":          score,
-        "segment":        segment,
-        "priority":       score_info.get("priority") if score_info else None,
-        "reason":         reason,
-        "score_breakdown": breakdown,
+        "site_status":       lead.get("site_durumu"),
+        "mobile_speed_score": lead.get("mobile_speed_score"),
+        "mobile_lcp":         lead.get("mobile_lcp"),
+        "instagram_url":      lead.get("instagram_url"),
+        "has_instagram":      lead.get("has_instagram"),
+        "score":              score,
+        "segment":            segment,
+        "priority":           score_info.get("priority") if score_info else None,
+        "reason":             reason,
+        "score_breakdown":    breakdown,
     }
 
 
@@ -157,12 +164,16 @@ async def run_search(query: str, limit: int = 25) -> dict:
         try:
             playbook = load_playbook_for_sector(parsed["sector"])
 
-            # High-intent keyword coverage: 3 paralel SerpAPI web araması.
-            # Site analizi (30-90s) hâlâ atlanıyor; sadece organik görünürlük kontrol edilir.
-            raw = await enrich_keyword_coverage(
-                raw,
-                ilce=parsed.get("district"),
-                category=parsed.get("category") or parsed["search_string"],
+            # Paralel enrichment: keyword coverage (3 SerpAPI web sorgusu) +
+            # PageSpeed Mobile (Google PSI API, her site için 1 çağrı).
+            # İkisi birbirinden bağımsız → asyncio.gather ile aynı anda çalışır.
+            await asyncio.gather(
+                enrich_keyword_coverage(
+                    raw,
+                    ilce=parsed.get("district"),
+                    category=parsed.get("category") or parsed["search_string"],
+                ),
+                enrich_pagespeed(raw, api_key=settings.PAGESPEED_API_KEY),
             )
 
             filtered = filter_leads(raw, playbook)

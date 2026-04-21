@@ -197,14 +197,18 @@ def calc_opportunity(lead: dict, audit: dict) -> tuple[int, list[str]]:
         elif audit_skor > 75:
             add(-8, f"Audit güçlü ({audit_skor})")
 
-    pagespeed = audit.get("pagespeed")
+    # D2. Mobil PageSpeed — lead dict'ten (search-time) veya audit dict'ten (full audit)
+    # İki kaynaktan en güveniliri: lead'den geliyorsa gerçek PSI verisi, audit'ten tahmini.
+    pagespeed = lead.get("mobile_speed_score") or audit.get("pagespeed")
     if pagespeed is not None:
-        if pagespeed < 40:
-            add(8, f"PageSpeed çok yavaş ({pagespeed})")
-        elif pagespeed <= 60:
-            add(4, f"PageSpeed yavaş ({pagespeed})")
+        if pagespeed < 30:
+            add(12, f"Mobil çok yavaş ({pagespeed}/100)")
+        elif pagespeed < 50:
+            add(7, f"Mobil yavaş ({pagespeed}/100)")
+        elif pagespeed < 70:
+            add(3, f"Mobil orta ({pagespeed}/100)")
         elif pagespeed > 85:
-            add(-4, f"PageSpeed hızlı ({pagespeed})")
+            add(-4, f"Mobil hızlı ({pagespeed}/100)")
 
     if audit.get("ssl") is False:
         add(6, "SSL yok")
@@ -232,6 +236,14 @@ def calc_opportunity(lead: dict, audit: dict) -> tuple[int, list[str]]:
             add(2 if site_iyi else 5, f"Site eski ({update_days}g)")
         elif update_days > 90:
             add(1 if site_iyi else 2, f"Site yaşlanmış ({update_days}g)")
+
+    # F. Instagram × Site kombinasyonu
+    # Instagram var + site zayıf = organik trafik geliyor, web'de kaybolup gidiyor.
+    # has_instagram=None → site analizi yapılmamış, sinyal yok.
+    has_ig = lead.get("has_instagram")
+    site_durumu_now = lead.get("site_durumu")
+    if has_ig is True and site_durumu_now in ("zayif", "yok"):
+        add(8, "Instagram var, site zayıf (dönüşüm açığı)")
 
     return max(0, min(score, 100)), signals
 
