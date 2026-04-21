@@ -53,6 +53,28 @@ function getBestMimeType(): string {
   return types.find((t) => typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(t)) ?? "";
 }
 
+// Normalize TR text for echo comparison: lowercase, strip punctuation, collapse spaces
+function normalizeText(s: string): string {
+  return s
+    .toLocaleLowerCase("tr")
+    .replace(/[^a-zçğıiöşü0-9\s]/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Heuristic: is `transcript` likely the microphone picking up the previous TTS reply?
+function isEchoOfReply(transcript: string, reply: string): boolean {
+  const t = normalizeText(transcript);
+  const r = normalizeText(reply);
+  if (!t || !r || t.length < 4) return false;
+  if (r.includes(t)) return true;
+  const tWords = t.split(" ").filter((w) => w.length > 2);
+  if (tWords.length === 0) return false;
+  const rWords = new Set(r.split(" ").filter((w) => w.length > 2));
+  const overlap = tWords.filter((w) => rWords.has(w)).length;
+  return overlap / tWords.length >= 0.6;
+}
+
 // Keep SpeechSynthesis alive (Chrome freezes after ~15s)
 let _synthTimer: ReturnType<typeof setInterval> | null = null;
 function synthKeepAlive(active: boolean) {
@@ -113,6 +135,8 @@ export function VoiceAssistant() {
   const historyRef = useRef<{ role: string; content: string }[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const lastReplyRef = useRef<string>("");
+  const speakingUntilRef = useRef<number>(0);
 
   // MediaRecorder state
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -138,6 +162,7 @@ export function VoiceAssistant() {
     streamRef.current?.getTracks().forEach((t) => t.stop()); streamRef.current = null;
     if (recorderRef.current?.state === "recording") recorderRef.current.stop();
     recorderRef.current = null;
+    speakingUntilRef.current = 0;
   }, []);
 
   useEffect(() => () => stopEverything(), [stopEverything]);
@@ -145,23 +170,30 @@ export function VoiceAssistant() {
   // ── TTS ─────────────────────────────────────────────────────────────
 
   const playReply = useCallback((text: string, onEnd: () => void) => {
+    lastReplyRef.current = text;
+    const markDone = () => {
+      // Reserve a short echo-suppression window after TTS finishes.
+      speakingUntilRef.current = Date.now() + 1200;
+      audioRef.current = null;
+      onEnd();
+    };
     if (openaiReady) {
       voiceApi.speak(text).then((audio) => {
         if (audio) {
           audioRef.current = audio;
-          audio.onended = onEnd;
-          audio.onerror = () => { console.warn("[voice] OpenAI TTS error, falling back"); browserSpeak(text, onEnd); };
-          audio.play().catch((e) => { console.warn("[voice] play() failed:", e); browserSpeak(text, onEnd); });
+          audio.onended = markDone;
+          audio.onerror = () => { console.warn("[voice] OpenAI TTS error, falling back"); browserSpeak(text, markDone); };
+          audio.play().catch((e) => { console.warn("[voice] play() failed:", e); browserSpeak(text, markDone); });
         } else {
           console.warn("[voice] speak() returned null — OpenAI TTS failed, falling back to browser");
           setNoTurkishVoice(true);
-          browserSpeak(text, onEnd);
+          browserSpeak(text, markDone);
         }
-      }).catch((e) => { console.warn("[voice] speak fetch error:", e); browserSpeak(text, onEnd); });
+      }).catch((e) => { console.warn("[voice] speak fetch error:", e); browserSpeak(text, markDone); });
     } else {
       const tr = pickTurkishVoice(window.speechSynthesis?.getVoices() ?? []);
       if (!tr) setNoTurkishVoice(true);
-      browserSpeak(text, onEnd);
+      browserSpeak(text, markDone);
     }
   }, [openaiReady]);
 
@@ -169,26 +201,38 @@ export function VoiceAssistant() {
 
   const goIdleOrRestart = useCallback(() => {
     setStatus("idle");
-    if (activeRef.current) setTimeout(() => { if (activeRef.current) startListeningRef.current?.(); }, 120);
+    // Wait long enough for speakers to stop ringing before reopening the mic,
+    // otherwise we capture our own TTS and loop.
+    if (activeRef.current) setTimeout(() => { if (activeRef.current) startListeningRef.current?.(); }, 450);
   }, []);
 
   const handleTranscribed = useCallback(async (text: string) => {
-    if (!text.trim()) { goIdleOrRestart(); return; }
+    const cleaned = text.trim();
+    // Drop empty or obvious noise (single short token like "ah", "eh")
+    if (!cleaned || cleaned.replace(/\s+/g, "").length < 3) { goIdleOrRestart(); return; }
+    // Echo guard: if we just finished speaking and the transcript looks like our own reply, skip.
+    const withinEchoWindow = Date.now() < speakingUntilRef.current;
+    if ((withinEchoWindow || lastReplyRef.current) && isEchoOfReply(cleaned, lastReplyRef.current)) {
+      console.info("[voice] dropped echo of previous reply:", cleaned);
+      goIdleOrRestart();
+      return;
+    }
     setStatus("thinking"); setCaption(""); setAction(null);
 
-    historyRef.current = [...historyRef.current, { role: "user", content: text }].slice(-6);
+    historyRef.current = [...historyRef.current, { role: "user", content: cleaned }].slice(-6);
     const abort = new AbortController();
     abortRef.current = abort;
 
     try {
-      const data = await voiceApi.chat(text, historyRef.current.slice(0, -1), abort.signal);
+      const data = await voiceApi.chat(cleaned, historyRef.current.slice(0, -1), abort.signal);
       if (abort.signal.aborted) return;
 
       historyRef.current = [...historyRef.current, { role: "assistant", content: data.reply }].slice(-12);
       setCaption(data.reply);
       if (data.action) {
-        // Stop session + keep minimal context so follow-up questions know scrape ran
-        historyRef.current = [{ role: "assistant", content: data.reply }];
+        // Stop session. Clear history — next session must start with a user turn,
+        // otherwise Claude rejects the messages array.
+        historyRef.current = [];
         activeRef.current = false;
         setActive(false);
         setAction(data.action);
@@ -232,21 +276,24 @@ export function VoiceAssistant() {
       const startTime = Date.now();
       const SILENCE_THRESHOLD = 0.018;
       const SILENCE_DURATION = 900;
-      const MIN_SPEECH_MS = 1200; // don't auto-stop before user has spoken
+      const MIN_SPEECH_MS = 1200;      // don't auto-stop before user has spoken
+      const MAX_LISTEN_MS = 12000;     // hard cap so we never get stuck with the mic open
 
       const check = () => {
         if (!audioCtxRef.current) return;
+        const elapsed = Date.now() - startTime;
         analyser.getFloatTimeDomainData(buf);
         const rms = Math.sqrt(buf.reduce((s, v) => s + v * v, 0) / buf.length);
         if (rms >= SILENCE_THRESHOLD) {
           hadSpeech = true;
           silenceStart = null;
-        } else if (hadSpeech && (Date.now() - startTime) > MIN_SPEECH_MS) {
+        } else if (hadSpeech && elapsed > MIN_SPEECH_MS) {
           if (!silenceStart) silenceStart = Date.now();
           else if (Date.now() - silenceStart > SILENCE_DURATION) {
             stopListeningAndSubmit(); return;
           }
         }
+        if (elapsed > MAX_LISTEN_MS) { stopListeningAndSubmit(); return; }
         requestAnimationFrame(check);
       };
       requestAnimationFrame(check);
@@ -260,7 +307,15 @@ export function VoiceAssistant() {
   const startMediaRecorder = useCallback(async () => {
     let stream: MediaStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // echoCancellation/noiseSuppression are critical: without them the mic
+      // picks up the speaker output and we loop on our own TTS.
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
     } catch {
       goIdleOrRestart(); return;
     }
