@@ -124,16 +124,18 @@ async def collect_by_query(
     sektor_filter: str | None = None,
     apify_timeout: int = 300,
     max_reviews: int = 20,
+    search_only: bool = False,
 ) -> list[dict]:
     """
     Free-form search against Google Maps.
     Uses Apify when APIFY_API_TOKEN is set, falls back to SerpAPI otherwise.
+    search_only=True forces SerpAPI Maps (quick search, no Apify).
     Applies query-relevance filter so results actually match the search term.
     """
     if not (search_string or "").strip():
         return []
 
-    use_apify = bool(os.getenv("APIFY_API_TOKEN"))
+    use_apify = not search_only and bool(os.getenv("APIFY_API_TOKEN"))
     if use_apify:
         leads = await _run_apify(
             search_term=search_string.strip(),

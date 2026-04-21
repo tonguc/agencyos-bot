@@ -12,7 +12,7 @@ Sonra satış floor'u uygulanır:
 
 Katmanlar:
   HARD FILTER        → kurumsal/zincir, kalıcı kapalı, zaten güçlü
-  OPPORTUNITY 0-100  → Maps + Website (+40) + SEO + Audit eksikleri
+  OPPORTUNITY 0-100  → Maps + Website (+40) + SEO + keyword coverage + Audit eksikleri
   INTENT      0-100  → Maps aktivite + Sosyal + Dijital yatırım
   FIT_MUL     .85-1.10 → ICP çarpanı
   PATTERN_MUL 1.00-1.15 → sinyal kombinasyonları, max %15 boost
@@ -174,6 +174,18 @@ def calc_opportunity(lead: dict, audit: dict) -> tuple[int, list[str]]:
             add(10, "AI Overview var, listede değil")
         else:
             add(-5, "AI Overview'da görünüyor")
+
+    # C2. High-intent keyword coverage (search-time; 3 sorgu: lokal + acil + fiyat)
+    # Hiç görünmüyorsa = tam satış fırsatı. Hepsinde görünüyorsa = zaten güçlü.
+    # keyword_coverage_score=None → bu alan hiç set edilmemiş (full collect vs.), atla.
+    coverage = lead.get("keyword_coverage_score")
+    if coverage is not None and website:
+        if coverage == 0:
+            add(10, "High-intent aramada yok (0/3)")
+        elif coverage == 1:
+            add(5, "High-intent coverage düşük (1/3)")
+        elif coverage >= 3:
+            add(-5, "High-intent aramalarda görünüyor (3/3)")
 
     # D. Audit
     audit_skor = audit.get("genel_skor")

@@ -10,6 +10,10 @@ Her lead için doldurduğu alanlar:
   organic_position      int|None — organik sıralama (1-10)
   has_ai_overview       bool   — bu sorgu için AI Overview var mı?
   in_ai_overview        bool   — lead'in sitesi AI Overview'da mı?
+
+enrich_keyword_coverage() 3 paralel web sorgusuyla high-intent coverage ölçer:
+  keyword_coverage_score  int  0-3  (kaç sorguda lead top-10'da görünüyor)
+  Sorgular: "{ilce} {category}" · "{ilce} acil {category}" · "{ilce} {category} fiyat"
 """
 
 from __future__ import annotations
@@ -275,4 +279,72 @@ def apply_serp_data(leads: list[dict], serp: dict) -> list[dict]:
             lead["organic_position"] = None
             lead["in_ai_overview"] = False
 
+    return leads
+
+
+async def enrich_keyword_coverage(
+    leads: list[dict],
+    ilce: str | None,
+    category: str,
+) -> list[dict]:
+    """
+    High-intent keyword coverage: 3 paralel web araması, batch başına 3 SerpAPI çağrısı.
+
+    Sorgular:
+      1. "{ilce} {category}"          — temel lokal sorgu
+      2. "{ilce} acil {category}"     — acil/aciliyet niyeti
+      3. "{ilce} {category} fiyat"    — satın alma niyeti
+
+    Her lead'e keyword_coverage_score (0-3) set eder: kaç sorguda top-10'da görünüyor.
+    in_organic_top10 da temel sorgudan güncellenir.
+
+    Lead'in sitesi yoksa → coverage=0 (zaten FIRSAT, scorer bonus verir).
+    SERPAPI_API_KEY yoksa → tüm leadlere coverage=None (scorer bu alanı atlar).
+    """
+    if not settings.SERPAPI_API_KEY:
+        logger.debug("enrich_keyword_coverage: SERPAPI_API_KEY yok, atlanıyor")
+        return leads
+
+    if not leads or not category:
+        for lead in leads:
+            lead.setdefault("keyword_coverage_score", 0)
+        return leads
+
+    prefix = f"{ilce} " if ilce else ""
+    queries = [
+        f"{prefix}{category}",
+        f"{prefix}acil {category}",
+        f"{prefix}{category} fiyat",
+    ]
+
+    serp_results = await asyncio.gather(
+        *[fetch_serp_data(q) for q in queries],
+        return_exceptions=True,
+    )
+
+    for lead in leads:
+        domain = _extract_domain(lead.get("website"))
+        count = 0
+
+        for i, serp in enumerate(serp_results):
+            if isinstance(serp, Exception) or not isinstance(serp, dict) or not serp:
+                continue
+            organic_lookup: dict[str, int] = {
+                d: p for d, p in (serp.get("organic_domains") or [])
+            }
+            if domain and domain in organic_lookup:
+                count += 1
+                if i == 0:
+                    lead["in_organic_top10"] = True
+                    lead["organic_position"] = organic_lookup[domain]
+
+        if domain and lead.get("in_organic_top10") is None:
+            lead["in_organic_top10"] = False
+
+        lead["keyword_coverage_score"] = count
+
+    logger.info(
+        "keyword_coverage: ilce=%r cat=%r leads=%d queries=%s",
+        ilce, category, len(leads), queries,
+    )
     return leads

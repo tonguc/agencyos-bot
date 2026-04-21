@@ -21,6 +21,7 @@ from core.lead_collector import collect_by_query
 from core.lead_scorer import calculate_final_score
 from core.playbook import load_playbook_for_sector
 from core.query_parser import parse_search_query
+from core.serp_enricher import enrich_keyword_coverage
 
 logger = logging.getLogger(__name__)
 
@@ -156,8 +157,14 @@ async def run_search(query: str, limit: int = 25) -> dict:
         try:
             playbook = load_playbook_for_sector(parsed["sector"])
 
-            # Site analysis and SERP are skipped for quick search —
-            # they add 30-90s per run. Full analysis happens during collect_leads job.
+            # High-intent keyword coverage: 3 paralel SerpAPI web araması.
+            # Site analizi (30-90s) hâlâ atlanıyor; sadece organik görünürlük kontrol edilir.
+            raw = await enrich_keyword_coverage(
+                raw,
+                ilce=parsed.get("district"),
+                category=parsed.get("category") or parsed["search_string"],
+            )
+
             filtered = filter_leads(raw, playbook)
             filter_stats = filtered["istatistik"]
             for lead in filtered["nitelikli"]:
