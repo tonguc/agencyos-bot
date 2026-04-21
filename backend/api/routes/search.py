@@ -58,6 +58,10 @@ async def _enrich_lead_ids(results: list[dict], db: AsyncSession) -> None:
             r["score"]    = db_entry["opportunity_score"]
             r["priority"] = db_entry["priority"]
             r["segment"]  = _PRIORITY_TO_SEGMENT.get(db_entry["priority"] or "", r["segment"])
+        else:
+            # DB'de kayıtlı ama henüz audit edilmemiş → "Ön Analiz" göster.
+            # Aramanın "low"/"Elendi" segmentini taşıma — kullanıcıyı yanıltır.
+            r["segment"] = "review"
 
 
 def _calc_summary(results: list[dict]) -> dict:
