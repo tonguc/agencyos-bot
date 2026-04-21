@@ -18,7 +18,7 @@ _SECTOR_SEARCH_TERMS: dict[str, str] = {
     "avukat":          "avukat hukuk bürosu",
     "emlak":           "emlak danışmanı",
     "guzellik":        "güzellik salonu kuaför",
-    "egitim":          "anaokulu kreş ilkokul özel okul",
+    "egitim":          "eğitim kurumu özel okul kurs",
     "ev_hizmetleri":   "tesisatçı elektrikçi kombi servisi",
     "kadin_dogum":     "kadın hastalıkları ve doğum uzmanı jinekoloji",
     "restoran":        "restoran lokanta",
@@ -217,6 +217,22 @@ _QUERY_ALIASES: dict[str, tuple[str, ...]] = {
     # Restoran
     "restoran":    ("restaurant",),
     "kafe":        ("cafe", "coffee"),
+    # Eğitim — Google Maps kategorileri genellikle İngilizce döner
+    "anaokul":     ("preschool", "nursery", "kindergarten", "daycare", "child care"),
+    "kres":        ("preschool", "nursery", "kindergarten", "daycare"),
+    "kreş":        ("preschool", "nursery", "kindergarten", "daycare"),
+    "ilkokul":     ("primary school", "elementary school", "primary"),
+    "ortaokul":    ("middle school", "secondary school", "middle"),
+    "lise":        ("high school", "secondary school", "gymnasium"),
+    "okul":        ("school", "academy", "institute"),
+    "kurs":        ("course", "school", "academy", "training center", "learning center"),
+    "dershane":    ("tutoring", "prep school", "coaching", "study center"),
+    "akademi":     ("academy", "institute", "training"),
+    "egitim":      ("education", "school", "institute", "learning"),
+    "eğitim":      ("education", "school", "institute", "learning"),
+    "ingilizce":   ("english", "language school", "language course"),
+    "almanca":     ("german", "deutsch"),
+    "yabanci":     ("language", "foreign language"),
 }
 
 
