@@ -30,6 +30,8 @@ def lead_to_core_dict(lead) -> dict:
         "page_id": str(lead.id),
         "isim": lead.name or "",
         "sektor": lead.sector or "",
+        "sehir": city,
+        "ilce": district,
         "adres": address,
         "telefon": lead.phone,
         "website": lead.website,

@@ -33,11 +33,28 @@ _SEKTOR_DIL: dict[str, dict[str, str]] = {
     "emlak":         {"service": "müşteri",  "call": "ilan / danışmaya ulaşma", "unit": "portföy", "label": "emlak ofisi"},
     "kadin_dogum":   {"service": "hasta",    "call": "randevu",               "unit": "danışan",  "label": "klinik"},
     "restoran":      {"service": "müşteri",  "call": "rezervasyon",           "unit": "masa",     "label": "restoran"},
+    # Sub-sector codes: klinik playbooks
+    "clinic_general":   {"service": "hasta",    "call": "randevu", "unit": "danışan", "label": "klinik"},
+    "clinic_aesthetic": {"service": "hasta",    "call": "randevu", "unit": "danışan", "label": "klinik"},
+    "clinic_trust":     {"service": "hasta",    "call": "randevu", "unit": "danışan", "label": "klinik"},
+    # Sub-sector codes: eğitim playbooks
+    "education_course":   {"service": "öğrenci", "call": "kayıt", "unit": "kayıt", "label": "eğitim kurumu"},
+    "education_coaching": {"service": "öğrenci", "call": "kayıt", "unit": "kayıt", "label": "eğitim kurumu"},
+    # Sub-sector codes: diğer
+    "beauty_aesthetic": {"service": "randevu", "call": "işlem", "unit": "müşteri", "label": "güzellik merkezi"},
+    "beauty_routine":   {"service": "randevu", "call": "işlem", "unit": "müşteri", "label": "güzellik merkezi"},
+    "lawyer_corporate": {"service": "kişi",    "call": "danışma", "unit": "müvekkil", "label": "avukat bürosu"},
+    "lawyer_litigation":{"service": "kişi",    "call": "danışma", "unit": "müvekkil", "label": "avukat bürosu"},
+    "real_estate_local": {"service": "müşteri", "call": "danışma", "unit": "portföy", "label": "emlak ofisi"},
+    "real_estate_luxury":{"service": "müşteri", "call": "danışma", "unit": "portföy", "label": "emlak ofisi"},
+    "restaurant_maps_driven":   {"service": "müşteri", "call": "rezervasyon", "unit": "masa", "label": "restoran"},
+    "restaurant_social_driven": {"service": "müşteri", "call": "rezervasyon", "unit": "masa", "label": "restoran"},
 }
 
-# Sabit short mesaj şablonu — Claude sadece {gozlem} boşluğunu dolduruyor
+# Sabit short mesaj şablonu — Claude sadece {gozlem} boşluğunu dolduruyor.
+# {ad} boşsa selamlama sadece "Merhaba," olur.
 _SHORT_TEMPLATE = (
-    "Merhaba {ad},\n"
+    "{selamlama}\n"
     "{sehir}'deki {sektor_label} profillerine bakıyordum, sizinki dikkatimi çekti. "
     "{gozlem} "
     "İsterseniz kısa bir bakış atabilirim — yarın uygun olur musunuz?"
@@ -93,14 +110,20 @@ Sadece mesaj metnini döndür. Preamble yok, tırnak yok, açıklama yok."""
 
 
 def _extract_first_name(full_name: str) -> str:
-    """'Klinik Psikolog Başak AKÇA ARSLAN' → 'Başak', 'Op.Dr.Deva Ozdemir' → 'Deva'"""
+    """'Klinik Psikolog Başak AKÇA ARSLAN' → 'Başak', 'Op.Dr.Deva Ozdemir' → 'Deva'
+    Returns '' when the name looks like a business name (all-caps or contains
+    business-type words) so the greeting becomes just 'Merhaba,'."""
     TITLE_WORDS = {
         "dr", "op", "prof", "uzm", "av", "mimar", "müh", "ing",
         "doktor", "uzman", "klinik", "psikolog", "avukat", "hemşire",
-        "psk", "fzt", "dt", "spec", "uzman",
+        "psk", "fzt", "dt", "spec",
     }
     cleaned = re.sub(r"[.\-]", " ", full_name)
-    parts = cleaned.strip().split()
+    parts = [p for p in cleaned.strip().split() if p]
+    # All-uppercase words → business name, not a person
+    significant = [p for p in parts if len(p) > 1]
+    if significant and all(p.isupper() for p in significant):
+        return ""
     for part in parts:
         word = part.strip(".,").lower()
         if word in TITLE_WORDS:
@@ -110,7 +133,7 @@ def _extract_first_name(full_name: str) -> str:
         if len(part) < 2:
             continue
         return part[0].upper() + part[1:]
-    return parts[0].title() if parts else full_name
+    return ""
 
 
 def _sektor_dil_str(sector: str) -> str:
@@ -178,9 +201,18 @@ async def generate_sales_output(lead: dict, audit: dict, playbook: dict) -> dict
 
     isim = lead.get("isim") or ""
     adres = lead.get("adres") or ""
-    city = adres.split("/")[0].strip() if "/" in adres else adres.split(",")[0].strip()
+
+    # Use structured city/district fields first; fall back to the part after the last "/"
+    # or the last comma-separated segment of the address (never the street portion).
+    city = (
+        lead.get("ilce")
+        or lead.get("sehir")
+        or (adres.rsplit("/", 1)[-1].strip() if "/" in adres
+            else (adres.rsplit(",", 1)[-1].strip() if "," in adres else adres))
+    )
 
     ad = _extract_first_name(isim)
+    selamlama = f"Merhaba {ad}," if ad else "Merhaba,"
 
     client = anthropic.AsyncAnthropic()
 
@@ -209,7 +241,7 @@ async def generate_sales_output(lead: dict, audit: dict, playbook: dict) -> dict
 
     # ── 2. Short mesajı şablondan oluştur ──
     short = _SHORT_TEMPLATE.format(
-        ad=ad,
+        selamlama=selamlama,
         sehir=city or "Bölgenizdeki",
         sektor_label=_sektor_label(sector),
         gozlem=gozlem,

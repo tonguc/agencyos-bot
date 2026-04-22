@@ -37,7 +37,9 @@ _SECTOR_REJECT: dict[str, re.Pattern] = {
     "klinik": re.compile(
         r"\b(bilgisayar|gsm|telefon\s*tamiri|teknik\s*servis|oto\s*klinik|"
         r"boya\s*kliniği|eczane|veteriner|market|süpermarket|"
-        r"mağaza|butik|restoran|kafe|inşaat|tesisat)\b",
+        r"mağaza|butik|restoran|kafe|inşaat|tesisat|"
+        r"anaokul|kreş|kres|dil\s*okul|dil\s*kurs|dershane|etüt|etut|"
+        r"kurs\s*merkez|özel\s*okul|ozel\s*okul|ilkokul|ortaokul|lise)\b",
         re.I | re.UNICODE,
     ),
     "avukat": re.compile(
