@@ -1,4 +1,5 @@
 import base64
+import logging
 import uuid
 from pathlib import Path
 
@@ -14,6 +15,8 @@ from repositories.proposal import ProposalRepository
 from schemas.common import JobResponse
 from schemas.proposal import ProposalOut
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(tags=["proposals"])
 
 
@@ -26,6 +29,8 @@ async def trigger_proposal(
     repo = JobRepository(db)
     existing = await repo.find_active_for_lead(lead_id, "generate_proposal")
     if existing:
+        logger.info("trigger_proposal: existing job | lead=%s job=%s",
+                    str(lead_id)[:8], str(existing.id)[:8])
         return JobResponse(job_id=existing.id, status=existing.status, result=None)
 
     job = await repo.create(
@@ -34,6 +39,8 @@ async def trigger_proposal(
     )
     await db.commit()
     await arq.enqueue_job("run_proposal_job", str(lead_id), str(job.id))
+    logger.info("trigger_proposal: enqueued | lead=%s job=%s",
+                str(lead_id)[:8], str(job.id)[:8])
     return JobResponse(job_id=job.id, status="pending", result=None)
 
 
