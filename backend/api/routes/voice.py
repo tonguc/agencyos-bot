@@ -39,33 +39,6 @@ CEVAP KURALLARI:
 - Maks 15 kelime
 - "tabii/anladım/elbette/harika" kullanma"""
 
-SCRAPE_TOOL = {
-    "name": "trigger_scrape",
-    "description": "Kullanıcı onayladığında lead taraması başlatır. query kullanıcının söylediği arama ifadesi (KBB doktoru / diş hekimi vb), sector ise playbook/filtreleme için.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "query": {
-                "type": "string",
-                "description": "Kullanıcının söylediği Türkçe arama ifadesi, örn: 'kulak burun boğaz doktoru', 'diş hekimi', 'estetik cerrahi'",
-            },
-            "sector": {
-                "type": "string",
-                "enum": [
-                    "klinik", "avukat", "emlak", "guzellik", "egitim",
-                    "ev_hizmetleri", "kadin_dogum", "restoran", "oto_servis",
-                    "klima_beyaz_esya", "cilingir", "tadilat", "nakliyat", "hali_temizlik",
-                ],
-            },
-            "city": {"type": "string"},
-            "district": {"type": "string"},
-            "limit": {"type": "integer", "default": 20},
-        },
-        "required": ["query", "sector", "city"],
-    },
-}
-
-
 @router.get("/status")
 async def voice_status():
     return {
@@ -168,9 +141,8 @@ class VoiceChatResponse(BaseModel):
     action: ScrapeAction | None = None
 
 
-# System + tools with cache_control — 5dk cache, %90 ucuz
+# System with cache_control — 5dk cache, %90 ucuz
 _CACHED_SYSTEM = [{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}]
-_CACHED_TOOLS = [{**SCRAPE_TOOL, "cache_control": {"type": "ephemeral"}}]
 
 
 @router.post("/chat", response_model=VoiceChatResponse)
@@ -190,28 +162,18 @@ async def voice_chat(
     try:
         response = await client.messages.create(
             model=settings.CLAUDE_MODEL,
-            # Tool use kapali (asagida tool_blocks override ediliyor) — text reply
-            # zaten sistem prompt'ta max 15 kelime, 400 gereksiz buyuktu.
+            # Sistem prompt'ta max 15 kelime — 200 token rahat sınır.
             max_tokens=200,
             temperature=0.4,
             system=_CACHED_SYSTEM,  # type: ignore[arg-type]
-            tools=_CACHED_TOOLS,  # type: ignore[arg-type]
             messages=messages,
             timeout=30.0,
         )
-
         text_parts = [b.text for b in response.content if getattr(b, "type", None) == "text"]
-        reply = "".join(text_parts).strip()
-        tool_blocks = [b for b in response.content if getattr(b, "type", None) == "tool_use"]
-        action = None
-
-        if tool_blocks:
-            # Scrape via voice is disabled — unstable, wastes Apify credits.
-            # User should trigger scrapes manually from Yeni Tarama page.
-            reply = "Şu an sesli tarama devre dışı. Yeni Tarama sayfasından başlatabilirsin."
-            action = None
-
+        reply = "".join(text_parts).strip() or "Anlamadım, tekrar söyler misin?"
     except Exception:
+        logger.exception("voice/chat failed")
         return VoiceChatResponse(reply="Hata, tekrar dene.")
 
-    return VoiceChatResponse(reply=reply, action=action)
+    # action her zaman None — voice scrape kalıcı olarak kapalı (UI kontratı korunuyor).
+    return VoiceChatResponse(reply=reply, action=None)
