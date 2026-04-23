@@ -7,9 +7,11 @@ from sqlalchemy import delete as sql_delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
+from models.activity_log import ActivityEvent
 from models.lead import Lead
 from repositories.lead import LeadRepository
 from schemas.lead import LeadCreate, LeadListOut, LeadOut, LeadUpdate, PipelineOut
+from services.activity import log_event
 from services.lead_service import update_status
 
 logger = logging.getLogger(__name__)
@@ -133,8 +135,23 @@ async def delete_leads_by_sector(
 
 @router.delete("/{lead_id}", status_code=204)
 async def delete_lead(lead_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    # Silme oncesi mevcut lead bilgisini oku (audit trail'de name/sector kalsin).
+    repo = LeadRepository(db)
+    lead = await repo.get(lead_id)
+    if not lead:
+        raise HTTPException(404, "Lead bulunamadi")
+    snapshot = {
+        "id":     str(lead.id),
+        "name":   lead.name,
+        "sector": lead.sector,
+        "city":   lead.city,
+        "status": lead.status,
+    }
     # Use SQL-level delete so SQLAlchemy doesn't attempt async lazy-load of
     # relationships (audits, outreach, etc.) — DB ON DELETE CASCADE handles children.
     result = await db.execute(sql_delete(Lead).where(Lead.id == lead_id))
     if result.rowcount == 0:
         raise HTTPException(404, "Lead bulunamadi")
+    # log_event lead_id: silinen lead'e ON DELETE SET NULL ile NULL'a duser
+    # — snapshot data icinde kalir, trail okunabilir.
+    await log_event(db, event=ActivityEvent.LEAD_DELETED, data=snapshot)

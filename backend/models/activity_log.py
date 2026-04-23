@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 # Canonical event names — extend as needed
 class ActivityEvent:
     LEAD_CREATED = "lead_created"
+    LEAD_DELETED = "lead_deleted"
     LEAD_STATUS_CHANGED = "lead_status_changed"
     AUDIT_COMPLETED = "audit_completed"
     OUTREACH_GENERATED = "outreach_generated"
