@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -10,6 +11,8 @@ from models.lead import Lead
 from repositories.lead import LeadRepository
 from schemas.lead import LeadCreate, LeadListOut, LeadOut, LeadUpdate, PipelineOut
 from services.lead_service import update_status
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/leads", tags=["leads"])
 
@@ -64,7 +67,12 @@ async def create_lead(body: LeadCreate, db: AsyncSession = Depends(get_db)):
                     priority=score["priority"],
                 )
         except Exception:
-            pass
+            # Skor hesaplama bash bir nedenle (eksik playbook, bozuk girdi vs.)
+            # fail ederse lead kaydını engelleme — ama sebebi kaybetme.
+            logger.exception(
+                "Manual lead create: skor hesaplanamadi | sector=%s name=%r",
+                body.sector, (body.name or "")[:40],
+            )
 
     return lead
 
