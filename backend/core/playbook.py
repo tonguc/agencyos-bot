@@ -9,10 +9,17 @@ from config import settings
 logger = logging.getLogger(__name__)
 
 
-def load_playbook(sector: str) -> dict:
-    """Load and return a sector playbook JSON. Raises ValueError on missing/invalid."""
+def load_playbook(sector: str, fallback: str | None = None) -> dict:
+    """Load and return a sector playbook JSON.
+
+    If `fallback` verilirse, dosya yoksa o playbook'a düşer (loglar + fallback döner).
+    `fallback=None` (default) eski davranış: ValueError.
+    """
     path = os.path.join(settings.PLAYBOOKS_DIR, f"{sector}.json")
     if not os.path.exists(path):
+        if fallback:
+            logger.warning("Playbook bulunamadi: %s → fallback: %s", sector, fallback)
+            return load_playbook(fallback)  # fallback dosyasi da yoksa ValueError atacak
         raise ValueError(f"Playbook bulunamadi: {path}")
     with open(path, encoding="utf-8") as f:
         playbook = json.load(f)

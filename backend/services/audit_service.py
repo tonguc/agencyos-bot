@@ -52,51 +52,52 @@ async def run_audit(lead_id: uuid.UUID, db: AsyncSession) -> Audit:
         sector = "ev_hizmetleri"
 
     # Alt sektör tespiti — playbook seçimini etkiler
+    # Eksik subsector playbook'unda top-level sector'e düşeriz (500 atmaz, audit devam).
     if sector == "klinik":
         subsector = detect_clinic_subsector(lead_dict)
         lead_dict["clinic_subsector"] = subsector
-        playbook = load_playbook(f"clinic_{subsector}")
+        playbook = load_playbook(f"clinic_{subsector}", fallback="clinic_general")
         logger.info("Clinic subsector: lead=%s subsector=%s", str(lead_id)[:8], subsector)
 
     elif sector == "avukat":
         subsector = detect_lawyer_subsector(lead_dict)
         lead_dict["sub_sector"] = subsector
-        playbook = load_playbook(f"lawyer_{subsector}")
+        playbook = load_playbook(f"lawyer_{subsector}", fallback="lawyer_litigation")
         logger.info("Lawyer subsector: lead=%s subsector=%s", str(lead_id)[:8], subsector)
 
     elif sector == "emlak":
         subsector = detect_real_estate_subsector(lead_dict)
         lead_dict["sub_sector"] = subsector
-        playbook = load_playbook(f"real_estate_{subsector}")
+        playbook = load_playbook(f"real_estate_{subsector}", fallback="real_estate_local")
         logger.info("Real estate subsector: lead=%s subsector=%s", str(lead_id)[:8], subsector)
 
     elif sector == "guzellik":
         subsector = detect_beauty_subsector(lead_dict)
         lead_dict["sub_sector"] = subsector
-        playbook = load_playbook(f"beauty_{subsector}")
+        playbook = load_playbook(f"beauty_{subsector}", fallback="beauty_routine")
         logger.info("Beauty subsector: lead=%s subsector=%s", str(lead_id)[:8], subsector)
 
     elif sector == "egitim":
         subsector = detect_education_subsector(lead_dict)
         lead_dict["sub_sector"] = subsector
-        playbook = load_playbook(f"education_{subsector}")
+        playbook = load_playbook(f"education_{subsector}", fallback="education_course")
         logger.info("Education subsector: lead=%s subsector=%s", str(lead_id)[:8], subsector)
 
     elif sector == "ev_hizmetleri":
         subsector = detect_ev_hizmetleri_subsector(lead_dict)
         lead_dict["sub_sector"] = subsector
-        playbook = load_playbook(f"ev_hizmetleri_{subsector}")
+        playbook = load_playbook(f"ev_hizmetleri_{subsector}", fallback="ev_hizmetleri_tesisat")
         logger.info("Ev hizmetleri subsector: lead=%s subsector=%s", str(lead_id)[:8], subsector)
 
     elif sector == "restoran":
         subsector = detect_restaurant_subsector(lead_dict)
         lead_dict["sub_sector"] = subsector
-        playbook = load_playbook(f"restaurant_{subsector}")
+        playbook = load_playbook(f"restaurant_{subsector}", fallback="clinic_general")
         logger.info("Restaurant subsector: lead=%s subsector=%s", str(lead_id)[:8], subsector)
 
     else:
         # kadin_dogum ve bilinmeyen sektörler doğrudan playbook'larına gider
-        playbook = load_playbook(sector)
+        playbook = load_playbook(sector, fallback="clinic_general")
 
     audit_result = await generate_audit(lead_dict, playbook)
     hook = await select_and_generate_hook(lead_dict, audit_result, playbook)
