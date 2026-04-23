@@ -542,7 +542,12 @@ async def _run_apify(
     limit: int,
     sektor_for_filter: str | None,
     apify_timeout: int = 200,  # < ARQ job_timeout (240s). Caller override edebilir.
-    max_reviews: int = 20,
+    # Apify review basina ucretlendirir. Downstream sinyaller:
+    #   son_yorum_gun  -> 1 yorum yeter
+    #   review_last_30d -> threshold 2,5 (10 yorum guvenli)
+    #   review_last_90d -> threshold 10 (marjinal ama calisir)
+    # 20->10 = sector-bazli full scrape'de %50 cost-cut.
+    max_reviews: int = 10,
 ) -> list[dict]:
     token = os.getenv("APIFY_API_TOKEN")
     if not token:
