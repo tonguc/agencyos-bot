@@ -90,9 +90,10 @@ async def claude_api_call(
     messages: list[dict] = [{"role": "user", "content": prompt}]
     if prefill:
         messages.append({"role": "assistant", "content": prefill})
+    used_model = model or settings.CLAUDE_MODEL
     try:
         msg = await client.messages.create(
-            model=model or settings.CLAUDE_MODEL,
+            model=used_model,
             max_tokens=max_tokens,
             temperature=temperature,
             messages=messages,
@@ -100,6 +101,18 @@ async def claude_api_call(
         )
         parts = [b.text for b in msg.content if getattr(b, "type", None) == "text"]
         text = "".join(parts)
+        # Cost log — fail-safe, caller'i bloklamaz
+        try:
+            from services.cost_tracker import record_claude
+            usage = getattr(msg, "usage", None)
+            if usage is not None:
+                await record_claude(
+                    input_tokens=getattr(usage, "input_tokens", 0) or 0,
+                    output_tokens=getattr(usage, "output_tokens", 0) or 0,
+                    model=used_model,
+                )
+        except Exception:
+            logger.exception("claude cost log failed")
         return (prefill + text) if prefill else text
     except Exception as e:
         # request_id response header'inda geliyor, ama exception path'te alamiyoruz;

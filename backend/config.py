@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: str = ""
     ADMIN_TELEGRAM_CHAT_IDS: str = ""
 
+    # Cost tracker — DAILY_BUDGET_USD>0 ise %80 asilinca admin'e Telegram alarm
+    # gider. 0 (default) = sınır yok (sadece spend log tutulur).
+    DAILY_BUDGET_USD: float = 0.0
+
     @property
     def is_dev(self) -> bool:
         return self.APP_ENV == "development"

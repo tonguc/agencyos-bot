@@ -618,6 +618,19 @@ async def _run_apify(
         logger.error(f"Apify beklenmedik yanıt döndü ({search_term} @ {location}): tip={type(raw_leads).__name__}")
         return []
 
+    # Cost log — fire-and-forget, semaphore'u tutmayalim
+    try:
+        from services.cost_tracker import record_apify
+        places = len(raw_leads)
+        # Worst-case tahmin: her yer max_reviews kadar yorum scrape edildi
+        reviews = places * max_reviews
+        asyncio.create_task(record_apify(
+            places=places, reviews=reviews,
+            meta={"search": search_term[:60], "location": location[:60]},
+        ))
+    except Exception:
+        logger.exception("apify cost log task spawn failed")
+
     logger.info(f"{len(raw_leads)} ham lead alındı: '{search_term} @ {location}'")
     enriched = [enrich_lead(lead) for lead in raw_leads]
     if sektor_for_filter:

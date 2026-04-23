@@ -74,6 +74,14 @@ async def transcribe(audio: UploadFile = File(...)):
             file=(filename, io.BytesIO(audio_bytes), audio.content_type or "audio/webm"),
             language="tr",
         )
+        # Cost log — STT minute bazli; webm ortalama 16-32 kbps -> bytes/4000 ~ saniye tahmini
+        try:
+            from services.cost_tracker import record_openai_stt
+            est_seconds = max(1.0, len(audio_bytes) / 4000.0)
+            import asyncio as _asy
+            _asy.create_task(record_openai_stt(seconds=est_seconds))
+        except Exception:
+            logger.exception("openai stt cost log failed")
         return {"text": result.text.strip()}
     except Exception as e:
         logger.exception("voice/transcribe failed | bytes=%d type=%s",
@@ -108,6 +116,13 @@ async def speak(body: SpeakRequest):
             input=text,
             response_format="mp3",
         )
+        # Cost log — char bazli
+        try:
+            from services.cost_tracker import record_openai_tts
+            import asyncio as _asy
+            _asy.create_task(record_openai_tts(chars=len(text)))
+        except Exception:
+            logger.exception("openai tts cost log failed")
         return Response(content=response.content, media_type="audio/mpeg")
     except Exception:
         logger.exception("voice/speak failed | chars=%d voice=%s",
