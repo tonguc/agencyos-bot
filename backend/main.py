@@ -10,6 +10,7 @@ from config import settings
 from database import engine
 from logging_config import setup_logging
 from middleware.auth import APIKeyMiddleware
+from middleware.request_id import RequestIDMiddleware
 from api.router import api_router
 from api.routes import health
 
@@ -60,7 +61,10 @@ app = FastAPI(
     openapi_url="/openapi.json",
 )
 
+# RequestIDMiddleware ONCE APIKey — her istege req=... atanip
+# auth failure'lari da log'da takip edilebilir.
 app.add_middleware(APIKeyMiddleware)
+app.add_middleware(RequestIDMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

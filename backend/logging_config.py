@@ -2,9 +2,12 @@ import logging
 import sys
 from logging.handlers import RotatingFileHandler
 
+from middleware.request_id import RequestIDFilter
+
 
 def setup_logging(level: str = "INFO", log_file: str = "agencyos.log") -> None:
-    fmt = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
+    # request_id middleware ContextVar'dan geliyor; "-" default (request disi).
+    fmt = "%(asctime)s | %(levelname)-8s | req=%(request_id)s | %(name)s | %(message)s"
     datefmt = "%Y-%m-%d %H:%M:%S"
 
     handlers: list[logging.Handler] = [logging.StreamHandler(sys.stdout)]
@@ -18,6 +21,10 @@ def setup_logging(level: str = "INFO", log_file: str = "agencyos.log") -> None:
                 backupCount=5,
             )
         )
+
+    rid_filter = RequestIDFilter()
+    for h in handlers:
+        h.addFilter(rid_filter)
 
     logging.basicConfig(
         level=getattr(logging, level.upper(), logging.INFO),
