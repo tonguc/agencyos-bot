@@ -63,19 +63,40 @@ async def collect_and_save(
     repo = LeadRepository(db)
     saved = 0
 
-    # Dedup: find phones that already exist in DB
+    # ── Dedup hazirligi ──────────────────────────────────────────────
+    # 1) Phone-bazli (mevcut)
     candidate_phones = [l.get("telefon") for l in filtered["nitelikli"] if l.get("telefon")]
     existing_phones: set[str] = set(await repo.find_by_phones(candidate_phones))
-    seen_in_batch: set[str] = set()
+    seen_phones_batch: set[str] = set()
+
+    # 2) Telefonsuz lead'ler icin isim+sehir bazli (P1-B light fix)
+    phoneless_names_lc = [
+        (l.get("isim") or "").strip().lower()
+        for l in filtered["nitelikli"]
+        if not l.get("telefon") and (l.get("isim") or "").strip()
+    ]
+    existing_phoneless_names: set[str] = await repo.find_phoneless_dupe_keys(
+        phoneless_names_lc, city
+    )
+    seen_phoneless_batch: set[str] = set()
 
     scores = []
     for lead_data in filtered["nitelikli"]:
         phone = lead_data.get("telefon") or ""
         if phone:
-            if phone in existing_phones or phone in seen_in_batch:
-                logger.info("Dedup atlandı: %s (%s)", lead_data.get("isim"), phone)
+            if phone in existing_phones or phone in seen_phones_batch:
+                logger.info("Dedup atlandı (phone): %s (%s)", lead_data.get("isim"), phone)
                 continue
-            seen_in_batch.add(phone)
+            seen_phones_batch.add(phone)
+        else:
+            # Telefonsuz: isim+sehir keyiyle dedup
+            name_lc = (lead_data.get("isim") or "").strip().lower()
+            if name_lc and (name_lc in existing_phoneless_names or name_lc in seen_phoneless_batch):
+                logger.info("Dedup atlandı (telefonsuz isim+sehir): %s @ %s",
+                            lead_data.get("isim"), city)
+                continue
+            if name_lc:
+                seen_phoneless_batch.add(name_lc)
 
         score = calculate_final_score(lead_data, {}, playbook)
         if score["status"] == "rejected":
