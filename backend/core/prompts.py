@@ -65,7 +65,7 @@ LEAD VERİSİ
 Adres: {adres}
 Yorum sayısı: {yorum_sayisi}  |  Puan: {puan}
 Site URL: {url}
-PageSpeed mobil skoru: {hiz_skoru}/100
+PageSpeed mobil skoru: {hiz_skoru}
 Form var mı: {form_var}  |  Tel link: {tel_var}  |  SSL: {ssl}
 Title: {title}
 Meta: {meta}
@@ -215,7 +215,13 @@ def build_audit_prompt(lead: dict, playbook: dict, site: dict) -> str:
         yorum_sayisi=lead.get("yorum_sayisi", 0),
         puan=lead.get("puan", 0),
         url=site.get("url") or "(yok)",
-        hiz_skoru=site.get("hiz_skoru", 0),
+        # PageSpeed: sadece gerçek veri varsa sayı göster, aksi halde Claude'u
+        # "site çok yavaş (0/100)" olarak yanıltmaktansa açıkça belirt.
+        hiz_skoru=(
+            f"{site.get('hiz_skoru')}/100"
+            if site.get("hiz_veri_var")
+            else "(veri alinamadi)"
+        ),
         form_var=site.get("form_var", False),
         tel_var=site.get("tel_var", False),
         ssl=site.get("ssl", False),
