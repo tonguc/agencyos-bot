@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     # Playbooks directory (relative to backend/)
     PLAYBOOKS_DIR: str = "playbooks"
 
+    # Admin notification channel (opsiyonel — bos ise notify_admin sessiz log atar).
+    # ADMIN_TELEGRAM_CHAT_IDS virgulle ayrilmis chat_id listesi.
+    TELEGRAM_BOT_TOKEN: str = ""
+    ADMIN_TELEGRAM_CHAT_IDS: str = ""
+
     @property
     def is_dev(self) -> bool:
         return self.APP_ENV == "development"

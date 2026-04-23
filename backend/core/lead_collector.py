@@ -598,6 +598,13 @@ async def _run_apify(
             status = e.response.status_code if e.response is not None else "?"
             logger.error(f"Apify HTTP {status} — {search_term} @ {location}: {e}")
             if status == 402:
+                # Admin alarm — Telegram bildirimi (debounce'lu, fire-and-forget).
+                from services.notify import notify_admin
+                await notify_admin(
+                    f"⚠️ APIFY KREDISI TUKENDI\n\n"
+                    f"Arama: {search_term}\nKonum: {location}\n\n"
+                    f"konsol.apify.com'dan bakiye yukleyin."
+                )
                 raise RuntimeError("Apify kredisi tükendi — konsol.apify.com'dan bakiye yükle")
             return []
         except requests.RequestException as e:
