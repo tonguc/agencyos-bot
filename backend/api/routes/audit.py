@@ -25,7 +25,13 @@ async def trigger_audit(
     db: AsyncSession = Depends(get_db),
     arq: ArqRedis = Depends(get_arq_pool),
 ):
-    job = await JobRepository(db).create(
+    repo = JobRepository(db)
+    # Idempotency: ayni lead icin pending|running audit varsa onu don (cift tiklama guard'i).
+    existing = await repo.find_active_for_lead(lead_id, "generate_audit")
+    if existing:
+        return JobResponse(job_id=existing.id, status=existing.status, result=None)
+
+    job = await repo.create(
         type="generate_audit",
         payload={"lead_id": str(lead_id)},
     )
