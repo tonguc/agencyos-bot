@@ -12,6 +12,20 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: agencyos
+          POSTGRES_PASSWORD: agencyos
+          POSTGRES_DB: agencyos_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U agencyos"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
@@ -27,9 +41,16 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 
-      - name: Run tests
+      - name: Apply migrations (smoke)
         env:
+          DATABASE_URL: postgresql+asyncpg://agencyos:agencyos@localhost:5432/agencyos_test
           APP_ENV: test
           AGENCYOS_API_KEY: test-key
-          DATABASE_URL: postgresql+asyncpg://test:test@localhost/test
+        run: alembic upgrade head
+
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql+asyncpg://agencyos:agencyos@localhost:5432/agencyos_test
+          APP_ENV: test
+          AGENCYOS_API_KEY: test-key
         run: pytest -v
