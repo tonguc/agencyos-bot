@@ -437,12 +437,22 @@ _TR_COORDS_NORM: dict[str, str] = {
 }
 
 
+# Türkiye centroid — bilinmeyen şehir/ilçede SerpAPI'ı tüm ülkede arattırır.
+# Sonradan _filter_by_location zaten ilçe/şehir adıyla agresif filtreleme yapıyor.
+# İstanbul varsayılanı yanlıştı: "Trabzon" araması İstanbul koordinatına gidiyordu.
+_TR_CENTROID_LL = "@39.0,35.0,6z"
+
+
 def _get_ll(ilce: str, sehir: str) -> str:
     """İlçe veya şehir adından SerpAPI Maps ll parametresi döner."""
     for name in (_normalize_tr(ilce), _normalize_tr(sehir)):
         if name and name in _TR_COORDS_NORM:
             return _TR_COORDS_NORM[name]
-    return _TR_COORDS_NORM["istanbul"]  # varsayılan
+    logger.warning(
+        "_get_ll: koordinat bulunamadi (ilce=%r sehir=%r) — Turkiye centroid kullanilacak",
+        ilce, sehir,
+    )
+    return _TR_CENTROID_LL
 
 
 async def _run_serpapi_maps(
