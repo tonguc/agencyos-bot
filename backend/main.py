@@ -17,8 +17,29 @@ setup_logging(level=settings.LOG_LEVEL, log_file=settings.LOG_FILE)
 logger = logging.getLogger(__name__)
 
 
+_WEAK_API_KEYS = {"", "changeme"}
+
+
+def _check_production_secrets() -> None:
+    """Reddet: production'da default/boş API key ile çalışma."""
+    if settings.APP_ENV != "production":
+        if settings.AGENCYOS_API_KEY in _WEAK_API_KEYS:
+            logger.warning(
+                "AGENCYOS_API_KEY zayıf (%r) — dev ortamında kabul ediliyor, "
+                "production'da reddedilir.",
+                settings.AGENCYOS_API_KEY,
+            )
+        return
+    if settings.AGENCYOS_API_KEY in _WEAK_API_KEYS:
+        raise RuntimeError(
+            "AGENCYOS_API_KEY production'da boş veya 'changeme' olamaz. "
+            "Güçlü bir değer belirleyip yeniden başlatın."
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _check_production_secrets()
     logger.info("AgencyOS API başlıyor | env=%s", settings.APP_ENV)
     redis_url = settings.REDIS_URL
     if not redis_url.startswith(("redis://", "rediss://", "unix://")):
