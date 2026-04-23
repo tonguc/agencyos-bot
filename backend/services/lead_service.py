@@ -20,6 +20,28 @@ from services.activity import log_event
 logger = logging.getLogger(__name__)
 
 
+# Pipeline transition whitelist. Geri donus (ornegin Kapandi -> Mesaj) engellenir
+# — "reset" istenirse arsivden tekrar Yeni'ye ozel bir akis tasarlanmali.
+# Ayni statulere transition (X -> X) idempotent olarak izinlidir.
+# Pydantic LeadUpdate.status Literal API'yi, bu table service katmanini kapsar
+# (internal setattr bypass'i service icinde engellenir).
+ALLOWED_TRANSITIONS: dict[str, frozenset[str]] = {
+    "Yeni":    frozenset({"Yeni", "Audit", "Arsiv"}),
+    "Audit":   frozenset({"Audit", "Mesaj", "Arsiv"}),
+    "Mesaj":   frozenset({"Mesaj", "Cevap", "Arsiv"}),
+    "Cevap":   frozenset({"Cevap", "Demo", "Teklif", "Kapandi", "Arsiv"}),
+    "Demo":    frozenset({"Demo", "Teklif", "Kapandi", "Arsiv"}),
+    "Teklif":  frozenset({"Teklif", "Kapandi", "Arsiv"}),
+    "Kapandi": frozenset({"Kapandi", "Arsiv"}),
+    "Arsiv":   frozenset({"Arsiv"}),
+}
+
+
+def is_allowed_transition(current: str, new: str) -> bool:
+    """Pure: Lead status transition'inin izinli olup olmadigi."""
+    return new in ALLOWED_TRANSITIONS.get(current or "", frozenset())
+
+
 def lead_to_core_dict(lead) -> dict:
     """Convert Lead ORM instance to the dict format core functions expect."""
     district = lead.district or ""
@@ -128,11 +150,22 @@ async def collect_and_save(
 
 
 async def update_status(lead_id: uuid.UUID, status: str, db: AsyncSession) -> bool:
+    """Public status transition. Illegal transition ValueError firlatir."""
     repo = LeadRepository(db)
     lead = await repo.get(lead_id)
     if not lead:
         return False
+    current = lead.status or ""
+    if not is_allowed_transition(current, status):
+        logger.warning(
+            "update_status rejected: lead=%s %s -> %s (illegal transition)",
+            str(lead_id)[:8], current, status,
+        )
+        raise ValueError(
+            f"Illegal status transition: {current!r} -> {status!r}. "
+            f"Izinli: {sorted(ALLOWED_TRANSITIONS.get(current, frozenset()))}"
+        )
     await repo.update(lead, status=status)
     await log_event(db, event=ActivityEvent.LEAD_STATUS_CHANGED,
-                    lead_id=lead_id, data={"status": status})
+                    lead_id=lead_id, data={"from": current, "to": status})
     return True

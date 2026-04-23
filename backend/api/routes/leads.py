@@ -103,8 +103,20 @@ async def update_lead(
     lead = await repo.get(lead_id)
     if not lead:
         raise HTTPException(404, "Lead bulunamadi")
-    updated = await repo.update(lead, **{k: v for k, v in body.model_dump().items() if v is not None})
-    return updated
+    payload = {k: v for k, v in body.model_dump().items() if v is not None}
+    # Status update'i service katmaninin transition guard'indan gecir.
+    new_status = payload.pop("status", None)
+    if new_status is not None and new_status != (lead.status or ""):
+        try:
+            await update_status(lead_id, new_status, db)
+        except ValueError as e:
+            raise HTTPException(409, str(e))
+        # update_status session'da commit etmedi (get_db commit/rollback sarar);
+        # tekrar refresh et ki donuste en son state olsun.
+        lead = await repo.get(lead_id)
+    if payload:
+        lead = await repo.update(lead, **payload)
+    return lead
 
 
 @router.delete("/bulk/sector", status_code=200)
