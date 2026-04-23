@@ -12,15 +12,17 @@ async def run_audit_job(ctx, lead_id: str, job_id: str) -> dict:
     lead_uuid = uuid.UUID(lead_id)
     job_uuid = uuid.UUID(job_id)
 
+    job_created_at = None
     async with AsyncSessionFactory() as db:
         job = await JobRepository(db).get(job_uuid)
         if job:
+            job_created_at = job.created_at  # idempotency anchor: retry sırasında bu job'un audit'ini tekrar üretme
             await JobRepository(db).mark_running(job, "Audit başlıyor...")
             await db.commit()
 
     try:
         async with AsyncSessionFactory() as db:
-            audit = await run_audit(lead_uuid, db)
+            audit = await run_audit(lead_uuid, db, since_dt=job_created_at)
             await db.commit()
 
         result = {"audit_id": str(audit.id), "score": audit.general_score}

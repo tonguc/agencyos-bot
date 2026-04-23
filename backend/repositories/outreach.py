@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from sqlalchemy import select
 
@@ -9,13 +10,18 @@ from repositories.base import BaseRepository
 class OutreachRepository(BaseRepository[OutreachMessage]):
     model = OutreachMessage
 
-    async def get_latest_for_lead(self, lead_id: uuid.UUID) -> OutreachMessage | None:
-        result = await self._session.execute(
-            select(OutreachMessage)
-            .where(OutreachMessage.lead_id == lead_id)
-            .order_by(OutreachMessage.created_at.desc())
-            .limit(1)
-        )
+    async def get_latest_for_lead(
+        self,
+        lead_id: uuid.UUID,
+        since_dt: datetime | None = None,
+    ) -> OutreachMessage | None:
+        """En yeni outreach. since_dt verilirse sadece o tarihten sonra olusanlari
+        arar (ARQ retry idempotency)."""
+        stmt = select(OutreachMessage).where(OutreachMessage.lead_id == lead_id)
+        if since_dt is not None:
+            stmt = stmt.where(OutreachMessage.created_at >= since_dt)
+        stmt = stmt.order_by(OutreachMessage.created_at.desc()).limit(1)
+        result = await self._session.execute(stmt)
         return result.scalar_one_or_none()
 
     async def get_all_for_lead(self, lead_id: uuid.UUID) -> list[OutreachMessage]:

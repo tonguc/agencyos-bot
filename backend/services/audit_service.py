@@ -6,6 +6,7 @@ No FastAPI, ARQ, or Telegram imports.
 
 import logging
 import uuid
+from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,11 +37,29 @@ _CLINIC_ALIASES  = {"plastik_cerrah", "diyetisyen"}
 _EV_HIZ_ALIASES  = {"tesisatci", "tesisat", "elektrikci", "elektrik", "boyaci", "tadilat"}
 
 
-async def run_audit(lead_id: uuid.UUID, db: AsyncSession) -> Audit:
-    """Run full audit pipeline for a lead. Returns saved Audit ORM instance."""
+async def run_audit(
+    lead_id: uuid.UUID,
+    db: AsyncSession,
+    since_dt: datetime | None = None,
+) -> Audit:
+    """Run full audit pipeline for a lead. Returns saved Audit ORM instance.
+
+    since_dt: Bu zaman damgasından sonra zaten oluşturulmuş audit varsa onu döner
+    (Claude/Apify çağrısı yapılmaz). ARQ retry idempotency için task'tan
+    job.created_at geçirilir.
+    """
     lead = await LeadRepository(db).get(lead_id)
     if not lead:
         raise ValueError(f"Lead bulunamadi: {lead_id}")
+
+    if since_dt is not None:
+        existing = await AuditRepository(db).get_latest_for_lead(lead_id, since_dt=since_dt)
+        if existing:
+            logger.info(
+                "run_audit idempotent skip: lead=%s existing=%s (since=%s)",
+                str(lead_id)[:8], str(existing.id)[:8], since_dt.isoformat(),
+            )
+            return existing
 
     sector = lead.sector or "klinik"
     lead_dict = lead_to_core_dict(lead)
