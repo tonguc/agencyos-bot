@@ -32,4 +32,6 @@ class WorkerSettings:
     on_startup = startup
     on_shutdown = shutdown
     max_jobs = 10
-    job_timeout = 300  # 5 minutes max per job
+    # Apify default timeout = 200s; ARQ job_timeout > Apify + buffer (40s) ki Apify
+    # kendi abort mesajını verip cost'u görelim. ARQ 300 → 240 değişti.
+    job_timeout = 240

@@ -146,7 +146,7 @@ async def collect_by_query(
     ilce: str | None = None,
     limit: int = 20,
     sektor_filter: str | None = None,
-    apify_timeout: int = 300,
+    apify_timeout: int = 200,  # < ARQ job_timeout (240s) — Apify run'ı biz abort et, yoksa para yanar
     max_reviews: int = 10,
     search_only: bool = False,  # True → always SerpAPI (Firma Ara)
 ) -> list[dict]:
@@ -541,7 +541,7 @@ async def _run_apify(
     ilce: str,
     limit: int,
     sektor_for_filter: str | None,
-    apify_timeout: int = 300,
+    apify_timeout: int = 200,  # < ARQ job_timeout (240s). Caller override edebilir.
     max_reviews: int = 20,
 ) -> list[dict]:
     token = os.getenv("APIFY_API_TOKEN")
