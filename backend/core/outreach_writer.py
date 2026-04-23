@@ -42,7 +42,8 @@ async def write_outreach(lead: dict, audit: dict, hook: dict, playbook: dict) ->
 async def write_followup(lead: dict, gun: int, onceki: str, playbook: dict) -> str:
     async with API_SEMAPHORE:
         prompt = build_followup_prompt(lead, gun, onceki, playbook)
-        result = await claude_api_call(prompt, max_tokens=300, temperature=0.3)
+        # 300 bazi TR mesajlarda truncate riski yaratabiliyordu — 400 guvenli buffer.
+        result = await claude_api_call(prompt, max_tokens=400, temperature=0.3)
         logger.info("Followup uretildi: %s | gun=%d", lead.get("isim"), gun)
         return (result or "Takip mesaji uretilemedi").strip()
 
@@ -51,6 +52,7 @@ async def write_initial_message(lead: dict, audit: dict, hook: dict, playbook: d
     """Single 4-sentence outreach message for automated sending (not the 4-version system)."""
     async with API_SEMAPHORE:
         prompt = build_initial_message_prompt(lead, audit, hook, playbook)
-        result = await claude_api_call(prompt, max_tokens=300, temperature=0.3)
+        # 300 bazi TR mesajlarda truncate riski yaratabiliyordu — 400 guvenli buffer.
+        result = await claude_api_call(prompt, max_tokens=400, temperature=0.3)
         logger.info("Initial message uretildi: %s", lead.get("isim"))
         return (result or "Mesaj uretilemedi").strip()
