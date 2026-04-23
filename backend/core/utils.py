@@ -96,10 +96,13 @@ async def claude_api_call(
             max_tokens=max_tokens,
             temperature=temperature,
             messages=messages,
+            timeout=90.0,
         )
         parts = [b.text for b in msg.content if getattr(b, "type", None) == "text"]
         text = "".join(parts)
         return (prefill + text) if prefill else text
     except Exception as e:
+        # request_id response header'inda geliyor, ama exception path'te alamiyoruz;
+        # support icin mesaj tipini (rate_limit/overloaded/timeout) net logla.
         logger.exception("Claude API cagrisi basarisiz: %s", e)
         return ""

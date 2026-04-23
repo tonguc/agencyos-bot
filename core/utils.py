@@ -136,6 +136,7 @@ async def claude_api_call(
             max_tokens=max_tokens,
             temperature=temperature,
             messages=messages,
+            timeout=90.0,
         )
         parts = [b.text for b in msg.content if getattr(b, "type", None) == "text"]
         text = "".join(parts)
