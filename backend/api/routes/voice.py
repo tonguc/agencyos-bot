@@ -1,8 +1,9 @@
 import io
+import logging
 
 from fastapi import APIRouter, Depends, File, UploadFile
 from fastapi.responses import Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from arq import ArqRedis
 
@@ -11,6 +12,11 @@ from core.utils import _get_claude_client
 from database import get_db
 from jobs.pool import get_arq_pool
 from repositories.job import JobRepository
+
+logger = logging.getLogger(__name__)
+
+# OpenAI TTS hard limit (tts-1 model). Daha uzun input kesilir + uyari.
+TTS_MAX_CHARS = 4096
 
 router = APIRouter(prefix="/voice", tags=["voice"])
 
@@ -97,13 +103,15 @@ async def transcribe(audio: UploadFile = File(...)):
         )
         return {"text": result.text.strip()}
     except Exception as e:
+        logger.exception("voice/transcribe failed | bytes=%d type=%s",
+                         len(audio_bytes), audio.content_type)
         return {"text": "", "error": str(e)}
 
 
 # ── TTS ────────────────────────────────────────────────────────────────
 
 class SpeakRequest(BaseModel):
-    text: str
+    text: str = Field(..., min_length=1)
     voice: str = "nova"
 
 
@@ -113,15 +121,24 @@ async def speak(body: SpeakRequest):
     if client is None:
         return Response(status_code=503, content=b"", media_type="audio/mpeg")
 
+    # OpenAI TTS 4096 char limit — uzun input 400 dondurur ve cost'u boşa harcar.
+    text = body.text
+    if len(text) > TTS_MAX_CHARS:
+        logger.warning("voice/speak text truncated: %d -> %d chars",
+                       len(text), TTS_MAX_CHARS)
+        text = text[:TTS_MAX_CHARS]
+
     try:
         response = await client.audio.speech.create(
             model="tts-1",
             voice=body.voice,  # type: ignore[arg-type]
-            input=body.text,
+            input=text,
             response_format="mp3",
         )
         return Response(content=response.content, media_type="audio/mpeg")
     except Exception:
+        logger.exception("voice/speak failed | chars=%d voice=%s",
+                         len(text), body.voice)
         return Response(status_code=502, content=b"", media_type="audio/mpeg")
 
 
