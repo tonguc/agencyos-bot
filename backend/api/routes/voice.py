@@ -190,11 +190,14 @@ async def voice_chat(
     try:
         response = await client.messages.create(
             model=settings.CLAUDE_MODEL,
-            max_tokens=400,
+            # Tool use kapali (asagida tool_blocks override ediliyor) — text reply
+            # zaten sistem prompt'ta max 15 kelime, 400 gereksiz buyuktu.
+            max_tokens=200,
             temperature=0.4,
             system=_CACHED_SYSTEM,  # type: ignore[arg-type]
             tools=_CACHED_TOOLS,  # type: ignore[arg-type]
             messages=messages,
+            timeout=30.0,
         )
 
         text_parts = [b.text for b in response.content if getattr(b, "type", None) == "text"]
