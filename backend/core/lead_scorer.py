@@ -135,10 +135,20 @@ def calc_opportunity(lead: dict, audit: dict) -> tuple[int, list[str]]:
     website = lead.get("website")
     site_durumu = lead.get("site_durumu")
     if not website:
-        add(40, "Website yok")
-        if telefon:
-            # Telefon var + site yok = en temiz satış fırsatı (sabit boost)
-            add(10, "Telefon var + site yok (direkt fırsat)")
+        # Maps gücünü ölç: çok yorumlu + yüksek puanlı işletmeler
+        # zaten Maps+IG ile müşteri alıyor olabilir — satması zor.
+        maps_guclu = yorum >= 50 and puan >= 4.0
+        ig_guclu   = (lead.get("instagram_post_90d") or 0) > 10
+
+        if maps_guclu and ig_guclu:
+            add(10, f"Website yok ama Maps+IG güçlü ({yorum} yorum, {puan}★) — satış zorlu")
+        elif maps_guclu:
+            add(15, f"Website yok, Maps güçlü ({yorum} yorum) — orta fırsat")
+        else:
+            add(40, "Website yok")
+            if telefon:
+                # Telefon var + site yok + Maps zayıf = en temiz satış fırsatı
+                add(10, "Telefon var + site yok (direkt fırsat)")
     elif site_durumu == "zayif":
         add(12, "Site zayıf")
     elif site_durumu == "orta":
@@ -350,7 +360,55 @@ def calc_fit_multiplier(lead: dict, playbook: dict) -> tuple[float, list[str]]:
 
 
 # --------------------------------------------------
-# 5. PATTERN MULTIPLIER (1.00–1.15) — ÇARPAN, additive DEĞİL
+# 5. TICKET SIZE MULTIPLIER (0.90–1.15) — sektöre göre potansiyel müşteri değeri
+# --------------------------------------------------
+
+# Sektör → (çarpan, açıklama)
+# Yüksek değerli müşteri = yüksek çarpan; düşük bilet = düşük çarpan.
+_TICKET_SIZE: dict[str, tuple[float, str]] = {
+    # Yüksek bilet
+    "clinic_aesthetic":    (1.15, "Estetik klinik — yüksek değerli hasta"),
+    "real_estate_luxury":  (1.15, "Lüks emlak — yüksek değerli müşteri"),
+    "lawyer_corporate":    (1.12, "Kurumsal avukat — büyük müvekkil"),
+    "clinic_trust":        (1.10, "Psikiyatri/psikoloji — uzun vadeli danışan"),
+    "kadin_dogum":         (1.10, "Kadın doğum — yüksek güven sektörü"),
+    # Orta-yüksek bilet
+    "clinic_general":      (1.08, "Genel klinik — hasta değeri orta-yüksek"),
+    "lawyer_litigation":   (1.08, "Dava avukatı — müvekkil değeri orta-yüksek"),
+    "real_estate_local":   (1.06, "Yerel emlak — orta değerli müşteri"),
+    "education_coaching":  (1.06, "Koçluk — tekrarlayan gelir"),
+    "ev_hizmetleri_tadilat": (1.05, "Tadilat — proje bazlı orta bilet"),
+    "nakliyat":            (1.04, "Nakliyat — iş değeri orta"),
+    # Orta bilet (nötr)
+    "education_course":    (1.00, "Kurs — standart kayıt değeri"),
+    "oto_servis":          (1.00, "Oto servis — araç başı orta bilet"),
+    "beauty_aesthetic":    (1.00, "Güzellik estetik — orta değerli müşteri"),
+    # Düşük bilet
+    "beauty_routine":      (0.95, "Rutin güzellik — düşük bilet, tekrarlayan"),
+    "hali_temizlik":       (0.95, "Halı/temizlik — düşük bilet"),
+    "ev_hizmetleri_tesisat": (0.95, "Tesisat — tek seferlik düşük bilet"),
+    "ev_hizmetleri_elektrik": (0.95, "Elektrik — tek seferlik düşük bilet"),
+    "klima_beyaz_esya":    (0.93, "Klima servis — düşük bilet"),
+    "restaurant_maps_driven": (0.92, "Restoran — düşük bilet, yüksek hacim"),
+    "restaurant_social_driven": (0.92, "Restoran — düşük bilet, yüksek hacim"),
+    "cilingir":            (0.90, "Çilingir — çok düşük bilet"),
+}
+
+
+def calc_ticket_multiplier(lead: dict, playbook: dict) -> tuple[float, list[str]]:
+    """Sektörün potansiyel müşteri değerine göre çarpan (0.90–1.15)."""
+    sektor = (
+        lead.get("sektor")
+        or lead.get("sector")
+        or playbook.get("sektor")
+        or ""
+    )
+    mul, aciklama = _TICKET_SIZE.get(sektor, (1.00, "Bilinmeyen sektör — nötr"))
+    return mul, ([f"Ticket: {aciklama}"] if mul != 1.00 else [])
+
+
+# --------------------------------------------------
+# 6. PATTERN MULTIPLIER (1.00–1.15) — ÇARPAN, additive DEĞİL
 # --------------------------------------------------
 
 def calc_pattern_multiplier(lead: dict, audit: dict, playbook: dict) -> tuple[float, list[str]]:
@@ -542,7 +600,7 @@ def calculate_final_score(
     """
     V3: Satış-öncelikli skorlama.
 
-    final = min(100, (0.75·Opp + 0.25·Intent) × Pattern_Mul × Fit_Mul)
+    final = min(100, (0.75·Opp + 0.25·Intent) × Pattern_Mul × Fit_Mul × Ticket_Mul)
 
     Ağırlık 0.75/0.25 → dijital boşluk (fırsat) birincil sinyal.
     Satış floor'u → website yok + telefon var olan lead'ler kaçmasın.
@@ -554,29 +612,28 @@ def calculate_final_score(
         if is_blocked:
             return {"status": "rejected", "reason": reason}
 
-    opp,      opp_signals  = calc_opportunity(lead, audit)
-    intent,   int_signals  = calc_intent(lead, audit)
-    fit_mul,  fit_signals  = calc_fit_multiplier(lead, playbook)
-    pat_mul,  pat_signals  = calc_pattern_multiplier(lead, audit, playbook)
-    confidence             = calc_confidence(lead, audit)
+    opp,        opp_signals    = calc_opportunity(lead, audit)
+    intent,     int_signals    = calc_intent(lead, audit)
+    fit_mul,    fit_signals    = calc_fit_multiplier(lead, playbook)
+    pat_mul,    pat_signals    = calc_pattern_multiplier(lead, audit, playbook)
+    ticket_mul, ticket_signals = calc_ticket_multiplier(lead, playbook)
+    confidence                 = calc_confidence(lead, audit)
 
     combined = 0.75 * opp + 0.25 * intent
-    final    = round(min(100.0, max(0.0, combined * pat_mul * fit_mul)), 1)
+    final    = round(min(100.0, max(0.0, combined * pat_mul * fit_mul * ticket_mul)), 1)
 
     # ── Satış floor'u: kaçan lead'i minimize et ─────────────────────────────
     # Website yok + telefon var = doğrudan satış fırsatı.
-    # +40 opportunity bonusu intent/multiplier erozyonuyla 70 altına düşebiliyor.
     # Kontrollü floor ile FIRSAT bandında tutuyoruz.
+    # Maps güçlü olan firmalar (yorum>=50) floor'dan muaf — satması zaten zor.
     website = lead.get("website")
     telefon = lead.get("telefon")
     yorum   = lead.get("yorum_sayisi") or 0
     floor   = 0.0
-    if not website and telefon:
+    if not website and telefon and yorum < 50:
         if yorum < 30:
-            # Küçük/bilinmez firma + site yok → en temiz satış fırsatı
             floor = 70.0
         elif fit_mul >= 0.95:
-            # Fit uyumu bozulmamışsa en azından güçlü ADAY bandında kalsın
             floor = 65.0
     if floor and final < floor:
         opp_signals.append(f"Satış floor'u uygulandı → {floor:.0f}")
@@ -585,7 +642,10 @@ def calculate_final_score(
     contradictions              = detect_contradictions(lead, audit, opp, intent)
     segment, action, reason_sum = route_decision(final, intent, confidence, contradictions)
 
-    score_breakdown = list(opp_signals) + list(int_signals) + list(fit_signals) + list(pat_signals)
+    score_breakdown = (
+        list(opp_signals) + list(int_signals)
+        + list(fit_signals) + list(pat_signals) + list(ticket_signals)
+    )
 
     return {
         "status":              "ok",
@@ -596,6 +656,7 @@ def calculate_final_score(
         "fit_multiplier":      round(fit_mul, 3),
         "pattern_multiplier":  round(pat_mul, 3),
         "pattern_boost":       round((pat_mul - 1.0) * 100, 1),  # legacy: % boost
+        "ticket_multiplier":   round(ticket_mul, 3),
         "confidence":          confidence,
         "data_confidence":     confidence,        # legacy alias
         "contradictions":      contradictions,
@@ -610,6 +671,7 @@ def calculate_final_score(
             "intent":      int_signals,
             "fit":         fit_signals,
             "pattern":     pat_signals,
+            "ticket":      ticket_signals,
         },
         "score_breakdown": score_breakdown,
         "score_layers": {
@@ -618,6 +680,7 @@ def calculate_final_score(
             "combined":           round(combined, 1),
             "fit_multiplier":     round(fit_mul, 3),
             "pattern_multiplier": round(pat_mul, 3),
+            "ticket_multiplier":  round(ticket_mul, 3),
             "final":              final,
         },
     }
