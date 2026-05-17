@@ -92,7 +92,17 @@ export function ResultCard({ lead, selected, onSelect, sector, city, district }:
       <div className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <h3 className="font-semibold text-bright text-sm truncate">{lead.name || "(isimsiz)"}</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-bright text-sm truncate">{lead.name || "(isimsiz)"}</h3>
+              {lead.cluster && (
+                <span
+                  className="shrink-0 font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 border border-accent/40 text-accent bg-accent/5"
+                  title={`${lead.cluster.size} işletme aynı ${lead.cluster.type === "telefon" ? "telefonu" : "domain'i"} paylaşıyor`}
+                >
+                  {lead.cluster.size} şube
+                </span>
+              )}
+            </div>
             <p className="mt-0.5 text-[12px] font-mono text-muted truncate tracking-wider">
               {lead.category || "—"}
             </p>
@@ -192,6 +202,30 @@ export function ResultCard({ lead, selected, onSelect, sector, city, district }:
                 </a>
               )}
             </div>
+
+            {/* Satış kartı */}
+            {(lead.aci_noktasi || lead.firsat || lead.satis_cumlesi) && (
+              <div className="space-y-2 border border-stroke bg-panel-high p-2.5">
+                {lead.aci_noktasi && (
+                  <div className="flex items-start gap-2">
+                    <span className="shrink-0 font-mono text-[8px] uppercase tracking-wider text-hot mt-0.5 w-16">Sorun</span>
+                    <p className="font-mono text-[11px] text-muted">{lead.aci_noktasi}</p>
+                  </div>
+                )}
+                {lead.firsat && (
+                  <div className="flex items-start gap-2">
+                    <span className="shrink-0 font-mono text-[8px] uppercase tracking-wider text-ok mt-0.5 w-16">Fırsat</span>
+                    <p className="font-mono text-[11px] text-muted">{lead.firsat}</p>
+                  </div>
+                )}
+                {lead.satis_cumlesi && (
+                  <div className="flex items-start gap-2 pt-1 border-t border-stroke">
+                    <span className="shrink-0 font-mono text-[8px] uppercase tracking-wider text-accent mt-0.5 w-16">Satış</span>
+                    <p className="font-mono text-[11px] text-bright italic">{lead.satis_cumlesi}</p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Score breakdown */}
             {lead.score_breakdown?.length > 0 ? (

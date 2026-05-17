@@ -115,6 +115,12 @@ export interface SearchParsedQuery {
   search_string: string;
 }
 
+export interface SearchResultCluster {
+  type: "telefon" | "domain";
+  size: number;
+  key: string;
+}
+
 export interface SearchResultItem {
   name: string;
   address: string;
@@ -133,6 +139,10 @@ export interface SearchResultItem {
   reason: string | null;
   score_breakdown: string[];
   lead_id: string | null;
+  aci_noktasi: string | null;
+  firsat: string | null;
+  satis_cumlesi: string | null;
+  cluster: SearchResultCluster | null;
 }
 
 export interface SearchSummary {

@@ -15,6 +15,8 @@ real scrape from the same query to save them.
 from __future__ import annotations
 
 import logging
+import re
+from urllib.parse import urlparse
 
 from core.icp_filter import filter_leads
 from core.lead_collector import collect_by_query
@@ -53,7 +55,161 @@ def _segment_from_score(score: int | None) -> str:
     return "low"
 
 
-def _normalize_lead(lead: dict, score_info: dict | None) -> dict:
+def _sales_card(lead: dict, score_info: dict | None, playbook: dict | None) -> dict:
+    """Kural tabanlı satış kartı — Claude yok, anlık, ücretsiz.
+
+    Her lead için:
+      aci_noktasi  → müşterinin en kritik sorunu (1 cümle)
+      firsat       → neden şimdi fırsat (1 cümle)
+      satis_cumlesi → ilk temasta kullanılacak cümle (1 cümle)
+    """
+    website  = lead.get("website")
+    yorum    = lead.get("yorum_sayisi") or 0
+    puan     = lead.get("puan") or 0
+    telefon  = lead.get("telefon")
+    site_d   = lead.get("site_durumu", "zayif")
+    segment  = (score_info or {}).get("segment", "")
+    isim     = lead.get("isim") or "İşletme"
+    kategori = lead.get("kategori") or ""
+    adres    = lead.get("adres") or ""
+    ilce     = adres.split(",")[0].strip() if adres else "bölgenizdeki"
+
+    # ── Acı noktası ────────────────────────────────────────────────────────
+    if not website:
+        aci = (
+            f"Web sitesi yok — '{kategori}' arayan müşteriler sizi bulsa da "
+            f"gidecekleri bir yer yok."
+        )
+    elif site_d == "zayif" and yorum < 20:
+        aci = (
+            f"Siteniz var ama zayıf, yorum sayınız az ({yorum}) — "
+            f"rakipler çok daha güvenilir görünüyor."
+        )
+    elif puan > 0 and puan < 3.8:
+        aci = (
+            f"Google puanınız düşük ({puan}★) — müşteriler sizi görüyor "
+            f"ama tercih etmiyor."
+        )
+    elif yorum < 10:
+        aci = (
+            f"Google profiliniz çok zayıf ({yorum} yorum) — "
+            f"yeni müşteri güven duymuyor."
+        )
+    else:
+        aci = (
+            f"Dijital varlığınız rakiplerinizin gerisinde — "
+            f"bölgede görünürlüğünüz yetersiz."
+        )
+
+    # ── Fırsat ─────────────────────────────────────────────────────────────
+    if not website and telefon:
+        firsat = (
+            f"Telefon var, müşteri ilgisi var — web sitesiyle bu trafik "
+            f"doğrudan satışa dönüşebilir."
+        )
+    elif not website:
+        firsat = (
+            f"Rakiplerin büyük çoğunluğunun sitesi var; site ekleyince "
+            f"{ilce} aramalarında öne çıkma şansı yüksek."
+        )
+    elif yorum > 30 and puan >= 4.0 and site_d == "zayif":
+        firsat = (
+            f"Güçlü Maps profiliniz ({yorum} yorum, {puan}★) var — "
+            f"daha iyi bir site bu trafiği satışa çevirir."
+        )
+    elif segment in ("hot", "warm"):
+        firsat = (
+            f"{ilce} bölgesinde rakipleriniz dijitale yatırım yapıyor — "
+            f"siz de adım atarsanız avantaj yakalarsınız."
+        )
+    else:
+        firsat = (
+            f"Küçük dijital adımlarla {ilce} aramalarında üst sıralara "
+            f"taşınma potansiyeli var."
+        )
+
+    # ── Satış cümlesi ──────────────────────────────────────────────────────
+    sektor_label = (playbook or {}).get("display_name") or kategori or "işletmeniz"
+    if not website:
+        satis = (
+            f"'{ilce} {kategori}' aramasında rakipleriniz görünüyor, siz görünmüyorsunuz — "
+            f"bunu düzeltmek için 10 dakikada fikrimi paylaşabilir miyim?"
+        )
+    elif puan > 0 and puan < 4.0:
+        satis = (
+            f"Müşterilerinizin bir kısmı yorumlara bakarak başka yere gidiyor — "
+            f"bunu birlikte tersine çevirebiliriz."
+        )
+    else:
+        satis = (
+            f"{sektor_label} için dijital rakip analizi yaptım, "
+            f"birkaç dakikada paylaşabilir miyim?"
+        )
+
+    return {
+        "aci_noktasi":   aci,
+        "firsat":        firsat,
+        "satis_cumlesi": satis,
+    }
+
+
+def _extract_domain(website: str | None) -> str | None:
+    if not website:
+        return None
+    try:
+        netloc = urlparse(website).netloc.lower().lstrip("www.")
+        return netloc if netloc else None
+    except Exception:
+        return None
+
+
+def _normalize_phone(phone: str | None) -> str | None:
+    if not phone:
+        return None
+    digits = re.sub(r"\D", "", phone)
+    return digits[-10:] if len(digits) >= 10 else None
+
+
+def _detect_clusters(results: list[dict]) -> list[dict]:
+    """Aynı telefon veya domain'i paylaşan lead'leri işaretle."""
+    phone_groups: dict[str, list[int]] = {}
+    domain_groups: dict[str, list[int]] = {}
+
+    for i, r in enumerate(results):
+        p = _normalize_phone(r.get("phone"))
+        if p:
+            phone_groups.setdefault(p, []).append(i)
+        d = _extract_domain(r.get("website"))
+        if d:
+            domain_groups.setdefault(d, []).append(i)
+
+    # cluster bilgisini her sonuca yaz
+    for r in results:
+        r["cluster"] = None
+
+    for phone, idxs in phone_groups.items():
+        if len(idxs) > 1:
+            for i in idxs:
+                results[i]["cluster"] = {
+                    "type": "telefon",
+                    "size": len(idxs),
+                    "key":  phone[-4:],  # son 4 hane (gizlilik)
+                }
+
+    for domain, idxs in domain_groups.items():
+        if len(idxs) > 1:
+            for i in idxs:
+                if results[i]["cluster"] is None:  # telefon öncelikli
+                    results[i]["cluster"] = {
+                        "type": "domain",
+                        "size": len(idxs),
+                        "key":  domain,
+                    }
+
+    return results
+
+
+def _normalize_lead(lead: dict, score_info: dict | None, playbook: dict | None = None) -> dict:
     score = int(score_info["final_score"]) if score_info and score_info.get("status") == "ok" else None
 
     # Segment kararı üç kaynaktan gelir, şu öncelikle:
@@ -81,6 +237,8 @@ def _normalize_lead(lead: dict, score_info: dict | None) -> dict:
     else:
         breakdown = []
 
+    card = _sales_card(lead, score_info, playbook)
+
     return {
         "name":           lead.get("isim") or "",
         "address":        lead.get("adres") or "",
@@ -98,6 +256,10 @@ def _normalize_lead(lead: dict, score_info: dict | None) -> dict:
         "priority":       score_info.get("priority") if score_info else None,
         "reason":         reason,
         "score_breakdown": breakdown,
+        "aci_noktasi":    card["aci_noktasi"],
+        "firsat":         card["firsat"],
+        "satis_cumlesi":  card["satis_cumlesi"],
+        "cluster":        None,  # _detect_clusters sonra doldurur
     }
 
 
@@ -163,28 +325,32 @@ async def run_search(query: str, limit: int = 25) -> dict:
     results: list[dict] = []
     filter_stats: dict | None = None
 
+    active_playbook: dict | None = None
+
     if parsed["sector"]:
         try:
-            playbook = load_playbook_for_sector(parsed["sector"])
+            active_playbook = load_playbook_for_sector(parsed["sector"])
 
             # Site analysis and SERP are skipped for quick search —
             # they add 30-90s per run. Full analysis happens during collect_leads job.
-            filtered = filter_leads(raw, playbook)
+            filtered = filter_leads(raw, active_playbook)
             filter_stats = filtered["istatistik"]
             for lead in filtered["nitelikli"]:
-                score_info = calculate_final_score(lead, {}, playbook)
-                results.append(_normalize_lead(lead, score_info))
-            # also include filtered-out leads as "low" so user sees the full picture
+                score_info = calculate_final_score(lead, {}, active_playbook)
+                results.append(_normalize_lead(lead, score_info, active_playbook))
             for elem in filtered["elendi"]:
                 results.append(_normalize_lead(elem["lead"], {
                     "status": "rejected", "final_score": 0, "priority": "low",
                     "reason": elem["neden"],
-                }))
+                }, active_playbook))
         except Exception as e:  # pragma: no cover — playbook missing etc.
             logger.exception("Playbook scoring failed for sector=%s: %s", parsed["sector"], e)
             results = [_normalize_lead(l, None) for l in raw]
     else:
         results = [_normalize_lead(l, None) for l in raw]
+
+    # Cluster tespiti: aynı telefon/domain'i paylaşan şubeler
+    results = _detect_clusters(results)
 
     # Sort: highest score first, unscored last.
     results.sort(key=lambda r: (r["score"] is None, -(r["score"] or 0)))
