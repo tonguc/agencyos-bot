@@ -36,6 +36,7 @@ _LISTING_DOMAINS: frozenset[str] = frozenset({
 
 APIFY_ACTOR = "compass~crawler-google-places"
 APIFY_RUN_URL = f"https://api.apify.com/v2/acts/{APIFY_ACTOR}/run-sync-get-dataset-items"
+OUTSCRAPER_URL = "https://api.app.outscraper.com/maps/search-v3"
 
 _SECTOR_SEARCH_TERMS: dict[str, str] = {
     "klinik":          "klinik muayenehane",
@@ -158,8 +159,20 @@ async def collect_by_query(
     if not (search_string or "").strip():
         return []
 
-    use_apify = bool(os.getenv("APIFY_API_TOKEN")) and not search_only
-    if use_apify:
+    from config import settings  # local import to avoid circular
+
+    use_outscraper = bool(settings.OUTSCRAPER_API_KEY) and not search_only
+    use_apify = bool(os.getenv("APIFY_API_TOKEN")) and not search_only and not use_outscraper
+
+    if use_outscraper:
+        leads = await _run_outscraper(
+            search_term=search_string.strip(),
+            sehir=sehir or "",
+            ilce=ilce or "",
+            limit=limit,
+            sektor_for_filter=sektor_filter,
+        )
+    elif use_apify:
         leads = await _run_apify(
             search_term=search_string.strip(),
             sehir=sehir or "",
@@ -170,7 +183,7 @@ async def collect_by_query(
             max_reviews=max_reviews,
         )
     else:
-        logger.info("APIFY_API_TOKEN yok — SerpAPI Maps kullanılıyor")
+        logger.info("Outscraper/Apify token yok — SerpAPI Maps kullanılıyor")
         leads = await _run_serpapi_maps(
             search_term=search_string.strip(),
             sehir=sehir or "",
@@ -435,6 +448,97 @@ def _normalize_tr(s: str) -> str:
 _TR_COORDS_NORM: dict[str, str] = {
     _normalize_tr(k): v for k, v in _TR_COORDS.items()
 }
+
+
+def _outscraper_to_lead(r: dict) -> dict:
+    """Outscraper Maps response item → enrich_lead() uyumlu dict."""
+    lat = r.get("latitude")
+    lng = r.get("longitude")
+    place_id = r.get("place_id") or ""
+    maps_url = f"https://www.google.com/maps/place/?q=place_id:{place_id}" if place_id else None
+    return {
+        "title":          r.get("name"),
+        "address":        r.get("full_address"),
+        "phone":          r.get("phone"),
+        "website":        r.get("site"),
+        "reviewsCount":   r.get("reviews") or 0,
+        "totalScore":     r.get("rating") or 0,
+        "categoryName":   r.get("type"),
+        "location":       {"lat": lat, "lng": lng} if lat is not None else {},
+        "url":            maps_url,
+        "description":    r.get("description"),
+        "imageUrls":      list(range(r["photos_count"])) if r.get("photos_count") else [],
+        "questionsAndAnswers": None,
+        "permanentlyClosed":  r.get("permanently_closed") or False,
+        "reviews":        [],  # Outscraper basic plan review tarihlerini vermez
+    }
+
+
+async def _run_outscraper(
+    search_term: str,
+    sehir: str,
+    ilce: str,
+    limit: int,
+    sektor_for_filter: str | None,
+) -> list[dict]:
+    from config import settings
+
+    key = settings.OUTSCRAPER_API_KEY
+    if not key:
+        logger.error("OUTSCRAPER_API_KEY tanımlı değil — arama yapılamıyor")
+        return []
+
+    location_suffix = " ".join(p for p in [ilce, sehir, "Turkey"] if p)
+    q = f"{search_term} {location_suffix}".strip()
+    logger.info("Outscraper Maps: q='%s' limit=%d", q, limit)
+
+    params = {
+        "query":    q,
+        "limit":    limit,
+        "language": "tr",
+        "region":   "TR",
+        "fields":   "name,full_address,phone,site,reviews,rating,type,latitude,longitude,place_id,description,photos_count,permanently_closed",
+    }
+    headers = {"X-API-KEY": key}
+
+    async with API_SEMAPHORE:
+        try:
+            response = await asyncio.to_thread(
+                requests.get, OUTSCRAPER_URL,
+                params=params, headers=headers, timeout=120,
+            )
+            response.raise_for_status()
+            data = response.json()
+        except requests.Timeout:
+            logger.warning("Outscraper zaman aşımı — q='%s'", q)
+            raise TimeoutError("Outscraper 120s içinde yanıt vermedi")
+        except requests.HTTPError as e:
+            status = e.response.status_code if e.response is not None else "?"
+            logger.error("Outscraper HTTP %s — q='%s': %s", status, q, e)
+            if status == 402:
+                raise RuntimeError("Outscraper kredisi tükendi — app.outscraper.com'dan bakiye yükle")
+            return []
+        except requests.RequestException as e:
+            logger.exception("Outscraper API çağrısı başarısız: %s", e)
+            return []
+
+    # data formatı: {"data": [[{...}, ...]], "status": "OK"}
+    raw_list = (data.get("data") or [[]])[0] if isinstance(data, dict) else []
+    if not raw_list:
+        logger.info("Outscraper: sonuç yok — q='%s'", q)
+        return []
+
+    logger.info("%d ham lead alındı (Outscraper): q='%s'", len(raw_list), q)
+    converted = [_outscraper_to_lead(r) for r in raw_list]
+    enriched = [enrich_lead(lead) for lead in converted]
+    if sektor_for_filter:
+        enriched = _filter_relevant(enriched, sektor_for_filter)
+    if ilce:
+        enriched = _filter_by_location(enriched, ilce, label="ilçe")
+    elif sehir:
+        enriched = _filter_by_location(enriched, sehir, label="şehir")
+    logger.info("%d lead Outscraper'dan alındı: q='%s'", len(enriched), q)
+    return enriched
 
 
 def _get_ll(ilce: str, sehir: str) -> str:

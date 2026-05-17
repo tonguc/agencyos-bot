@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     CLAUDE_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
     APIFY_API_TOKEN: str = ""
+    OUTSCRAPER_API_KEY: str = ""
     PAGESPEED_API_KEY: str = ""
     SERPAPI_API_KEY: str = ""
 
