@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     APIFY_API_TOKEN: str = ""
     OUTSCRAPER_API_KEY: str = ""
+    GOOGLE_PLACES_API_KEY: str = ""
     PAGESPEED_API_KEY: str = ""
     SERPAPI_API_KEY: str = ""
 

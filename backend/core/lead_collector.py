@@ -37,6 +37,8 @@ _LISTING_DOMAINS: frozenset[str] = frozenset({
 APIFY_ACTOR = "compass~crawler-google-places"
 APIFY_RUN_URL = f"https://api.apify.com/v2/acts/{APIFY_ACTOR}/run-sync-get-dataset-items"
 OUTSCRAPER_URL = "https://api.app.outscraper.com/maps/search-v3"
+GPLACES_SEARCH_URL = "https://places.googleapis.com/v1/places:searchText"
+GPLACES_DETAIL_URL = "https://places.googleapis.com/v1/places/{place_id}"
 
 _SECTOR_SEARCH_TERMS: dict[str, str] = {
     "klinik":          "klinik muayenehane",
@@ -161,10 +163,19 @@ async def collect_by_query(
 
     from config import settings  # local import to avoid circular
 
-    use_outscraper = bool(settings.OUTSCRAPER_API_KEY) and not search_only
-    use_apify = bool(os.getenv("APIFY_API_TOKEN")) and not search_only and not use_outscraper
+    use_google  = bool(settings.GOOGLE_PLACES_API_KEY) and not search_only
+    use_outscraper = bool(settings.OUTSCRAPER_API_KEY) and not search_only and not use_google
+    use_apify = bool(os.getenv("APIFY_API_TOKEN")) and not search_only and not use_google and not use_outscraper
 
-    if use_outscraper:
+    if use_google:
+        leads = await _run_google_places(
+            search_term=search_string.strip(),
+            sehir=sehir or "",
+            ilce=ilce or "",
+            limit=limit,
+            sektor_for_filter=sektor_filter,
+        )
+    elif use_outscraper:
         leads = await _run_outscraper(
             search_term=search_string.strip(),
             sehir=sehir or "",
@@ -183,7 +194,7 @@ async def collect_by_query(
             max_reviews=max_reviews,
         )
     else:
-        logger.info("Outscraper/Apify token yok — SerpAPI Maps kullanılıyor")
+        logger.info("Hiçbir provider token yok — SerpAPI Maps kullanılıyor")
         leads = await _run_serpapi_maps(
             search_term=search_string.strip(),
             sehir=sehir or "",
@@ -448,6 +459,121 @@ def _normalize_tr(s: str) -> str:
 _TR_COORDS_NORM: dict[str, str] = {
     _normalize_tr(k): v for k, v in _TR_COORDS.items()
 }
+
+
+def _google_places_to_lead(r: dict) -> dict:
+    """Google Places API (New) response → enrich_lead() uyumlu dict."""
+    loc = r.get("location") or {}
+    place_id = r.get("id") or ""
+    maps_url = f"https://www.google.com/maps/place/?q=place_id:{place_id}" if place_id else None
+
+    # Website: regularOpeningHours, nationalPhoneNumber, websiteUri alanları
+    website = r.get("websiteUri")
+    phone = r.get("nationalPhoneNumber") or r.get("internationalPhoneNumber")
+
+    # Kategori: primaryTypeDisplayName (tr) veya primaryType
+    kategori = (r.get("primaryTypeDisplayName") or {}).get("text") or r.get("primaryType")
+
+    # Reviews array (en fazla 5, tarih içeriyor)
+    reviews_raw = r.get("reviews") or []
+
+    # Fotoğraf sayısı
+    photos = r.get("photos") or []
+
+    return {
+        "title":          r.get("displayName", {}).get("text"),
+        "address":        r.get("formattedAddress"),
+        "phone":          phone,
+        "website":        website,
+        "reviewsCount":   r.get("userRatingCount") or 0,
+        "totalScore":     r.get("rating") or 0,
+        "categoryName":   kategori,
+        "location":       {"lat": loc.get("latitude"), "lng": loc.get("longitude")},
+        "url":            maps_url,
+        "description":    r.get("editorialSummary", {}).get("text"),
+        "imageUrls":      photos,
+        "questionsAndAnswers": None,
+        "permanentlyClosed":  r.get("businessStatus") == "CLOSED_PERMANENTLY",
+        "reviews":        [
+            {"publishedAtDate": rev.get("publishTime", "")[:10]}
+            for rev in reviews_raw
+            if rev.get("publishTime")
+        ],
+    }
+
+
+async def _run_google_places(
+    search_term: str,
+    sehir: str,
+    ilce: str,
+    limit: int,
+    sektor_for_filter: str | None,
+) -> list[dict]:
+    from config import settings
+
+    key = settings.GOOGLE_PLACES_API_KEY
+    if not key:
+        logger.error("GOOGLE_PLACES_API_KEY tanımlı değil")
+        return []
+
+    location_suffix = " ".join(p for p in [ilce, sehir, "Türkiye"] if p)
+    q = f"{search_term} {location_suffix}".strip()
+    logger.info("Google Places API: q='%s' limit=%d", q, limit)
+
+    headers = {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": key,
+        "X-Goog-FieldMask": (
+            "places.id,places.displayName,places.formattedAddress,"
+            "places.nationalPhoneNumber,places.internationalPhoneNumber,"
+            "places.websiteUri,places.rating,places.userRatingCount,"
+            "places.primaryType,places.primaryTypeDisplayName,"
+            "places.location,places.businessStatus,"
+            "places.editorialSummary,places.photos,places.reviews"
+        ),
+    }
+    body = {
+        "textQuery": q,
+        "languageCode": "tr",
+        "regionCode": "TR",
+        "maxResultCount": min(limit, 20),  # API max 20
+    }
+
+    async with API_SEMAPHORE:
+        try:
+            response = await asyncio.to_thread(
+                requests.post, GPLACES_SEARCH_URL,
+                json=body, headers=headers, timeout=30,
+            )
+            response.raise_for_status()
+            data = response.json()
+        except requests.Timeout:
+            logger.warning("Google Places API zaman aşımı — q='%s'", q)
+            raise TimeoutError("Google Places 30s içinde yanıt vermedi")
+        except requests.HTTPError as e:
+            status = e.response.status_code if e.response is not None else "?"
+            logger.error("Google Places HTTP %s — q='%s': %s", status, q, e)
+            return []
+        except requests.RequestException as e:
+            logger.exception("Google Places API çağrısı başarısız: %s", e)
+            return []
+
+    raw_list = data.get("places") or []
+    if not raw_list:
+        logger.info("Google Places: sonuç yok — q='%s'", q)
+        return []
+
+    logger.info("%d ham lead alındı (Google Places): q='%s'", len(raw_list), q)
+    converted = [_google_places_to_lead(r) for r in raw_list]
+    enriched = [enrich_lead(lead) for lead in converted]
+    if sektor_for_filter:
+        enriched = _filter_relevant(enriched, sektor_for_filter)
+    if ilce:
+        enriched = _filter_by_location(enriched, ilce, label="ilçe")
+    elif sehir:
+        enriched = _filter_by_location(enriched, sehir, label="şehir")
+    logger.info("%d lead Google Places'dan alındı: q='%s'", len(enriched), q)
+    return enriched
 
 
 def _outscraper_to_lead(r: dict) -> dict:
