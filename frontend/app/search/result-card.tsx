@@ -40,7 +40,7 @@ export function ResultCard({ lead, selected, onSelect, sector, city, district }:
   // Kaydedilmemişse renk mor (tentative), kaydedilmişse segment rengi (doğrulanmış).
   // "Ön Analiz" ayrı bir etiket değil, sadece durum (mor renk + "~" skoru).
   const isUnsaved = !lead.lead_id;
-  const c = isUnsaved ? SEGMENT_COLORS.review : SEGMENT_COLORS[lead.segment];
+  const c = SEGMENT_COLORS[lead.segment];
   const label = SEGMENT_LABELS[lead.segment];
   const wa = whatsappLink(lead.phone);
   const router = useRouter();
