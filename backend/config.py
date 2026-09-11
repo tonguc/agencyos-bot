@@ -22,6 +22,13 @@ class Settings(BaseSettings):
     # Redis
     REDIS_URL: str = "redis://localhost:6379"
 
+    @property
+    def redis_dsn(self) -> str:
+        url = self.REDIS_URL.strip()
+        if not url:
+            raise ValueError("REDIS_URL boş olamaz")
+        return url if url.startswith(("redis://", "rediss://", "unix://")) else "redis://" + url
+
     # External APIs
     CLAUDE_API_KEY: str = ""
     OPENAI_API_KEY: str = ""

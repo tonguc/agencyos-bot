@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import uuid
 
@@ -9,36 +10,41 @@ logger = logging.getLogger(__name__)
 
 
 async def run_audit_job(ctx, lead_id: str, job_id: str) -> dict:
-    lead_uuid = uuid.UUID(lead_id)
     job_uuid = uuid.UUID(job_id)
-
-    async with AsyncSessionFactory() as db:
-        job = await JobRepository(db).get(job_uuid)
-        if job:
-            await JobRepository(db).mark_running(job, "Audit başlıyor...")
-            await db.commit()
-
     try:
-        async with AsyncSessionFactory() as db:
-            audit = await run_audit(lead_uuid, db)
-            await db.commit()
+        # Leave time to persist errors before ARQ's 300-second timeout.
+        async with asyncio.timeout(240):
+            lead_uuid = uuid.UUID(lead_id)
+            async with AsyncSessionFactory() as db:
+                job = await JobRepository(db).get(job_uuid)
+                if not job:
+                    raise ValueError("Audit job bulunamadı")
+                await db.refresh(job, with_for_update=True)
+                if job.status in ("completed", "failed"):
+                    return job.result or {}
+                await JobRepository(db).mark_running(job, "Audit başlıyor...")
+                await db.commit()
 
-        result = {"audit_id": str(audit.id), "score": audit.general_score}
-
-        async with AsyncSessionFactory() as db:
-            job = await JobRepository(db).get(job_uuid)
-            if job:
+            async with AsyncSessionFactory() as db:
+                audit = await run_audit(lead_uuid, db)
+                result = {"audit_id": str(audit.id), "score": audit.general_score}
+                job = await JobRepository(db).get(job_uuid)
+                if not job:
+                    raise ValueError("Audit job bulunamadı")
+                # Persist the audit, lead changes and completion atomically.
                 await JobRepository(db).mark_completed(job, result)
                 await db.commit()
-
-        logger.info("run_audit_job tamamlandi: lead=%s score=%s", lead_id[:8], audit.general_score)
-        return result
-
-    except Exception as e:
-        logger.error("run_audit_job hatasi: lead=%s err=%s", lead_id[:8], e)
-        async with AsyncSessionFactory() as db:
-            job = await JobRepository(db).get(job_uuid)
-            if job:
-                await JobRepository(db).mark_failed(job, str(e))
-                await db.commit()
+            return result
+    except Exception as exc:
+        message = ("Audit zaman aşımına uğradı. Tekrar deneyin." if isinstance(exc, TimeoutError)
+                   else "Audit tamamlanamadı. Worker ve AI servis yapılandırmasını kontrol edin.")
+        logger.error("Audit failed: job=%s error_type=%s", job_id, type(exc).__name__)
+        try:
+            async with AsyncSessionFactory() as db:
+                job = await JobRepository(db).get(job_uuid)
+                if job and job.status != "completed":
+                    await JobRepository(db).mark_failed(job, message)
+                    await db.commit()
+        except Exception:
+            logger.error("Audit failure status could not be persisted: job=%s", job_id)
         raise

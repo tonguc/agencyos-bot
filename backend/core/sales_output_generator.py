@@ -7,6 +7,7 @@ import logging
 import re
 
 import anthropic
+from config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -182,7 +183,9 @@ async def generate_sales_output(lead: dict, audit: dict, playbook: dict) -> dict
 
     ad = _extract_first_name(isim)
 
-    client = anthropic.AsyncAnthropic()
+    if not settings.CLAUDE_API_KEY:
+        raise RuntimeError("CLAUDE_API_KEY tanımlı değil")
+    client = anthropic.AsyncAnthropic(api_key=settings.CLAUDE_API_KEY, timeout=30, max_retries=1)
 
     # ── 1. Gözlem cümlesini üret ──
     gozlem_prompt = _GOZLEM_PROMPT.format(
@@ -195,7 +198,7 @@ async def generate_sales_output(lead: dict, audit: dict, playbook: dict) -> dict
     gozlem = ""
     try:
         msg = await client.messages.create(
-            model="claude-sonnet-4-6",
+            model=settings.CLAUDE_MODEL,
             max_tokens=120,
             temperature=0,
             messages=[{"role": "user", "content": gozlem_prompt}],
@@ -231,7 +234,7 @@ async def generate_sales_output(lead: dict, audit: dict, playbook: dict) -> dict
     full = ""
     try:
         msg = await client.messages.create(
-            model="claude-sonnet-4-6",
+            model=settings.CLAUDE_MODEL,
             max_tokens=600,
             temperature=0.1,
             messages=[{"role": "user", "content": full_prompt}],
