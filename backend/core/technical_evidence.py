@@ -88,7 +88,7 @@ def ground_audit(result, site):
     result.update(
         killer_insight={"bulgu": finding, "rakam": metric, "etki": "Bu teknik gözlemden müşteri kaybı veya arama sıralaması sonucu çıkarılamaz."},
         en_acitan_nokta=finding,
-        kisisel_insight="İnceleme tek sayfanın ilk HTML yanıtı ve varsa mobil laboratuvar ölçümüyle sınırlı. Gerçek kullanıcı davranışı, rakip karşılaştırması ve arama görünürlüğü ölçülmedi.",
+        kisisel_insight="Teknik inceleme tek sayfanın ilk HTML yanıtı ve varsa mobil laboratuvar ölçümüyle sınırlı. Gerçek kullanıcı davranışı ölçülmedi; arama görünürlüğü ayrı sorgu sonuçlarından değerlendirilmelidir.",
         ilk_izlenim={"ne_yapiyor": "Teknik ölçüm", "deger_onerisi": "belirsiz", "guven_seviyesi": "belirsiz", "ilk_surtunum": finding},
         ux_hatalar=ux, seo_aciklar=seo, donusum_engelleri=[], hizli_kazanimlar=actions,
         reklam_firsati={"kanal": "", "aciklama": "Reklam ve rakip verileri bu ölçümde incelenmedi.", "rakip_durum": "bilinmiyor"},

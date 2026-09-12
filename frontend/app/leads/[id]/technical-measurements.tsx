@@ -28,7 +28,7 @@ export function TechnicalMeasurements({ data }: { data: unknown }) {
       </dl>
       <p className="text-xs text-muted leading-relaxed">Hız verileri mobil laboratuvar testidir; gerçek kullanıcı ölçümü değildir. Etiket kontrolleri ilk HTML yanıtıyla sınırlıdır; JavaScript çalıştırılmadı. Etiket varlığı doğruluk veya geçerlilik kanıtı değildir. HTTP robots yönergesinin hangi arama robotuna yönelik olduğu ayrıca incelenmelidir.</p>
       {t.html_truncated === true && <p className="text-xs text-warm">Büyük sayfanın ilk 150.000 karakteri incelendi; eksik görünen alanlar ayrıca doğrulanmalı.</p>}
-      <p className="text-xs text-muted">Google organik sıralaması ve yapay zekâ yanıtlarında görünürlük henüz ölçülmedi.</p>
+      <p className="text-xs text-muted">Bu teknik kontroller tek başına Google sıralamasını veya yapay zekâ yanıtlarında görünürlüğü göstermez; bunlar ayrı sorgularla incelenir.</p>
     </section>
   );
 }

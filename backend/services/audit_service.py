@@ -5,12 +5,14 @@ No FastAPI, ARQ, or Telegram imports.
 """
 
 import logging
+import asyncio
 import uuid
 from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.audit_generator import generate_audit
+from core.market_evidence import collect_market, commercial_evidence
 from core.beauty_subsector import detect_beauty_subsector
 from core.clinic_subsector import detect_clinic_subsector
 from core.education_subsector import detect_education_subsector
@@ -118,7 +120,12 @@ async def run_audit(
         # kadin_dogum ve bilinmeyen sektörler doğrudan playbook'larına gider
         playbook = load_playbook(sector, fallback="clinic_general")
 
-    audit_result = await generate_audit(lead_dict, playbook)
+    market_lead = {**lead_dict, "city": lead.city, "district": lead.district, "review_count": lead.review_count}
+    audit_result, market = await asyncio.gather(
+        generate_audit(lead_dict, playbook), collect_market(market_lead),
+    )
+    audit_result["market_evidence"] = market
+    audit_result["commercial_evidence"] = commercial_evidence(market_lead, market, audit_result)
     hook = await select_and_generate_hook(lead_dict, audit_result, playbook)
 
     sales_output = await generate_sales_output(lead_dict, audit_result, playbook)

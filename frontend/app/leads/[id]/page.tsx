@@ -8,6 +8,7 @@ import { FirstContactMessage, ProposalSendNote } from "./contact-message";
 import { LocationMap } from "./location-map";
 import { SimilarLeads } from "./similar-leads";
 import { TechnicalMeasurements } from "./technical-measurements";
+import { MarketMeasurements } from "./market-measurements";
 import type { Audit, Lead, OutreachMessage, Proposal } from "@/types";
 import Link from "next/link";
 
@@ -238,6 +239,7 @@ export default async function LeadDetailPage({ params }: Props) {
               </div>
 
               <TechnicalMeasurements data={result?._site_data} />
+              <MarketMeasurements market={result?.market_evidence} commercial={result?.commercial_evidence} />
 
               {/* UX errors */}
               {Array.isArray(result?.ux_hatalar) && (result.ux_hatalar as unknown[]).length > 0 && (
