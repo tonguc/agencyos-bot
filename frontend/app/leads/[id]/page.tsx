@@ -7,6 +7,7 @@ import { LeadActions } from "./lead-actions";
 import { FirstContactMessage, ProposalSendNote } from "./contact-message";
 import { LocationMap } from "./location-map";
 import { SimilarLeads } from "./similar-leads";
+import { TechnicalMeasurements } from "./technical-measurements";
 import type { Audit, Lead, OutreachMessage, Proposal } from "@/types";
 import Link from "next/link";
 
@@ -234,6 +235,8 @@ export default async function LeadDetailPage({ params }: Props) {
                   </span>
                 ))}
               </div>
+
+              <TechnicalMeasurements data={result?._site_data} />
 
               {/* UX errors */}
               {Array.isArray(result?.ux_hatalar) && (result.ux_hatalar as unknown[]).length > 0 && (
