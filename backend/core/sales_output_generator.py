@@ -6,6 +6,8 @@ SHORT = direkt gönderilir | FULL = follow-up / detay için kullanılır.
 import logging
 import re
 
+from core.sales_policy import SALES_POLICY
+
 import anthropic
 from config import settings
 
@@ -183,12 +185,12 @@ async def generate_sales_output(lead: dict, audit: dict, playbook: dict) -> dict
         short = (
             f"Merhaba, {isim} için incelediğim kayıtta web sitesi bağlantısını bulamadım. "
             "Kullandığınız bir web sitesi var mı? Yoksa, isterseniz işletmenizi tanıtan ve iletişim "
-            "bilgilerinizi bir arada sunan bir sayfa için kısa bir öneri paylaşabilirim."
+            "bilgilerinizi bir arada sunan; Google ve yapay zekâ destekli aramalarda keşfedilmenizi destekleyecek bir site için kısa bir öneri paylaşabilirim."
         )
         full = (
             f"Merhaba,\n{isim} için incelediğim kayıtta web sitesi bağlantısını bulamadım.\n"
             "Kullandığınız bir site varsa bağlantısını paylaşabilir misiniz?\n"
-            "Yoksa, işletmenizi tanıtan ve iletişim bilgilerinizi bir arada sunan bir sayfa düşünülebilir.\n"
+            "Yoksa, hizmetlerinizi açıkça anlatan, Google ve yapay zekâ destekli aramalarda keşfedilmeyi destekleyen ve iletişime geçmeyi kolaylaştıran bir site düşünülebilir.\n"
             "İsterseniz nasıl bir sayfa olabileceğine dair kısa bir öneri paylaşabilirim."
         )
         validation = validate_sales_messages({"short_message": short, "full_message": full})
@@ -201,7 +203,7 @@ async def generate_sales_output(lead: dict, audit: dict, playbook: dict) -> dict
     client = anthropic.AsyncAnthropic(api_key=settings.CLAUDE_API_KEY, timeout=30, max_retries=1)
 
     # ── 1. Gözlem cümlesini üret ──
-    gozlem_prompt = _GOZLEM_PROMPT.format(
+    gozlem_prompt = SALES_POLICY + _GOZLEM_PROMPT.format(
         sektor=sector_label,
         service=_sektor_service(sector),
         killer_bulgu=killer.get("bulgu", ""),
@@ -230,7 +232,7 @@ async def generate_sales_output(lead: dict, audit: dict, playbook: dict) -> dict
     )
 
     # ── 3. Full mesajı üret ──
-    full_prompt = _FULL_PROMPT.format(
+    full_prompt = SALES_POLICY + _FULL_PROMPT.format(
         sektor=sector_label,
         sektor_dil=_sektor_dil_str(sector),
         isim=isim,

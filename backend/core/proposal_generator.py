@@ -3,6 +3,9 @@ Proposal Generator — Audit verisinden kişiselleştirilmiş PDF teklif üretir
 Her cümle gerçek bulgulara dayanır. Rakipler genel template gönderir, biz gerçek veri.
 """
 
+from html import escape
+from core.sales_policy import SALES_POLICY, PROPOSAL_TERMS
+
 import asyncio
 import logging
 from datetime import datetime
@@ -43,10 +46,10 @@ Donusum engeli: {donusum_engeli}
 
 ISTENEN CIKTI (sadece valid JSON, preamble yasak):
 {{
-  "baslik": "tek cumle kapan baslik — firsat odakli, rakamli, isletme ozelinde",
+  "baslik": "işletmeye özel çalışma önerisi başlığı",
   "giris": "2 cumle: kisisel_gozlem dogal kullanan, 'Sitenizi inceledim' yasak. Guclu bir olumlu tespitle baslar, sonra gap'e gec.",
   "durum_ozeti": [
-    "firsat 1 — rakamli, somut",
+    "doğrulanmış gözlem 1",
     "firsat 2",
     "firsat 3"
   ],
@@ -57,7 +60,7 @@ ISTENEN CIKTI (sadece valid JSON, preamble yasak):
     "Odak 3: gorunurluk ve olcum"
   ],
   "beklenen_sonuclar": [
-    "somut sonuc 1 (tahmini rakamla)",
+    "izlenecek hedef 1; garanti veya uydurma rakam yok",
     "somut sonuc 2",
     "somut sonuc 3"
   ],
@@ -75,7 +78,7 @@ async def generate_proposal_content(lead: dict, audit: dict, playbook: dict) -> 
         ilk = audit.get("ilk_izlenim") or {}
         killer = audit.get("killer_insight") or {}
 
-        prompt = PROPOSAL_PROMPT.format(
+        prompt = SALES_POLICY + PROPOSAL_PROMPT.format(
             isim=lead.get("isim") or "",
             adres=lead.get("adres") or "",
             display_name=playbook.get("display_name", ""),
@@ -116,7 +119,9 @@ async def generate_proposal_content(lead: dict, audit: dict, playbook: dict) -> 
         }
 
         resp = await claude_api_call(prompt, max_tokens=1200, temperature=0.2)
-        return safe_json_parse(resp, fallback=fallback)
+        content = safe_json_parse(resp, fallback=fallback)
+        content.update(PROPOSAL_TERMS)
+        return content
 
 
 # ---------------------------------------------------------------------------
@@ -362,6 +367,8 @@ def build_proposal_html(lead: dict, audit: dict, content: dict, playbook: dict) 
 <p style="font-size:9.5pt;color:#475569;margin-top:14px">{content.get("bir_sonraki_adim", "")}</p>
 
 <!-- CTA -->
+<h2>Kapsam ve ticari şartlar</h2>
+{chr(10).join("<p><strong>" + escape(k.replace("_", " ")) + ":</strong> " + escape(str(content.get(k, v))) + "</p>" for k, v in PROPOSAL_TERMS.items())}
 <div class="cta-box">
   <div class="cta-text">{content.get("cta", "Ne zaman bir bakalım?")}</div>
 </div>

@@ -295,14 +295,14 @@ export default async function LeadDetailPage({ params }: Props) {
             <CardContent>
               {proposal.content && typeof proposal.content === "object" && (
                 <dl className="space-y-3">
-                  {(["baslik", "giris", "neden_simdi", "paket_adi", "fiyat_araligi", "cta"] as string[]).map((k) => {
+                  {(["teklif_durumu", "baslik", "giris", "durum_ozeti", "cozum", "baslangic_odaklari", "beklenen_sonuclar", "neden_simdi", "paket_adi", "fiyat_araligi", "teslim_suresi", "bakim_destek", "kapsam_siniri", "bir_sonraki_adim", "cta"] as string[]).map((k) => {
                     const v = (proposal.content as Record<string, unknown>)[k];
                     return v ? (
                       <div key={k}>
                         <dt className="font-mono text-[11px] text-dim uppercase tracking-[0.2em]">
                           {k.replace(/_/g, " ")}
                         </dt>
-                        <dd className="text-sm text-muted mt-1">{String(v)}</dd>
+                        <dd className="text-sm text-muted mt-1">{Array.isArray(v) ? <ul className="list-disc pl-4 space-y-1">{v.map((item, i) => <li key={i}>{String(item)}</li>)}</ul> : String(v)}</dd>
                       </div>
                     ) : null;
                   })}
