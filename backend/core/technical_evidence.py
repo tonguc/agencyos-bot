@@ -58,3 +58,38 @@ def lab_evidence(payload):
         if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) and value >= 0:
             result[key] = round(value, 3)
     return result
+
+
+def ground_audit(result, site):
+    """Do not allow generated findings to outrun the actual measured evidence."""
+    technical = site.get("technical") or {}
+    if technical.get("version") != 1:
+        return
+    lab = technical.get("lab") or {}
+    ux, seo, actions = [], [], []
+    finding = "Bu ölçüm kapsamında öncelikli bir teknik sorun doğrulanmadı."
+    metric = ""
+    if technical.get("html_status") != "measured":
+        finding = "Site HTML yanıtı bu denemede incelenemedi; erişim yeniden kontrol edilmeli."
+        actions.append("Siteye erişimi yeniden kontrol edin.")
+    lcp = lab.get("lcp_ms")
+    if lcp is not None and lcp > 4000:
+        finding = f"Mobil laboratuvar testinde ana içeriğin görünmesi (LCP) {lcp / 1000:.2f} saniye sürdü."
+        metric = f"LCP: {lcp} ms"
+        ux.append({"sorun": finding, "etki": "Yüklenme süresi ayrıca gerçek cihazda doğrulanmalı.", "siddet": "yuksek", "cozum": "Ana içerik ve kaynak yükleme sırasını inceleyip değişiklik sonrası yeniden ölçün."})
+        actions.append("Yüklenme süresini gerçek cihazda doğrulayın ve yavaşlığın kaynağını inceleyin.")
+    if technical.get("meta_noindex") is True:
+        finding = "İncelenen HTML’de robots veya Googlebot için noindex yönergesi gözlendi."
+        metric = ""
+        seo.append({"sorun": finding, "etki": "Yönergenin bu sayfa için bilinçli olarak kullanılıp kullanılmadığı doğrulanmalı.", "cozum": "Sayfanın indekslenme amacıyla yönergeyi karşılaştırın."})
+        actions.append("Noindex yönergesinin amacını işletmeyle doğrulayın.")
+    if not actions:
+        actions.append("Hedef hizmet ve bölge sorgularındaki gerçek görünürlüğü ayrı bir çalışmayla ölçün.")
+    result.update(
+        killer_insight={"bulgu": finding, "rakam": metric, "etki": "Bu teknik gözlemden müşteri kaybı veya arama sıralaması sonucu çıkarılamaz."},
+        en_acitan_nokta=finding,
+        kisisel_insight="İnceleme tek sayfanın ilk HTML yanıtı ve varsa mobil laboratuvar ölçümüyle sınırlı. Gerçek kullanıcı davranışı, rakip karşılaştırması ve arama görünürlüğü ölçülmedi.",
+        ilk_izlenim={"ne_yapiyor": "Teknik ölçüm", "deger_onerisi": "belirsiz", "guven_seviyesi": "belirsiz", "ilk_surtunum": finding},
+        ux_hatalar=ux, seo_aciklar=seo, donusum_engelleri=[], hizli_kazanimlar=actions,
+        reklam_firsati={"kanal": "", "aciklama": "Reklam ve rakip verileri bu ölçümde incelenmedi.", "rakip_durum": "bilinmiyor"},
+    )

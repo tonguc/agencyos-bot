@@ -198,6 +198,22 @@ async def generate_sales_output(lead: dict, audit: dict, playbook: dict) -> dict
                 "meta": {"sector": sector, "tone": "samimi"},
                 "_valid": validation["valid"], "_issues": validation["issues"]}
 
+    technical = (audit.get("_site_data") or {}).get("technical") or {}
+    if technical.get("version") == 1:
+        observation = "Siteniz için ilk teknik kontrolü tamamladım. Hedeflediğiniz hizmetleri ve bölgeleri öğrenerek daha ayrıntılı bir çalışma önerebilirim."
+        lcp = (technical.get("lab") or {}).get("lcp_ms")
+        if technical.get("html_status") != "measured":
+            observation = "Site bağlantınıza bu denemede erişemedim. Kullandığınız güncel adresi birlikte doğrulayabiliriz."
+        if lcp is not None and lcp > 4000:
+            seconds = f"{lcp / 1000:.2f}".replace(".", ",")
+            observation = f"Mobil testte ana içeriğin görünmesi {seconds} saniye sürdü. Gerçek telefonda da kontrol ederek sayfanın daha hızlı açılması için yapılabilecekleri belirleyebiliriz."
+        if technical.get("meta_noindex") is True:
+            observation = "İncelediğim sayfada arama motorlarına indekslememe talimatı veren bir ayar gördüm. Bunun bilinçli bir tercih olup olmadığını kontrol edebiliriz."
+        short = f"Merhaba, {isim} için sitenize baktım. {observation} İsterseniz kısa bir öneri paylaşayım; uygun olur mu?"
+        full = short + "\n\nBu ilk kontrol gerçek ziyaretçi davranışını veya arama sıralamasını ölçmüyor. Çalışma kapsamını ihtiyacınızı doğrulayarak belirleyebiliriz."
+        validation = validate_sales_messages({"short_message": short, "full_message": full})
+        return {"short_message": short, "full_message": full, "meta": {"sector": sector, "tone": "samimi"}, "_valid": validation["valid"], "_issues": validation["issues"]}
+
     if not settings.CLAUDE_API_KEY:
         raise RuntimeError("CLAUDE_API_KEY tanımlı değil")
     client = anthropic.AsyncAnthropic(api_key=settings.CLAUDE_API_KEY, timeout=30, max_retries=1)

@@ -6,6 +6,8 @@ import requests
 from core.audit_generator import fetch_site_data
 from core.technical_evidence import html_evidence, lab_evidence
 from core.prompts import build_audit_prompt
+from core.technical_evidence import ground_audit
+from core.sales_output_generator import generate_sales_output
 
 
 def test_html_attribute_order_and_repeated_robots():
@@ -97,3 +99,26 @@ def test_prompt_contains_only_allowed_evidence_and_explicit_limits():
     assert "3500" in prompt
     assert "IGNORE ALL" not in prompt
     assert "görünürlük ölçülmedi" in prompt
+
+
+def test_generated_claims_are_replaced_by_observed_facts():
+    result = {"genel_skor": 57, "killer_insight": {"bulgu": "Hastalar rakibe gidiyor"}, "ux_hatalar": [{"sorun": "robots.txt yok"}], "seo_aciklar": [{"sorun": "schema alanları eksik"}]}
+    ground_audit(result, {"technical": {"version": 1, "html_status": "measured", "lab": {"lcp_ms": 7510, "cls": 0.048, "tbt_ms": 0}}})
+    assert "7.51" in result["killer_insight"]["bulgu"]
+    assert len(result["ux_hatalar"]) == 1
+    assert result["seo_aciklar"] == []
+    assert "robots.txt" not in str(result)
+    assert "rakibe gidiyor" not in str(result)
+    assert result["genel_skor"] == 57
+
+
+@pytest.mark.asyncio
+async def test_technical_contact_uses_measurement_without_llm(monkeypatch):
+    from core import sales_output_generator as sales
+    def forbidden(**kw):
+        raise AssertionError("Do not regenerate factual observations")
+    monkeypatch.setattr(sales.anthropic, "AsyncAnthropic", forbidden)
+    result = await generate_sales_output({"isim": "Hilal Veteriner", "website": "https://example.com"}, {"_site_data": {"technical": {"version": 1, "html_status": "measured", "lab": {"lcp_ms": 7510}}}}, {})
+    assert "7,51 saniye" in result["short_message"]
+    assert "rakip" not in result["short_message"]
+    assert result["_valid"]
