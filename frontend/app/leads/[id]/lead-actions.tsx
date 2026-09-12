@@ -105,9 +105,8 @@ export function LeadActions({ leadId, hasAudit, hasOutreach, hasProposal, propos
     if (!proposalId) return;
     setPdfLoading(true);
     try {
-      const base = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
       const key  = process.env.NEXT_PUBLIC_API_KEY  ?? "changeme";
-      const res  = await fetch(`${base}/api/proposals/${proposalId}/pdf`, {
+      const res  = await fetch(`/api/proposals/${proposalId}/pdf`, {
         headers: { "X-API-Key": key },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
