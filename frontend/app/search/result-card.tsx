@@ -36,11 +36,9 @@ function signalColor(s: string): string {
 }
 
 export function ResultCard({ lead, selected, onSelect, sector, city, district }: Props) {
-  // Etiket her zaman segment (FIRSAT/ADAY/...) — üstteki tab'larla hizalı.
-  // Kaydedilmemişse renk mor (tentative), kaydedilmişse segment rengi (doğrulanmış).
-  // "Ön Analiz" ayrı bir etiket değil, sadece durum (mor renk + "~" skoru).
+  // Category color is independent of whether the candidate has been saved.
   const isUnsaved = !lead.lead_id;
-  const c = isUnsaved ? SEGMENT_COLORS.review : SEGMENT_COLORS[lead.segment];
+  const c = SEGMENT_COLORS[lead.segment];
   const label = SEGMENT_LABELS[lead.segment];
   const wa = whatsappLink(lead.phone);
   const router = useRouter();
@@ -104,10 +102,18 @@ export function ResultCard({ lead, selected, onSelect, sector, city, district }:
             >
               {label}
             </span>
+            <span
+              className="text-[10px] font-mono text-muted mt-1"
+              title={isUnsaved
+                ? "Arama verilerine dayalı ön değerlendirme; henüz kayıtlı değil."
+                : "Kayıtlı olmak audit'in tamamlandığı anlamına gelmez. Audit durumunu detaydan görebilirsiniz."}
+            >
+              {isUnsaved ? "Ön değerlendirme" : "Kayıtlı aday"}
+            </span>
             {isUnsaved && lead.score != null && (
               <span
                 className="text-[10px] font-mono text-dim mt-0.5"
-                title="Tahmini skor — audit ile doğrulanacak"
+                title="Tahmini skor — audit sonrası yeniden hesaplanır"
               >
                 ~{lead.score}
               </span>
@@ -153,7 +159,7 @@ export function ResultCard({ lead, selected, onSelect, sector, city, district }:
             {isUnsaved && (
               <div className="border border-review/40 bg-review/5 px-2.5 py-1.5 text-[11px] font-mono text-review">
                 Tahmini skor — hızlı aramada yalnız Maps sinyalleri kullanıldı.
-                Kesin FIRSAT SKORU için kaydet ve <span className="font-bold">audit</span> çalıştır.
+                Ayrıntılı değerlendirme için kaydet ve <span className="font-bold">audit</span> çalıştır.
               </div>
             )}
             {/* Action buttons */}
