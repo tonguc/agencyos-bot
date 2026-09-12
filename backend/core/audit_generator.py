@@ -119,6 +119,7 @@ async def fetch_site_data(url: str) -> dict:
             headers={"User-Agent": "Mozilla/5.0 (AgencyOS)"},
             allow_redirects=True,
         )
+        resp.raise_for_status()
         html = resp.text[:150_000]
         # Use final URL after redirects for SSL check (http:// sites often redirect to https://)
         data["ssl"] = resp.url.startswith("https://")
@@ -131,6 +132,7 @@ async def fetch_site_data(url: str) -> dict:
         data["form_var"] = await _detect_form(url, html)
         data["tel_var"] = bool(re.search(r'href=["\']tel:', html, re.I))
     except Exception as e:
+        data["hata"] = True
         logger.warning("Site fetch hatasi (%s): %s", url, e)
 
     logger.info(
@@ -146,19 +148,10 @@ def _validate_audit(audit: dict, playbook: dict) -> tuple[bool, list[str]]:
     killer = audit.get("killer_insight") or {}
     rakam = (killer.get("rakam") or "").strip()
     bulgu = (killer.get("bulgu") or "").strip()
-    if not rakam or not _DIGIT_RE.search(rakam):
-        warnings.append("killer_insight.rakam bos/rakamsiz")
     if not bulgu or len(bulgu) < 15:
         warnings.append("killer_insight.bulgu cok kisa/bos")
 
     en_acitan = (audit.get("en_acitan_nokta") or "").strip()
-    if not _DIGIT_RE.search(en_acitan):
-        warnings.append("en_acitan_nokta rakam icermiyor")
-
-    if not audit.get("ux_hatalar"):
-        warnings.append("ux_hatalar bos")
-    if not audit.get("seo_aciklar"):
-        warnings.append("seo_aciklar bos")
     if not audit.get("kisisel_insight"):
         warnings.append("kisisel_insight bos")
 
@@ -205,6 +198,18 @@ async def generate_audit(lead: dict, playbook: dict) -> dict:
         for k, v in FALLBACK_AUDIT.items():
             result.setdefault(k, v)
 
+        if not lead.get("website"):
+            # No URL is a single evidence limitation, not multiple site defects.
+            finding = "Eldeki işletme kaydında web sitesi bağlantısı bulunamadı."
+            result.update(
+                killer_insight={"bulgu": finding, "etki": "İşletmenin ayrı bir sitesi olup olmadığı doğrulanmalı; Google profilindeki telefon ve diğer iletişim yolları ayrıca incelenmeli.", "rakam": ""},
+                en_acitan_nokta=finding,
+                kisisel_insight="Site bağlantısı doğrulanmadan site kalitesi veya müşteri kaybı hakkında sonuç çıkarılamaz.",
+                ilk_izlenim={"ne_yapiyor": "Site incelenemedi", "deger_onerisi": "belirsiz", "guven_seviyesi": "dusuk", "ilk_surtunum": finding},
+                ux_hatalar=[], seo_aciklar=[], donusum_engelleri=[],
+                hizli_kazanimlar=["İşletmenin resmi web sitesi olup olmadığını doğrulayın.", "Site varsa Google işletme kaydındaki bağlantıyı kontrol edin."],
+                reklam_firsati={"kanal": "", "aciklama": "Reklam değerlendirmesi için yeterli veri yok.", "rakip_durum": "bilinmiyor"},
+            )
         ok, warnings = _validate_audit(result, playbook)
         if not ok:
             logger.warning(
