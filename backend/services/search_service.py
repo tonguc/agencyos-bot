@@ -141,7 +141,7 @@ async def run_search(query: str, limit: int = 25) -> dict:
             "parsed": parsed, "results": [],
             "summary": {"hot": 0, "warm": 0, "ok": 0, "low": 0, "review": 0, "total": 0},
             "filter_stats": None,
-            "error": "Arama zaman aşımına uğradı (150s). Daha az limit dene veya Yeni Tarama kullan.",
+            "error": "Arama sağlayıcısı 60 saniyede yanıt vermedi. İşletme sayısı belirlenemedi; yeniden deneyin.",
         }
     except RuntimeError as e:
         return {
@@ -157,7 +157,7 @@ async def run_search(query: str, limit: int = 25) -> dict:
             "results": [],
             "summary": {"hot": 0, "warm": 0, "ok": 0, "low": 0, "review": 0, "total": 0},
             "filter_stats": None,
-            "error": "Sonuç bulunamadı — farklı arama terimi veya ilçe dene.",
+            "error": "Sağlayıcı bu sorgu için kayıt döndürmedi. Bu, bölgede işletme olmadığı anlamına gelmez.",
         }
 
     # If the query parser identified a sector, apply ICP + scoring.

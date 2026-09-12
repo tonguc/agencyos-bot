@@ -24,7 +24,10 @@ def filter_leads(leads: list[dict], playbook: dict) -> dict:
         isim = lead.get("isim") or "<isimsiz>"
         # Target profile is context, never grounds for dropping a prospect.
         if not gecti:
-            lead["qualification_notes"] = [f"Hedef profil notu: {neden}. Başvuru listesinde tutuldu."]
+            note = f"Hedef profil notu: {neden}. Başvuru listesinde tutuldu."
+            notes = lead.setdefault("qualification_notes", [])
+            if note not in notes:
+                notes.append(note)
         nitelikli.append(lead)
 
     toplam = len(leads)

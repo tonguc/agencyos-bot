@@ -178,7 +178,10 @@ async def collect_by_query(
             limit=limit,
             sektor_for_filter=sektor_filter,
         )
-    return _filter_by_query_relevance(leads, search_string.strip())
+    filtered = _filter_by_query_relevance(leads, search_string.strip())
+    if leads and not filtered:
+        raise RuntimeError(f"Sağlayıcıdan alınan {len(leads)} kayıt arama uyumu kontrolünden geçmedi. Bu, bölgede işletme olmadığı anlamına gelmez.")
+    return filtered
 
 
 _QUERY_STOPWORDS = {
@@ -192,6 +195,7 @@ _QUERY_STOPWORDS = {
 # ("Otolaryngologist", "Dentist", "Law firm" vs.). Relevance filter
 # bu durumda sonuçları gereksiz yere elemesin diye token seti genişletilir.
 _QUERY_ALIASES: dict[str, tuple[str, ...]] = {
+    "doktor": ("doctor", "physician", "practitioner", "hekim", "muayenehane", "ürolo", "urolog", "cardiolog", "kardiyolog", "surgeon", "cerrah", "dermatolog", "gynecolog", "jinekolog", "pediatric", "ophthalm", "orthop", "ortoped", "neurolog", "nörolog", "psychiatr", "psikiyatr", "otolaryng"),
     # KBB
     "kulak":       ("ear", "ent", "otolaryng"),
     "burun":       ("nose", "ent", "otolaryng"),
@@ -267,7 +271,8 @@ def _filter_by_query_relevance(leads: list[dict], query: str) -> list[dict]:
     result = []
     for lead in leads:
         text = f"{lead.get('isim') or ''} {lead.get('kategori') or ''}".lower()
-        if any(tok in text for tok in tokens):
+        doctor_title = "doktor" in base_tokens and re.search(r"\bdr\b", text)
+        if doctor_title or any(tok in text for tok in tokens):
             result.append(lead)
         else:
             logger.info(
@@ -468,7 +473,7 @@ async def _run_serpapi_maps(
     key = settings.SERPAPI_API_KEY
     if not key:
         logger.error("SERPAPI_API_KEY tanımlı değil — arama yapılamıyor")
-        return []
+        raise RuntimeError("Arama servisi yapılandırılmamış: SERPAPI_API_KEY eksik.")
 
     ll = _get_ll(ilce, sehir)
     # Konumu query'e de ekle: "diş hekimi Kadıköy İstanbul" daha güvenilir sonuç verir
@@ -496,11 +501,17 @@ async def _run_serpapi_maps(
     except requests.Timeout:
         logger.warning("SerpAPI Maps zaman aşımı — q='%s' ll=%s", q, ll)
         raise TimeoutError("SerpAPI 60s içinde yanıt vermedi")
-    except requests.RequestException as e:
-        logger.exception("SerpAPI Maps başarısız: %s", e)
-        return []
+    except (requests.RequestException, ValueError):
+        # Request exceptions may contain the URL and API key. Never expose them.
+        logger.warning("SerpAPI Maps isteği veya yanıtı başarısız")
+        raise RuntimeError("Arama sağlayıcısına erişilemedi veya geçersiz yanıt alındı. Bu, sıfır işletme sonucu değildir.") from None
+
+    if not isinstance(data, dict) or data.get("error"):
+        raise RuntimeError("Arama sağlayıcısı hata bildirdi. Kota ve servis durumu kontrol edilmeli; işletme sayısı belirlenemedi.")
 
     raw_results = data.get("local_results") or []
+    if not isinstance(raw_results, list) or any(not isinstance(r, dict) for r in raw_results):
+        raise RuntimeError("Arama sağlayıcısı beklenmeyen sonuç biçimi döndürdü.")
     if not raw_results:
         logger.info("SerpAPI Maps: sonuç yok — q='%s' ll=%s", q, ll)
         return []
@@ -510,6 +521,8 @@ async def _run_serpapi_maps(
     enriched = [enrich_lead(lead) for lead in converted]
     if sektor_for_filter:
         enriched = _filter_relevant(enriched, sektor_for_filter)
+    if raw_results and not enriched:
+        raise RuntimeError(f"Sağlayıcının döndürdüğü {len(raw_results)} kayıt sektör kontrolünden geçmedi. Bölgede işletme olmadığı sonucu çıkarılamaz.")
     if ilce:
         enriched = _filter_by_location(enriched, ilce, label="ilçe")
     elif sehir:
@@ -520,8 +533,8 @@ async def _run_serpapi_maps(
 
 def _filter_by_location(leads: list[dict], location: str, label: str = "konum") -> list[dict]:
     """
-    Adreste istenen konum (ilçe veya şehir) geçmeyen lead'leri ele.
-    Google Maps bazen komşu şehir/ilçe sonuçları döndürebiliyor.
+    Missing district text is not proof of an outside location. Keep the
+    provider result with an explicit verification note, not a verified match.
     """
     target = _normalize_tr(location)
     if not target:
@@ -533,10 +546,11 @@ def _filter_by_location(leads: list[dict], location: str, label: str = "konum") 
         if target in adres:
             result.append(lead)
         else:
-            logger.info(
-                "Location filter (%s): '%s' elendi (adres: %s) — aranan: %s",
-                label, lead.get("isim"), lead.get("adres"), location,
-            )
+            note = f"Konum doğrulanmalı: kayıt adresinde {location} bulunamadı; farklı bölgede olabilir."
+            notes = lead.setdefault("qualification_notes", [])
+            if note not in notes:
+                notes.append(note)
+            result.append(lead)
     logger.info("Location filter: %d/%d lead kaldı (%s=%s)", len(result), len(leads), label, location)
     return result
 
@@ -729,6 +743,8 @@ def enrich_lead(raw: dict) -> dict:
         # Zombie sinyali
         "permanently_closed":   permanently_closed,
     }
+    if re.search(r"\b(dr|doktor|hekim)\b", str(lead.get("isim") or ""), re.I):
+        lead["qualification_notes"] = ["Hekim profili: bağımsız muayenehane, kurum bağlantısı ve satın alma yetkisi doğrulanmadı. Klinik sahibi olduğu varsayılmamalı."]
     return lead
 
 
