@@ -1,5 +1,6 @@
 import httpx
 import pytest
+import asyncio
 
 from core import market_evidence as market
 
@@ -66,6 +67,7 @@ async def test_token_followup_and_errors_keep_successful_query(monkeypatch):
     result = await market.collect_market({"isim": "Test Veteriner", "city": "İstanbul", "website": "https://example.com"})
     assert len(calls) == 3
     assert calls[1]["engine"] == "google_ai_overview"
+    assert calls[0]["no_cache"] == "true"
     assert result["queries"][0]["ai_cited"] is True
     assert result["queries"][1]["status"] == "unavailable"
     assert result["queries"][1]["error_code"] == "http_429"
@@ -90,3 +92,21 @@ def test_payment_has_no_fake_probability_and_reviews_do_not_prove_budget():
     high = market.commercial_evidence({}, {"queries": [{"self_ad_observed": True}]}, {"_site_data": {"technical": {"lab": {"lcp_ms": 6000}}}})
     assert high["priority"] == "investment_and_need"
     assert high["payment_probability"] is None and high["budget"] == "unknown"
+
+
+@pytest.mark.asyncio
+async def test_queries_run_concurrently_with_fresh_tokens(monkeypatch):
+    monkeypatch.setattr(market.settings, "SERPAPI_API_KEY", "test")
+    started = []
+    both_started = asyncio.Event()
+    async def handle(request):
+        started.append(request.url.params["q"])
+        assert request.url.params["no_cache"] == "true"
+        if len(started) == 2:
+            both_started.set()
+        await asyncio.wait_for(both_started.wait(), timeout=1)
+        return httpx.Response(200, json={"search_metadata": {"status": "Success"}, "organic_results": []})
+    original = httpx.AsyncClient
+    monkeypatch.setattr(market.httpx, "AsyncClient", lambda **kw: original(transport=httpx.MockTransport(handle), **kw))
+    result = await market.collect_market({"isim": "Test Veteriner", "city": "İstanbul"})
+    assert len(started) == 2 and result["status"] == "complete"
