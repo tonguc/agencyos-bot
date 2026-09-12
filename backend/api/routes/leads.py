@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import uuid
 
@@ -82,10 +81,9 @@ async def create_lead(body: LeadCreate, db: AsyncSession = Depends(get_db)):
 @router.get("/pipeline", response_model=PipelineOut)
 async def pipeline_counts(db: AsyncSession = Depends(get_db)):
     repo = LeadRepository(db)
-    counts, score_tiers = await asyncio.gather(
-        repo.pipeline_counts(),
-        repo.score_distribution(),
-    )
+    # AsyncSession cannot execute concurrent database operations.
+    counts = await repo.pipeline_counts()
+    score_tiers = await repo.score_distribution()
     return PipelineOut(counts=counts, score_tiers=score_tiers)
 
 
