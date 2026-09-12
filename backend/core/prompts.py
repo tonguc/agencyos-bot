@@ -155,7 +155,7 @@ KİŞİSEL GÖZLEM: {kisisel_insight}
 İLÇE/ŞEHİR: {adres}
 
 KURALLAR:
-- V1=MERAKLI: soru ile başlar, rakam içerir. Maks 6 satır.
+- V1=MERAKLI: doğrulama sorusu ile başlar. Maks 6 satır.
 - V2=DOĞRUDAN: hook cümlesi ile başlar, 1 veri parçası. Maks 6 satır.
 - V3=NAZİK: ortak zemin + sorun + teklif. Maks 6 satır.
 - V4=PROOF_BASED: benzer uzman gözleminden başlar
@@ -182,7 +182,7 @@ FOLLOWUP_PROMPT_DAY3 = (
     "Takip mesajı (3 gün sonrası). Kanal={kanal}. Ton={ton}.\n"
     "Önceki mesaj: {onceki}\n"
     "Lead: {isim}.\n"
-    "Kurallar: farklı bir acıyı vurgula, 1 ek veri/rakam ekle, "
+    "Kurallar: yeni bir bilgi uydurmadan önceki öneriyi hatırlat, "
     "açık uçlu bir soru ile bitir. Maks 4 satır. Sadece mesaj metnini dön."
 )
 
@@ -383,3 +383,9 @@ def build_reply_response_prompt(intent: str, lead: dict, audit: dict) -> str:
 
 def build_close_prompt(lead: dict) -> str:
     return CLOSE_PROMPT.format(isim=lead.get("isim") or "")
+
+
+# All customer-facing prompt paths share the same evidence boundaries.
+from core.sales_policy import SALES_POLICY
+for _prompt_name in ("OUTREACH_PROMPT", "FOLLOWUP_PROMPT_DAY3", "FOLLOWUP_PROMPT_LAST", "INITIAL_MESSAGE_PROMPT", "REPLY_RESPONSE_PROMPT", "CLOSE_PROMPT"):
+    globals()[_prompt_name] = SALES_POLICY + "\n" + globals()[_prompt_name] + "\n" + SALES_POLICY
