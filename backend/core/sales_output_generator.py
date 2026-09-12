@@ -200,7 +200,7 @@ async def generate_sales_output(lead: dict, audit: dict, playbook: dict) -> dict
         msg = await client.messages.create(
             model=settings.CLAUDE_MODEL,
             max_tokens=120,
-            temperature=0,
+            extra_body={"temperature": 0},
             messages=[{"role": "user", "content": gozlem_prompt}],
         )
         gozlem = msg.content[0].text.strip().strip('"').strip("'")
@@ -236,7 +236,7 @@ async def generate_sales_output(lead: dict, audit: dict, playbook: dict) -> dict
         msg = await client.messages.create(
             model=settings.CLAUDE_MODEL,
             max_tokens=600,
-            temperature=0.1,
+            extra_body={"temperature": 0.1},
             messages=[{"role": "user", "content": full_prompt}],
         )
         full = msg.content[0].text.strip()

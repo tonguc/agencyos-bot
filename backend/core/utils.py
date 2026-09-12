@@ -95,7 +95,7 @@ async def claude_api_call(
         msg = await client.messages.create(
             model=used_model,
             max_tokens=max_tokens,
-            temperature=temperature,
+            extra_body={"temperature": temperature},
             messages=messages,
             timeout=90.0,
         )
