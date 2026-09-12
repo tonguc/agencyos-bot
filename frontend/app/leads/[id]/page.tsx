@@ -4,8 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScoreBar } from "@/components/ui/score-bar";
 import { formatDateTime } from "@/lib/utils";
 import { LeadActions } from "./lead-actions";
-import { SalesOutputCard } from "./sales-output-card";
-import { OutreachCard } from "./outreach-card";
+import { FirstContactMessage, ProposalSendNote } from "./contact-message";
 import { LocationMap } from "./location-map";
 import { SimilarLeads } from "./similar-leads";
 import type { Audit, Lead, OutreachMessage, Proposal } from "@/types";
@@ -278,19 +277,7 @@ export default async function LeadDetailPage({ params }: Props) {
           </Card>
         )}
 
-        {/* Satış Mesajı */}
-        {salesOutput && (salesOutput.short_message || salesOutput.full_message) && (
-          <SalesOutputCard output={salesOutput} />
-        )}
-
-        {/* Outreach */}
-        {outreach && (
-          <OutreachCard
-            leadId={id}
-            outreach={outreach}
-            phone={lead.phone}
-          />
-        )}
+        <FirstContactMessage output={salesOutput} outreach={outreach} />
 
         {/* Proposal */}
         {proposal && (
@@ -317,6 +304,7 @@ export default async function LeadDetailPage({ params }: Props) {
                   })}
                 </dl>
               )}
+              <ProposalSendNote />
             </CardContent>
           </Card>
         )}
