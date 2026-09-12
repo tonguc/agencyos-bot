@@ -24,15 +24,19 @@ H1 VE BÖLGE HEDEFLEME KURALLARI:
 - H1 sorununu sadece şu durumda flag'le: H1 + title + meta hiçbirinde hiçbir bölge/şehir adı YOKSA.
 - Meta description farklı şehirler içeriyorsa bu yeterlidir; H1'in de hepsini içermesi gerekmez.
 
-RAKAM ZORUNLULUĞU:
-- killer_insight.bulgu + etki + rakam: somut sayı içermeli (%X, N kişi/ay, N TL tahmini)
-- en_acitan_nokta: mutlaka bir rakam içermeli
+KANIT KURALLARI (sektör örneklerinden ve format taleplerinden önceliklidir):
+- Yalnızca verilen ölçümleri kullan. Hasta/müşteri kaybı, gelir kaybı, talep, rakip sıralaması veya yüzde uydurma.
+- Ölçüm yoksa killer_insight.rakam boş string olsun; en_acitan_nokta sayı içermek zorunda değil.
+- Site URL bulunamaması işletmenin hiç sitesi olmadığını kanıtlamaz: "Eldeki kayıtta web sitesi bağlantısı bulunamadı" de.
+- Site URL yoksa SSL, hız, form, telefon bağlantısı, title ve H1 UYGULANAMAZ. Bunları ayrı eksikler olarak yazma.
+- Siteye erişilemediyse teknik alanlar BİLİNMİYOR; yok veya bozuk olduklarını iddia etme.
+- Sitedeki tel bağlantısı Google profilindeki telefon değildir. Site verisinden "hastalar ulaşamıyor" sonucu çıkarma.
+- Gözlem, olası etki ve doğrulama adımını ayır. Rakibe yönelme veya müşteri kaybını gerçekleşmiş olay gibi anlatma.
 - kisisel_insight: işletme sahibinin "bunu nasıl fark etti?" dedirtmeli, 1-2 cümle max
 
 DERİNLİK KURALLARI:
-- ux_hatalar: en az 2, max 4 madde. şiddet alanı: "yuksek"/"orta"/"dusuk"
-- seo_aciklar: en az 2 madde
-- donusum_engelleri: en az 1 madde (CTA eksikliği, güven sinyali yokluğu vs.)
+- ux_hatalar: kanıtlanan sorunlar, max 4 madde. şiddet alanı: "yuksek"/"orta"/"dusuk"
+- seo_aciklar ve donusum_engelleri: yalnızca kanıtlanan sorunlar; kanıt yoksa boş liste.
 - hizli_kazanimlar: 2-3 madde, max 1 haftada uygulanabilir quick win
 
 ===========================
@@ -87,8 +91,8 @@ Sadece valid JSON dön.
   }},
   "killer_insight": {{
     "bulgu": "tek cümle, spesifik arıza",
-    "etki": "tek cümle, sayısal kayıp ifadesi",
-    "rakam": "%X veya N birim"
+    "etki": "kanıtla sınırlı olası etki; ölçülmeyen kayıp iddia etme",
+    "rakam": "yalnızca ölçülmüş veri, yoksa boş string"
   }},
   "ux_hatalar": [
     {{"sorun": "...", "etki": "...", "siddet": "yuksek|orta|dusuk", "cozum": "1 cümlelik quick win"}}
@@ -109,7 +113,7 @@ Sadece valid JSON dön.
   "urgency": "dusuk|orta|yuksek",
   "lead_kalitesi": "soguk|ilik|sicak",
   "genel_skor": 0,
-  "en_acitan_nokta": "tek cümle, rakam içermeli",
+  "en_acitan_nokta": "kanıta dayalı tek cümle",
   "kisisel_insight": "1-2 cümle, işletme sahibinin fark etmediği somut gözlem"
 }}
 """
@@ -236,9 +240,9 @@ def build_audit_prompt(lead: dict, playbook: dict, site: dict) -> str:
             if site.get("hiz_veri_var")
             else "(veri alinamadi)"
         ),
-        form_var=site.get("form_var", False),
-        tel_var=site.get("tel_var", False),
-        ssl=site.get("ssl", False),
+        form_var=site.get("form_var") if site.get("url") and not site.get("hata") else "değerlendirilemedi",
+        tel_var=site.get("tel_var") if site.get("url") and not site.get("hata") else "değerlendirilemedi",
+        ssl=site.get("ssl") if site.get("url") and not site.get("hata") else "değerlendirilemedi",
         # Site'ten gelen HTML metinleri — ayni sanitization sart
         title=_sanitize_user_input(site.get("title"), 120),
         meta=_sanitize_user_input(site.get("meta"), 200),

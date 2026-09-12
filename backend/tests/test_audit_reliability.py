@@ -206,7 +206,7 @@ async def test_sales_uses_configured_credentials(monkeypatch):
         seen.update(kwargs)
         return SimpleNamespace(messages=SimpleNamespace(create=create))
     monkeypatch.setattr(sales.anthropic, "AsyncAnthropic", client)
-    await sales.generate_sales_output({}, {}, {})
+    await sales.generate_sales_output({"website": "https://example.com"}, {}, {})
     assert seen["api_key"] == "test-only-not-a-secret"
     assert all(c.kwargs["model"] == "test-model" for c in create.call_args_list)
 
