@@ -4,7 +4,7 @@ Her cümle gerçek bulgulara dayanır. Rakipler genel template gönderir, biz ge
 """
 
 from html import escape
-from core.sales_policy import SALES_POLICY, PROPOSAL_TERMS
+from core.sales_policy import SALES_POLICY, PROPOSAL_TERMS, missing_site_proposal
 
 import asyncio
 import logging
@@ -71,6 +71,8 @@ ISTENEN CIKTI (sadece valid JSON, preamble yasak):
 
 
 async def generate_proposal_content(lead: dict, audit: dict, playbook: dict) -> dict:
+    if not lead.get("website"):
+        return missing_site_proposal(lead)
     async with API_SEMAPHORE:
         skorlar = audit.get("skorlar") or {}
         kazanimlar = audit.get("hizli_kazanimlar") or []

@@ -19,6 +19,17 @@ FALLBACK_OUTREACH = {
 
 
 async def write_outreach(lead: dict, audit: dict, hook: dict, playbook: dict) -> dict:
+    if not lead.get("website"):
+        # Unknown URLs cannot support claims about visibility, loss or past work.
+        question = "İncelediğim kayıtta web sitesi bağlantınızı bulamadım. Kullandığınız bir site var mı?"
+        offer = "Yoksa, hizmetlerinizi tanıtan, Google ve yapay zekâ destekli aramalarda keşfedilmeyi destekleyen ve iletişimi kolaylaştıran bir site için kısa bir öneri paylaşabilirim."
+        return {
+            "v1": f"Merhaba, {question}",
+            "v2": f"Merhaba, {question} {offer}",
+            "v3": f"Merhaba, {question} Mevcut siteniz varsa bağlantısını paylaşabilir misiniz? İhtiyacınıza göre ilerleyelim.",
+            "v4": f"Merhaba, {question} {offer} İlginizi çeker mi?",
+            "onerilen": "v1",
+        }
     async with API_SEMAPHORE:
         varsayilan = ONERILEN_MAP.get(hook["tip"], "v1")
         prompt = build_outreach_prompt(lead, audit, hook, playbook, varsayilan)
