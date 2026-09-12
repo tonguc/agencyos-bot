@@ -9,7 +9,7 @@ import requests
 
 from core.utils import safe_json_parse, API_SEMAPHORE, claude_api_call
 from core.prompts import build_audit_prompt
-from core.technical_evidence import html_evidence, lab_evidence
+from core.technical_evidence import html_evidence, lab_evidence, ground_audit
 
 logger = logging.getLogger(__name__)
 
@@ -216,6 +216,8 @@ async def generate_audit(lead: dict, playbook: dict) -> dict:
 
         for k, v in FALLBACK_AUDIT.items():
             result.setdefault(k, v)
+
+        ground_audit(result, site)
 
         if not lead.get("website"):
             # No URL is a single evidence limitation, not multiple site defects.

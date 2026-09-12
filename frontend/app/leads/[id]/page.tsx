@@ -187,6 +187,7 @@ export default async function LeadDetailPage({ params }: Props) {
             <CardContent className="space-y-5">
 
               {/* Scores */}
+              <p className="text-xs text-muted">AI değerlendirme puanları · Doğrudan teknik ölçüm değildir.</p>
               <div className="grid grid-cols-2 gap-4">
                 <ScoreBar label="UX" value={audit.ux_score} />
                 <ScoreBar label="SEO" value={audit.seo_score} />
