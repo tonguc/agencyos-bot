@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from arq import ArqRedis
@@ -12,6 +13,8 @@ from schemas.common import JobResponse
 from schemas.outreach import MarkSentRequest, OutreachOut
 from services.outreach_service import generate_followup, mark_sent
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/leads", tags=["outreach"])
 
 
@@ -21,12 +24,21 @@ async def trigger_outreach(
     db: AsyncSession = Depends(get_db),
     arq: ArqRedis = Depends(get_arq_pool),
 ):
-    job = await JobRepository(db).create(
+    repo = JobRepository(db)
+    existing = await repo.find_active_for_lead(lead_id, "generate_outreach")
+    if existing:
+        logger.info("trigger_outreach: existing job | lead=%s job=%s",
+                    str(lead_id)[:8], str(existing.id)[:8])
+        return JobResponse(job_id=existing.id, status=existing.status, result=None)
+
+    job = await repo.create(
         type="generate_outreach",
         payload={"lead_id": str(lead_id)},
     )
     await db.commit()
     await arq.enqueue_job("run_outreach_job", str(lead_id), str(job.id))
+    logger.info("trigger_outreach: enqueued | lead=%s job=%s",
+                str(lead_id)[:8], str(job.id)[:8])
     return JobResponse(job_id=job.id, status="pending", result=None)
 
 
@@ -48,6 +60,8 @@ async def send_outreach(
     try:
         updated = await mark_sent(outreach_id, body.version, body.channel, db)
     except ValueError as e:
+        logger.warning("send_outreach: not found | lead=%s outreach=%s err=%s",
+                       str(lead_id)[:8], str(outreach_id)[:8], e)
         raise HTTPException(404, str(e))
     return updated
 
@@ -57,5 +71,6 @@ async def get_followup(lead_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     try:
         text = await generate_followup(lead_id, db)
     except ValueError as e:
+        logger.warning("get_followup: %s | lead=%s", e, str(lead_id)[:8])
         raise HTTPException(404, str(e))
     return {"text": text}

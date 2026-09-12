@@ -76,6 +76,7 @@ async def fetch_site_data(url: str) -> dict:
     data: dict = {
         "url": url,
         "hiz_skoru": 0,
+        "hiz_veri_var": False,  # True yalnızca PageSpeed gerçek skor döndürdüğünde
         "title": "",
         "meta": "",
         "h1": "",
@@ -104,6 +105,7 @@ async def fetch_site_data(url: str) -> dict:
             )
             if score is not None:
                 data["hiz_skoru"] = int(score * 100)
+                data["hiz_veri_var"] = True
         except Exception as e:
             logger.warning("PageSpeed hatasi (%s): %s", url, e)
     else:

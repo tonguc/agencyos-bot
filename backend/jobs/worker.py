@@ -35,4 +35,12 @@ class WorkerSettings:
     on_startup = startup
     on_shutdown = shutdown
     max_jobs = 10
-    job_timeout = 300  # 5 minutes max per job
+    # Apify default timeout = 200s; ARQ job_timeout > Apify + buffer (40s) ki Apify
+    # kendi abort mesajını verip cost'u görelim. ARQ 300 → 240 değişti.
+    job_timeout = 240
+    # Transient fail (Claude 429/529, network blip, kısa Apify hıçkırığı) için 1 retry.
+    # GÜVENLİK: Task'lar idempotent — service'lerde since_dt=job.created_at guard var,
+    # retry sırasında zaten yazılmış audit/outreach/proposal'ı bulup Claude/Apify
+    # çağrısı yapmadan döner. Körleme retry değil — idempotency korumalı.
+    max_tries = 2
+    retry_delay = 15  # saniye

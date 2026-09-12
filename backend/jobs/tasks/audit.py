@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 async def run_audit_job(ctx, lead_id: str, job_id: str) -> dict:
     job_uuid = uuid.UUID(job_id)
     try:
-        # Leave time to persist errors before ARQ's 300-second timeout.
-        async with asyncio.timeout(240):
+        # Leave time to persist errors before ARQ's 240-second timeout.
+        async with asyncio.timeout(210):
             lead_uuid = uuid.UUID(lead_id)
             async with AsyncSessionFactory() as db:
                 job = await JobRepository(db).get(job_uuid)
@@ -22,11 +22,12 @@ async def run_audit_job(ctx, lead_id: str, job_id: str) -> dict:
                 await db.refresh(job, with_for_update=True)
                 if job.status in ("completed", "failed"):
                     return job.result or {}
+                job_created_at = job.created_at
                 await JobRepository(db).mark_running(job, "Audit başlıyor...")
                 await db.commit()
 
             async with AsyncSessionFactory() as db:
-                audit = await run_audit(lead_uuid, db)
+                audit = await run_audit(lead_uuid, db, since_dt=job_created_at)
                 result = {"audit_id": str(audit.id), "score": audit.general_score}
                 job = await JobRepository(db).get(job_uuid)
                 if not job:

@@ -3,6 +3,7 @@ import sys
 import asyncio
 import json
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -34,8 +35,8 @@ def test_shared_redis_dsn(value, expected):
 
 @pytest.fixture
 def fakes(monkeypatch):
-    job = SimpleNamespace(id=uuid.uuid4(), status="pending", result=None)
-    repo = SimpleNamespace(get=AsyncMock(return_value=job), create=AsyncMock(return_value=job),
+    job = SimpleNamespace(id=uuid.uuid4(), status="pending", result=None, created_at=datetime.now(timezone.utc))
+    repo = SimpleNamespace(find_active_for_lead=AsyncMock(return_value=None), get=AsyncMock(return_value=job), create=AsyncMock(return_value=job),
                            mark_running=AsyncMock(), mark_completed=AsyncMock(), mark_failed=AsyncMock())
     db = SimpleNamespace(commit=AsyncMock(), refresh=AsyncMock())
     class Session:
@@ -102,6 +103,7 @@ async def test_completion_commits_with_audit(fakes, monkeypatch):
     db.commit.side_effect = lambda: commits.append(repo.mark_completed.await_count)
     result = await task.run_audit_job({}, str(uuid.uuid4()), str(job.id))
     assert result["audit_id"] == str(report.id)
+    assert task.run_audit.call_args.kwargs["since_dt"] == job.created_at
     assert commits == [0, 1]
 
 

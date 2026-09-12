@@ -27,6 +27,10 @@ async def trigger_audit(
 ):
     if not await LeadRepository(db).get(lead_id):
         raise HTTPException(404, "Lead bulunamadi")
+    repo = JobRepository(db)
+    existing = await repo.find_active_for_lead(lead_id, "generate_audit")
+    if existing:
+        return JobResponse(job_id=existing.id, status=existing.status, result=None)
     try:
         worker_alive = await arq.exists("arq:queue:health-check")
     except Exception:

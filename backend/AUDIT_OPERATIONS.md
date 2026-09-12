@@ -33,7 +33,7 @@ The heartbeat is shared by workers on the default queue, not a per-task health p
 Audit submission validates the lead and worker heartbeat before saving a job.
 New audits use the DB UUID as their ARQ job ID and payload.queue_tracking=true.
 Queue insertion failures persist a sanitized failure and return HTTP 503.
-The audit has a 240-second application deadline, below the 300-second ARQ limit.
+The audit has a 210-second application deadline, below the 240-second ARQ limit.
 Audit, lead changes, activity and completion commit together. A terminal job is
 not regenerated on redelivery. Cancellation rolls back unfinished work and leaves
 ARQ free to retry it.
@@ -61,5 +61,12 @@ verify real Redis consumption, PostgreSQL transactions, process supervision and
 provider output. Capture baseline lead scores first: the existing audit service
 recalculates them even though no scoring formulas were changed.
 
-Known follow-up: PageSpeed missing/fetch failures still use the old fallback data
-semantics. Website/SERP enrichment wiring and lead ranking are outside this fix.
+The live baseline preserves explicit PageSpeed absence metadata and prompt handling.
+Known follow-up: other website fetch failures still use legacy fallback data semantics. Website/SERP enrichment wiring and lead ranking are outside this fix.
+
+## Baseline reconciliation
+
+This branch includes the exact Vercel production source commit `917e00d` and
+its 34 commits missing from main. Existing security, cost tracking, playbook
+fallback, migrations and service idempotency are retained. No production
+migration or deployment is performed by this source reconciliation.

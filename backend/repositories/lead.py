@@ -135,6 +135,27 @@ class LeadRepository(BaseRepository[Lead]):
             for row in result.all()
         }
 
+    async def find_phoneless_dupe_keys(
+        self, names_lc: list[str], city: str
+    ) -> set[str]:
+        """Telefonsuz dedup icin: bu sehirde, telefonu olmayan, isim eslesen
+        lead'lerin lowercase isim setini doner.
+
+        collect_and_save'de phone-bazli dedup'a ek olarak telefonsuz lead'lerin
+        de duplicate kaydedilmesini onler (race tam cozulmez; gercek cozum
+        partial unique index migration — ayri sprint).
+        """
+        if not names_lc:
+            return set()
+        from sqlalchemy import func as sqlfunc
+        result = await self._session.execute(
+            select(sqlfunc.lower(Lead.name))
+            .where(sqlfunc.lower(Lead.name).in_(names_lc))
+            .where(Lead.city == city)
+            .where(Lead.phone.is_(None))
+        )
+        return {row[0] for row in result.all()}
+
     async def find_scores_by_names(self, names: list[str]) -> dict[str, dict]:
         """Fallback for phoneless leads: return {lower(name): {...}} for name matches in DB."""
         if not names:

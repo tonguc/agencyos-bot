@@ -20,5 +20,12 @@ async def log_event(
         entry = ActivityLog(lead_id=lead_id, job_id=job_id, event=event, data=data)
         db.add(entry)
         await db.flush()
-    except Exception as e:
-        logger.warning("activity log yazılamadı: %s", e)
+    except Exception:
+        # Caller flow'unu kırma (activity log trail, operasyonel iş akışı değil),
+        # ama stack trace + context ile kayıt bırak — geriye dönük debug için şart.
+        logger.exception(
+            "activity log yazılamadı | event=%s lead=%s job=%s",
+            event,
+            str(lead_id)[:8] if lead_id else None,
+            str(job_id)[:8] if job_id else None,
+        )
