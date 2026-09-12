@@ -701,7 +701,8 @@ def enrich_lead(raw: dict) -> dict:
     gmb_has_qa: bool | None = (bool(qa) if qa is not None else None)
 
     # ── Zombie / kapalı işletme ──────────────────────────────────────────
-    permanently_closed = raw.get("permanentlyClosed") or raw.get("isClosed") or False
+    # isClosed can mean outside opening hours; it does not prove permanent closure.
+    permanently_closed = raw.get("permanentlyClosed") is True
 
     lead = {
         "isim":           raw.get("title") or raw.get("name"),

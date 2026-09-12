@@ -8,6 +8,7 @@ import { leadsApi } from "@/lib/api";
 import { SEGMENT_COLORS, SEGMENT_LABELS } from "./segment";
 
 interface Props {
+  priorityRank?: number;
   lead: SearchResultItem;
   selected: boolean;
   onSelect: () => void;
@@ -35,7 +36,7 @@ function signalColor(s: string): string {
   return "text-muted";
 }
 
-export function ResultCard({ lead, selected, onSelect, sector, city, district }: Props) {
+export function ResultCard({ lead, priorityRank, selected, onSelect, sector, city, district }: Props) {
   // Category color is independent of whether the candidate has been saved.
   const isUnsaved = !lead.lead_id;
   const c = SEGMENT_COLORS[lead.segment];
@@ -88,6 +89,8 @@ export function ResultCard({ lead, selected, onSelect, sector, city, district }:
       }
     >
       <div className="p-4">
+        {priorityRank != null && <p className="text-sm text-bright mb-2">#{priorityRank} · Başvuru sırası{lead.score == null ? " · Ölçüm gerekli" : ""}</p>}
+        {lead.permanently_closed && <p className="text-xs text-warm mb-2">Kaynakta kalıcı kapalı işaretli. İletişimden önce faaliyet durumunu doğrulayın.</p>}
         {lead.source_queries && <p className="text-xs text-dim mb-2">Bulunduğu arama: {lead.source_queries.join(" · ")}</p>}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
@@ -130,6 +133,13 @@ export function ResultCard({ lead, selected, onSelect, sector, city, district }:
           </div>
         </div>
 
+        <div className="mt-3 space-y-2 text-xs text-muted">
+          <p className="text-bright">Neden bu sıra?</p>
+          <p>{lead.reason || "Veri yetersiz; ayrıntılı değerlendirme gerekiyor."}</p>
+          <ul className="space-y-1">{(lead.score_breakdown || []).slice(0, 3).map((signal, i) => <li key={i}>{signal.replace("Website yok", "Kayıtta site bağlantısı yok")}</li>)}</ul>
+          {(lead.qualification_notes || []).map((note, i) => <p key={i}>{note}</p>)}
+          <button type="button" className="text-cyan underline" onClick={(event) => { event.stopPropagation(); onSelect(); }} onKeyDown={(event) => event.stopPropagation()}>{selected ? "Ayrıntıları kapat" : "Tüm puan gerekçelerini göster"}</button>
+        </div>
         <div className="mt-3 space-y-1 text-[13px] font-mono text-muted">
           {lead.address && (
             <div className="flex items-start gap-1.5">

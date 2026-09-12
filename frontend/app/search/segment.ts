@@ -1,11 +1,11 @@
 import type { SearchSegment } from "@/types";
 
 export const SEGMENT_LABELS: Record<SearchSegment, string> = {
-  hot:    "Fırsat",
-  warm:   "Aday",
-  ok:     "Orta",
-  low:    "Elendi",
-  review: "Ön Skor",
+  hot:    "Öncelikli",
+  warm:   "Sonraki",
+  ok:     "Orta öncelik",
+  low:    "Doğrulama gerekli",
+  review: "Değerlendirilecek",
 };
 
 export const SEGMENT_COLORS: Record<

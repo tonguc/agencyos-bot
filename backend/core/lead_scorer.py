@@ -70,23 +70,7 @@ DEFAULT_FEATURE_WEIGHTS = {
 # --------------------------------------------------
 
 def hard_filter(lead: dict, playbook: dict) -> Tuple[bool, str]:
-    """Direkt ELENDİ. (True, reason) | (False, '')"""
-    isim = (lead.get("isim") or "").lower()
-
-    for brand in CHAIN_BRANDS:
-        if brand in isim:
-            return True, f"kurumsal / zincir ({brand})"
-
-    if lead.get("permanently_closed"):
-        return True, "kalıcı olarak kapalı"
-
-    yorum = lead.get("yorum_sayisi") or 0
-    puan = lead.get("puan") or 0
-    website = lead.get("website")
-    site_durumu = lead.get("site_durumu", "zayif")
-    if yorum > 400 and puan > 4.7 and website and site_durumu == "iyi":
-        return True, "zaten güçlü"
-
+    """Compatibility API: prospects are ranked rather than rejected."""
     return False, ""
 
 
@@ -585,7 +569,14 @@ def calculate_final_score(
     contradictions              = detect_contradictions(lead, audit, opp, intent)
     segment, action, reason_sum = route_decision(final, intent, confidence, contradictions)
 
+    # A closure flag is a verification warning, not deletion from the list.
+    if lead.get("permanently_closed") is True:
+        final, segment, action = 0.0, "LOW", "verify_business_status"
+        reason_sum = "Kaynakta kalıcı kapalı işaretli; iletişimden önce faaliyet durumunu doğrula."
+
     score_breakdown = list(opp_signals) + list(int_signals) + list(fit_signals) + list(pat_signals)
+    if lead.get("permanently_closed") is True:
+        score_breakdown = [reason_sum]
 
     return {
         "status":              "ok",

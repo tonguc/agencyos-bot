@@ -22,12 +22,10 @@ def filter_leads(leads: list[dict], playbook: dict) -> dict:
     for lead in leads:
         gecti, neden = _check_single_lead(lead, filtre)
         isim = lead.get("isim") or "<isimsiz>"
-        if gecti:
-            nitelikli.append(lead)
-            logger.info("ICP gecti: %s", isim)
-        else:
-            elendi.append({"lead": lead, "neden": neden})
-            logger.warning("ICP elendi: %s | %s", isim, neden)
+        # Target profile is context, never grounds for dropping a prospect.
+        if not gecti:
+            lead["qualification_notes"] = [f"Hedef profil notu: {neden}. Başvuru listesinde tutuldu."]
+        nitelikli.append(lead)
 
     toplam = len(leads)
     gecis = (len(nitelikli) / toplam * 100) if toplam else 0

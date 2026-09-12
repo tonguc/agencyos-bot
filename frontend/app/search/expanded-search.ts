@@ -24,7 +24,7 @@ export function mergeSearchResults(batches: { query: string; data: SearchRespons
     if (identity) seen.set(identity, row);
     rows.push(row);
   }
-  rows.sort((a,b) => (b.score ?? -1) - (a.score ?? -1));
+  rows.sort((a,b) => Number(!!a.permanently_closed) - Number(!!b.permanently_closed) || (b.score ?? -1) - (a.score ?? -1));
   const summary = { hot: 0, warm: 0, review: 0, ok: 0, low: 0, total: rows.length };
   for (const row of rows) summary[row.segment]++;
   return { ...batches[0].data, results: rows, summary, search_queries: queries,
