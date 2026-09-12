@@ -63,6 +63,7 @@ export function SearchClient() {
   const reqId = useRef(0);
 
   useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
     setRecent(loadRecent());
     // Sayfa geri gelindiğinde son arama sonuçlarını geri yükle
     const cached = loadCache();
@@ -70,6 +71,8 @@ export function SearchClient() {
       setQuery(cached.query);
       setData(cached.data);
     }
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   const runSearch = useCallback(async (q: string, lim?: number, forceRefresh = false, expanded?: string[]) => {
