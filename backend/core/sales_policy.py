@@ -22,3 +22,18 @@ PROPOSAL_TERMS = {
     "bakim_destek": "Bakım, revizyon ve destek kapsamı ayrıca belirlenecek.",
     "kapsam_siniri": "Reklam bütçesi, dış servis ücretleri ve Telegram/agent yönetimi bu taslağa dahil değildir. Sıralama veya müşteri sayısı garantisi verilmez.",
 }
+
+
+def missing_site_proposal(lead: dict) -> dict:
+    name = (lead.get("isim") or "İşletmeniz").split(",", 1)[0]
+    return {
+        **PROPOSAL_TERMS,
+        "baslik": f"{name} — dijital keşif ve iletişim için ön çalışma",
+        "giris": "Eldeki işletme kaydında web sitesi bağlantısı bulunamadı. Önce mevcut bir sitenin olup olmadığını birlikte doğrulayalım.",
+        "durum_ozeti": ["Site bağlantısı henüz doğrulanmadı.", "Google organik ve yapay zekâ aramalarındaki görünürlük ölçülmedi.", "Site kalitesi veya müşteri kaybı hakkında sonuç çıkarılmadı."],
+        "cozum": "Siteniz varsa mevcut yapıyı inceleyerek gerekli çalışmayı belirleyebiliriz. Yoksa hizmetlerinizi açıklayan, Google ve yapay zekâ destekli aramalarda keşfedilmeyi destekleyen ve ziyaretçinin iletişime geçmesini kolaylaştıran bir site planlayabiliriz.",
+        "baslangic_odaklari": ["Resmi siteyi ve Google İşletme Profili bağlantısını doğrulamak.", "Hizmet içeriklerini, işletme bilgilerini ve telefon/yol tarifi akışını planlamak.", "Teknik erişilebilirlik ve uygun ölçüm kurulumunun kapsamını belirlemek."],
+        "beklenen_sonuclar": ["İşletmeyi ve hizmetlerini açıklayan, onaylanmış içerikler.", "Test edilmiş iletişim bağlantıları ve mobil kullanım akışı.", "Erişim izniyle oluşturulacak başlangıç ölçümü; sıralama veya müşteri artışı garantisi yok."],
+        "bir_sonraki_adim": "Mevcut site adresini veya site ihtiyacınızı netleştirip kapsamı birlikte belirleyelim.",
+        "cta": "İsterseniz işletmenize uygun sayfa yapısını içeren kısa bir öneri paylaşalım.",
+    }
