@@ -65,3 +65,32 @@ async def test_missing_provider_key_is_explicit(monkeypatch):
     monkeypatch.setattr(settings, "SERPAPI_API_KEY", "")
     with pytest.raises(RuntimeError, match="yapılandırılmamış"):
         await _run_serpapi_maps("doktor", "İstanbul", "Beylikdüzü", 20, "klinik")
+
+
+@pytest.mark.asyncio
+async def test_single_place_response_is_not_lost(monkeypatch):
+    monkeypatch.setattr(settings, "SERPAPI_API_KEY", "test-key")
+    response = Mock()
+    response.json.return_value = {"place_results": {"title": "Dr. Örnek", "type": ["Doctor", "Physician"], "address": "Beylikdüzü"}}
+    request = Mock(return_value=response)
+    monkeypatch.setattr("core.lead_collector.requests.get", request)
+    rows = await _run_serpapi_maps("doktor", "İstanbul", "Beylikdüzü", 20, "klinik")
+    assert len(rows) == 1 and rows[0]["kategori"] == "Doctor, Physician"
+    assert request.call_count == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("second_results", [[], [{"title": "Dr. Örnek", "type": "Doctor", "address": "Beylikdüzü"}]])
+async def test_empty_doctor_search_has_one_transparent_same_location_fallback(monkeypatch, second_results):
+    monkeypatch.setattr(settings, "SERPAPI_API_KEY", "test-key")
+    first, second = Mock(), Mock()
+    first.json.return_value = {"local_results": []}
+    second.json.return_value = {"local_results": second_results}
+    request = Mock(side_effect=[first, second])
+    monkeypatch.setattr("core.lead_collector.requests.get", request)
+    rows = await _run_serpapi_maps("doktor", "İstanbul", "Beylikdüzü", 20, "klinik")
+    assert request.call_count == 2
+    assert request.call_args.kwargs["params"]["q"] == "hekim Beylikdüzü İstanbul"
+    assert len(rows) == len(second_results)
+    if rows:
+        assert any("hekim sorgusuyla" in n for n in rows[0]["qualification_notes"])

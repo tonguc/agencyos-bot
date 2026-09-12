@@ -304,7 +304,7 @@ def _serpapi_to_apify(r: dict) -> dict:
         "website":      r.get("website"),
         "totalScore":   r.get("rating"),
         "reviewsCount": r.get("reviews"),
-        "categoryName": r.get("type"),
+        "categoryName": ", ".join(r["type"]) if isinstance(r.get("type"), list) else r.get("type"),
         "location":     {"lat": gps.get("latitude"), "lng": gps.get("longitude")},
         "url":          f"https://www.google.com/maps/place/?q=place_id:{r['place_id']}"
                         if r.get("place_id") else None,
@@ -466,6 +466,7 @@ async def _run_serpapi_maps(
     ilce: str,
     limit: int,
     sektor_for_filter: str | None,
+    allow_fallback: bool = True,
 ) -> list[dict]:
     """SerpAPI Google Maps — engine=google_maps, ll parametresiyle konum belirtilir."""
     from config import settings  # local import to avoid circular
@@ -510,10 +511,18 @@ async def _run_serpapi_maps(
         raise RuntimeError("Arama sağlayıcısı hata bildirdi. Kota ve servis durumu kontrol edilmeli; işletme sayısı belirlenemedi.")
 
     raw_results = data.get("local_results") or []
+    # Maps search can resolve directly to a single place instead of a list.
+    if not raw_results and isinstance(data.get("place_results"), dict) and data["place_results"].get("title"):
+        raw_results = [data["place_results"]]
     if not isinstance(raw_results, list) or any(not isinstance(r, dict) for r in raw_results):
         raise RuntimeError("Arama sağlayıcısı beklenmeyen sonuç biçimi döndürdü.")
     if not raw_results:
         logger.info("SerpAPI Maps: sonuç yok — q='%s' ll=%s", q, ll)
+        if allow_fallback and search_term.strip().lower() == "doktor":
+            alternatives = await _run_serpapi_maps("hekim", sehir, ilce, limit, sektor_for_filter, allow_fallback=False)
+            for lead in alternatives:
+                lead.setdefault("qualification_notes", []).append("Doktor sorgusu boş döndü; aynı konumda hekim sorgusuyla bulundu.")
+            return alternatives
         return []
 
     raw_results = raw_results[:limit]
