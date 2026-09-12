@@ -116,6 +116,8 @@ export interface SearchParsedQuery {
 }
 
 export interface SearchResultItem {
+  qualification_notes?: string[];
+  permanently_closed?: boolean;
   source_queries?: string[];
   search_context?: SearchResponse["parsed"];
   name: string;

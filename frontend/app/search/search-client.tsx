@@ -11,7 +11,7 @@ import { ResultCard } from "./result-card";
 import { MapView } from "./map-view";
 
 const RECENT_KEY  = "agencyos.search.recent";
-const CACHE_KEY   = "agencyos.search.cache";
+const CACHE_KEY   = "agencyos.search.priority-v2.cache";
 const RECENT_LIMIT = 6;
 const LIMIT_OPTIONS = [10, 25, 50] as const;
 
@@ -230,6 +230,7 @@ export function SearchClient() {
             </div>
           )}
 
+          <p className="text-sm text-muted">Başvuru sırası arama verilerine dayalı bir öneridir, dönüş garantisi değildir. Düşük sıradaki adayları da seçebilirsiniz. Ayrıntılı Google, AI ve teknik ölçümler audit sırasında yapılır.</p>
           <div className="flex items-center justify-between gap-3">
             <SummaryBar summary={data.summary} active={activeSegment} onToggle={setActiveSegment} />
             <button
@@ -265,6 +266,7 @@ export function SearchClient() {
                     <ResultCard
                       key={`${r.name}-${i}`}
                       lead={r}
+                      priorityRank={i + 1}
                       selected={selectedIdx === i}
                       onSelect={() => setSelectedIdx(selectedIdx === i ? null : i)}
                       sector={r.search_context?.sector ?? parsed?.sector}

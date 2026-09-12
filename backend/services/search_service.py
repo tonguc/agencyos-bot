@@ -98,6 +98,8 @@ def _normalize_lead(lead: dict, score_info: dict | None) -> dict:
         "priority":       score_info.get("priority") if score_info else None,
         "reason":         reason,
         "score_breakdown": breakdown,
+        "qualification_notes": lead.get("qualification_notes") or [],
+        "permanently_closed": lead.get("permanently_closed") is True,
     }
 
 
@@ -174,12 +176,6 @@ async def run_search(query: str, limit: int = 25) -> dict:
             for lead in filtered["nitelikli"]:
                 score_info = calculate_final_score(lead, {}, playbook)
                 results.append(_normalize_lead(lead, score_info))
-            # also include filtered-out leads as "low" so user sees the full picture
-            for elem in filtered["elendi"]:
-                results.append(_normalize_lead(elem["lead"], {
-                    "status": "rejected", "final_score": 0, "priority": "low",
-                    "reason": elem["neden"],
-                }))
         except Exception as e:  # pragma: no cover — playbook missing etc.
             logger.exception("Playbook scoring failed for sector=%s: %s", parsed["sector"], e)
             results = [_normalize_lead(l, None) for l in raw]
@@ -187,7 +183,7 @@ async def run_search(query: str, limit: int = 25) -> dict:
         results = [_normalize_lead(l, None) for l in raw]
 
     # Sort: highest score first, unscored last.
-    results.sort(key=lambda r: (r["score"] is None, -(r["score"] or 0)))
+    results.sort(key=lambda r: (r["permanently_closed"], r["score"] is None, -(r["score"] or 0)))
 
     summary = {
         "hot":    sum(1 for r in results if r["segment"] == "hot"),
