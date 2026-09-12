@@ -116,6 +116,8 @@ export interface SearchParsedQuery {
 }
 
 export interface SearchResultItem {
+  source_queries?: string[];
+  search_context?: SearchResponse["parsed"];
   name: string;
   address: string;
   phone: string | null;
@@ -145,6 +147,7 @@ export interface SearchSummary {
 }
 
 export interface SearchResponse {
+  search_queries?: string[];
   parsed: SearchParsedQuery;
   results: SearchResultItem[];
   summary: SearchSummary;

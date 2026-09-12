@@ -88,6 +88,7 @@ export function ResultCard({ lead, selected, onSelect, sector, city, district }:
       }
     >
       <div className="p-4">
+        {lead.source_queries && <p className="text-xs text-dim mb-2">Bulunduğu arama: {lead.source_queries.join(" · ")}</p>}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <h3 className="font-semibold text-bright text-sm truncate">{lead.name || "(isimsiz)"}</h3>
