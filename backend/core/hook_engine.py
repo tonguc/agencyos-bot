@@ -8,6 +8,8 @@ logger = logging.getLogger(__name__)
 
 
 async def select_and_generate_hook(lead: dict, audit: dict, playbook: dict) -> dict:
+    if not lead.get("website"):
+        return {"tip": "gap_hook", "hook": "İncelediğim kayıtta web sitesi bağlantısını bulamadım. Kullandığınız bir web sitesi var mı?"}
     tip = _select_hook_type(lead, audit, playbook)
     logger.info("Hook secildi: %s | tip: %s", lead.get("isim"), tip)
 
@@ -57,18 +59,5 @@ async def _generate_gap_hook(lead: dict, audit: dict, playbook: dict) -> str:
 
 
 async def _generate_money_hook(lead: dict, audit: dict, playbook: dict) -> str:
-    yorum = lead.get("yorum_sayisi") or 0
-    trafik = "dusuk" if yorum < 10 else "orta" if yorum < 50 else "yuksek"
-    mantik = playbook["hook_mantigi"]
-    aralik = mantik[f"{trafik}_aralik"]
-    guven = mantik["varsayilan_guven"]
-
-    m = re.match(r"\s*(\d+)\s*-\s*(\d+)", aralik)
-    mi, ma = (m.group(1), m.group(2)) if m else ("10", "20")
-
-    sablon = playbook["hook_tipleri"]["money_hook"]["sablon"]
-    return (
-        sablon.replace("{min}", mi)
-        .replace("{max}", ma)
-        .replace("{guven}", str(guven))
-    )
+    # Review counts do not measure traffic, lost customers or confidence.
+    return "İsterseniz sitenizin ziyaretçileri iletişime nasıl yönlendirdiğini birlikte değerlendirebiliriz."
