@@ -5,6 +5,7 @@ import pytest
 from core import audit_generator as generator
 from core import sales_output_generator as sales
 from core.prompts import build_audit_prompt
+from core.hook_engine import select_and_generate_hook, _generate_money_hook
 
 
 @pytest.mark.asyncio
@@ -51,3 +52,14 @@ def test_missing_site_prompt_marks_checks_unknown():
     assert "SSL: False" not in prompt
     assert "en az 2" not in prompt
     assert "RAKAM ZORUNLULUĞU" not in prompt
+
+
+@pytest.mark.asyncio
+async def test_hooks_do_not_infer_customer_loss_from_review_count():
+    hook = await select_and_generate_hook({}, {}, {})
+    assert "web sitesi var mı" in hook["hook"]
+    for count in (3, 30, 300):
+        text = await _generate_money_hook({"yorum_sayisi": count}, {}, {})
+        assert "%" not in text
+        assert "hasta" not in text
+        assert "65" not in text

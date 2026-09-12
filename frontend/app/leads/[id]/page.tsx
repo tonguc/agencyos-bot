@@ -213,10 +213,10 @@ export default async function LeadDetailPage({ params }: Props) {
               {/* Site data */}
               <div className="flex flex-wrap gap-2">
                 {[
-                  ["Hız", audit.site_speed != null ? `${audit.site_speed}/100` : null],
-                  ["SSL", audit.has_ssl ? "✓ Var" : "✗ Yok"],
-                  ["Form", audit.has_form ? "✓ Var" : "✗ Yok"],
-                  ["Telefon", audit.has_tel ? "✓ Var" : "✗ Yok"],
+                  ["Hız", !lead.website ? "Uygulanamaz" : audit.site_speed != null ? `${audit.site_speed}/100` : "Ölçülmedi"],
+                  ["SSL", !lead.website ? "Uygulanamaz" : audit.has_ssl == null ? "Bilinmiyor" : audit.has_ssl ? "✓ Var" : "✗ Yok"],
+                  ["Form", !lead.website ? "Uygulanamaz" : audit.has_form == null ? "Bilinmiyor" : audit.has_form ? "✓ Var" : "✗ Yok"],
+                  ["Sitede telefon bağlantısı", !lead.website ? "Uygulanamaz" : audit.has_tel == null ? "Bilinmiyor" : audit.has_tel ? "✓ Var" : "✗ Yok"],
                 ].map(([k, v]) => v && (
                   <span
                     key={String(k)}
