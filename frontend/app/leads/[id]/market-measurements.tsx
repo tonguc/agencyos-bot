@@ -1,11 +1,17 @@
 type EvidenceLink = { url: string; matched: boolean; position?: number };
-type Query = { kind: string; query: string; status: string; organic_status?: string; position?: number | null; organic_results?: EvidenceLink[]; ai_status?: string; ai_cited?: boolean | null; ai_references?: EvidenceLink[]; self_ad_observed?: boolean | null; location_used?: string; provider_created_at?: string };
+type Query = { kind: string; query: string; status: string; error_code?: string; organic_status?: string; position?: number | null; organic_results?: EvidenceLink[]; ai_status?: string; ai_cited?: boolean | null; ai_references?: EvidenceLink[]; self_ad_observed?: boolean | null; location_used?: string; provider_created_at?: string };
 type Market = { status: string; checked_at: string; domain: string | null; queries: Query[] };
 type Commercial = { priority: string; signals: string[]; next_questions: string[] };
 
 const aiLabels: Record<string, string> = {
   unavailable: "AI yanıtı alınamadı", not_returned: "Bu sorguda AI Overview dönmedi",
   no_references: "AI kaynak bağlantıları alınamadı", unknown_domain: "Alan adı doğrulanmalı",
+};
+const errorLabels: Record<string, string> = {
+  quota: "Servis kotası yetersiz", location: "Arama konumu servis tarafından kabul edilmedi",
+  authentication: "Servis kimlik doğrulaması başarısız", http_401: "Servis kimlik doğrulaması başarısız",
+  http_403: "Servis erişimi reddetti", http_429: "Servis kota veya istek sınırına ulaşıldı",
+  timeout: "Servis zamanında yanıt vermedi", connection_or_response: "Bağlantı veya yanıt biçimi sorunu",
 };
 
 export function MarketMeasurements({ market, commercial }: { market: unknown; commercial: unknown }) {
@@ -22,7 +28,7 @@ export function MarketMeasurements({ market, commercial }: { market: unknown; co
     {(m.queries || []).map((q, index) => <div key={index} className="border border-stroke-2 p-3 space-y-2">
       <p className="text-sm text-bright">{q.kind === "brand" ? "Marka" : "Hizmet"} sorgusu: {q.query}</p>
       <p className="text-xs text-muted">Arama konumu: {q.location_used || "Sağlayıcı konumu doğrulanamadı"}{q.provider_created_at ? ` · Kaynak zamanı: ${q.provider_created_at}` : ""}</p>
-      {q.status !== "measured" ? <p className="text-sm text-warm">Sorgu sonucu alınamadı.</p> : <>
+      {q.status !== "measured" ? <p className="text-sm text-warm">Sorgu sonucu alınamadı. {errorLabels[q.error_code || ""] || "Servis sonucu kontrol edilmeli."}</p> : <>
         <p className="text-sm text-muted">Google organik: {q.organic_status === "unknown_domain" ? "Site alan adı bilinmediği için eşleştirilemedi" : q.organic_status !== "measured" ? "Ölçülemedi" : q.position != null ? `${q.position}. sırada eşleşti` : `İncelenen ${q.organic_results?.length || 0} sonuçta alan adı eşleşmedi`}</p>
         <p className="text-sm text-muted">Google AI Overview: {q.ai_status === "measured" ? q.ai_cited ? "Kaynak bağlantılarında alan adı eşleşti" : "Dönen kaynak bağlantılarında alan adı eşleşmedi" : aiLabels[q.ai_status || "unavailable"]}</p>
         <p className="text-sm text-muted">Kayıtlı alan adı reklamı: {q.self_ad_observed == null ? "Eşleştirilemedi" : q.self_ad_observed ? "Gözlendi" : "Bu yanıtta gözlenmedi"}</p>

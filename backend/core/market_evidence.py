@@ -106,6 +106,8 @@ async def collect_market(lead):
                     response.raise_for_status()
                     payload = response.json()
                     if payload.get("error") or (payload.get("search_metadata") or {}).get("status") != "Success":
+                        error = str(payload.get("error") or "").lower()
+                        record["error_code"] = ("quota" if any(word in error for word in ("credit", "limit", "run out", "searches")) else "location" if "location" in error else "authentication" if "key" in error else "provider_error")
                         continue
                     overview = payload.get("ai_overview") or {}
                     token = overview.get("page_token")
@@ -118,9 +120,13 @@ async def collect_market(lead):
                         except (httpx.HTTPError, ValueError):
                             overview = {"error": True}
                     record.update(parse_observation(payload, lead.get("website"), overview), status="measured")
+                except httpx.HTTPStatusError as exc:
+                    record["error_code"] = f"http_{exc.response.status_code}"
+                except httpx.TimeoutException:
+                    record["error_code"] = "timeout"
                 except (httpx.HTTPError, ValueError, TypeError, AttributeError):
                     # Never persist/log provider errors containing credential-bearing URLs.
-                    pass
+                    record["error_code"] = "connection_or_response"
     except TimeoutError:
         result["status"] = "partial"
     if not plan:
