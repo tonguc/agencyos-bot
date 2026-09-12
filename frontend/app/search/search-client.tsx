@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { searchApi } from "@/lib/api";
 import type { SearchResponse, SearchSegment } from "@/types";
+import { buildQueries, mergeSearchResults } from "./expanded-search";
 import { SearchInput } from "./search-input";
 import { SummaryBar } from "./summary-bar";
 import { ResultCard } from "./result-card";
@@ -55,6 +56,10 @@ export function SearchClient() {
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [recent, setRecent] = useState<string[]>([]);
   const [limit, setLimit] = useState<number>(25);
+  const [city, setCity] = useState("İstanbul");
+  const [regions, setRegions] = useState("");
+  const [services, setServices] = useState("");
+  const [progress, setProgress] = useState("");
   const reqId = useRef(0);
 
   useEffect(() => {
@@ -67,7 +72,7 @@ export function SearchClient() {
     }
   }, []);
 
-  const runSearch = useCallback(async (q: string, lim?: number, forceRefresh = false) => {
+  const runSearch = useCallback(async (q: string, lim?: number, forceRefresh = false, expanded?: string[]) => {
     const trimmed = q.trim();
     if (!trimmed) return;
     const id = ++reqId.current;
@@ -79,7 +84,23 @@ export function SearchClient() {
       try { window.sessionStorage.removeItem(CACHE_KEY); } catch {}
     }
     try {
-      const res = await searchApi.run(trimmed, lim ?? limit, forceRefresh);
+      const queries = expanded ?? [trimmed];
+      const batches: { query: string; data: SearchResponse }[] = [];
+      const failures: string[] = [];
+      for (const [index, term] of queries.entries()) {
+        if (id !== reqId.current) return;
+        setProgress(`${index + 1}/${queries.length}: ${term}`);
+        try {
+          const result = await searchApi.run(term, lim ?? limit, forceRefresh);
+          if (result.error) failures.push(`${term}: ${result.error}`);
+          if (!result.error || result.results.length) batches.push({ query: term, data: result });
+        } catch {
+          failures.push(`${term}: arama tamamlanamadı`);
+        }
+      }
+      if (!batches.length) throw new Error(failures.join(" · ") || "Arama tamamlanamadı.");
+      const res = mergeSearchResults(batches, queries);
+      if (id === reqId.current && failures.length) setError(`Kısmi sonuç: ${failures.join(" · ")}`);
       if (id !== reqId.current) return;
       setData(res);
       saveCache(trimmed, res);
@@ -90,14 +111,14 @@ export function SearchClient() {
       setError(e instanceof Error ? e.message : "Arama başarısız");
       setData(null);
     } finally {
-      if (id === reqId.current) setLoading(false);
+      if (id === reqId.current) { setLoading(false); setProgress(""); }
     }
   }, [limit]);
 
   const handleSubmit = () => runSearch(query);
   const handleExample = (q: string) => { setQuery(q); runSearch(q); };
-  const handleLimitChange = (n: number) => { setLimit(n); if (data) runSearch(query, n); };
-  const handleForceRefresh = () => runSearch(query, undefined, true);
+  const handleLimitChange = (n: number) => { setLimit(n); if (data) runSearch(query, n, false, data.search_queries); };
+  const handleForceRefresh = () => runSearch(query, undefined, true, data?.search_queries);
 
   const filtered = useMemo(() => {
     if (!data) return [];
@@ -138,6 +159,26 @@ export function SearchClient() {
         </div>
       </div>
 
+      <details className="border border-stroke p-4 space-y-3">
+        <summary className="cursor-pointer text-sm text-bright">Genişletilmiş arama · Çoklu bölge ve alt sektör</summary>
+        <p className="text-sm text-muted">İlçeleri ve hizmetleri virgülle ayırın. Her ilçe × hizmet birleşimi ayrı aranır; en fazla 4 sorgu. Limit her sorgu için geçerlidir ve toplam sonuç garantisi değildir.</p>
+        <div className="grid gap-3 md:grid-cols-3">
+          <label className="text-sm">Şehir<input className="block w-full bg-panel border border-stroke p-2" value={city} onChange={e => setCity(e.target.value)} placeholder="İstanbul" /></label>
+          <label className="text-sm">İlçeler<input className="block w-full bg-panel border border-stroke p-2" value={regions} onChange={e => setRegions(e.target.value)} placeholder="Büyükçekmece, Beylikdüzü" /></label>
+          <label className="text-sm">Alt sektör / hizmet<input className="block w-full bg-panel border border-stroke p-2" value={services} onChange={e => setServices(e.target.value)} placeholder="diş hekimi, veteriner" /></label>
+        </div>
+        <p className="text-xs text-muted">Her yeni sorgu veri sağlayıcı kullanımını artırabilir. Mevcut önbellek kullanılır; puanlama kuralları değişmez.</p>
+        <button type="button" disabled={loading} className="border border-accent px-4 py-2 text-accent disabled:opacity-50" onClick={() => {
+          try { const terms = buildQueries(city, regions, services); setQuery(terms[0]); runSearch(terms[0], undefined, false, terms); }
+          catch (e) { setError(e instanceof Error ? e.message : "Arama bilgilerini kontrol edin."); }
+        }}>Bölgeleri birlikte ara</button>
+      </details>
+      {loading && <p role="status" className="text-sm text-accent">{progress}</p>}
+      {data?.search_queries && data.search_queries.length > 1 && <div className="text-sm text-muted">
+        <p>{data.search_queries.length} sorgu · {data.results.length} tekil işletme</p>
+        <p>{data.search_queries.join(" · ")}</p>
+      </div>}
+
       {/* Recent searches */}
       {!data && !loading && recent.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
@@ -175,7 +216,7 @@ export function SearchClient() {
       {data && (
         <>
           {/* Parsed query tags */}
-          {parsed && (
+          {parsed && (!data.search_queries || data.search_queries.length === 1) && (
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
               <span className="font-mono text-[11px] text-dim tracking-[0.2em] uppercase">Yorumlanan:</span>
               {parsed.city && <Tag k="Şehir" v={parsed.city} />}
@@ -223,9 +264,9 @@ export function SearchClient() {
                       lead={r}
                       selected={selectedIdx === i}
                       onSelect={() => setSelectedIdx(selectedIdx === i ? null : i)}
-                      sector={parsed?.sector}
-                      city={parsed?.city}
-                      district={parsed?.district}
+                      sector={r.search_context?.sector ?? parsed?.sector}
+                      city={r.search_context?.city ?? parsed?.city}
+                      district={r.search_context?.district ?? parsed?.district}
                     />
                   ))
                 )}
