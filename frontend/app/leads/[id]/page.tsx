@@ -74,7 +74,7 @@ export default async function LeadDetailPage({ params }: Props) {
     <div className="flex flex-col flex-1">
       <Header
         title={lead.name}
-        description={`${lead.sector} · ${lead.city}${lead.district ? ` / ${lead.district}` : ""}`}
+        description={`Arama sektörü: ${lead.sector} · ${lead.city}${lead.district ? ` / ${lead.district}` : ""}`}
         actions={
           <div className="flex items-center gap-3">
             <Badge value={lead.status} />
@@ -89,6 +89,13 @@ export default async function LeadDetailPage({ params }: Props) {
       />
 
       <div className="p-6 space-y-5">
+        {(lead.sector === "klinik" || lead.sector === "kadin_dogum") && (
+          <p className="text-sm text-muted border border-border p-3">
+            Sektör etiketi bağımsız klinik sahibi olduğunu göstermez. Çalıştığı kurum,
+            ayrı muayenehanesi ve hizmet satın alma yetkisi doğrulanmalıdır.
+            Teklifin hekim adına mı yoksa kurum adına mı hazırlanacağı bu doğrulamadan sonra belirlenmelidir.
+          </p>
+        )}
 
         {/* Actions */}
         <Card>
