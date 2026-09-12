@@ -68,8 +68,20 @@ async def test_token_followup_and_errors_keep_successful_query(monkeypatch):
     assert calls[1]["engine"] == "google_ai_overview"
     assert result["queries"][0]["ai_cited"] is True
     assert result["queries"][1]["status"] == "unavailable"
+    assert result["queries"][1]["error_code"] == "http_429"
     assert result["status"] == "partial"
     assert "secret-marker" not in str(result) and "page_token" not in str(result)
+
+
+@pytest.mark.asyncio
+async def test_provider_location_error_is_safe_and_actionable(monkeypatch):
+    monkeypatch.setattr(market.settings, "SERPAPI_API_KEY", "secret-marker")
+    original = httpx.AsyncClient
+    transport = httpx.MockTransport(lambda request: httpx.Response(200, json={"error": "Invalid location https://example.test?api_key=secret-marker"}))
+    monkeypatch.setattr(market.httpx, "AsyncClient", lambda **kw: original(transport=transport, **kw))
+    result = await market.collect_market({"isim": "Test"})
+    assert result["queries"][0]["error_code"] == "location"
+    assert "secret-marker" not in str(result)
 
 
 def test_payment_has_no_fake_probability_and_reviews_do_not_prove_budget():
