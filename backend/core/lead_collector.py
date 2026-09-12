@@ -3,6 +3,7 @@ import re
 import asyncio
 import logging
 import unicodedata
+import math
 from datetime import date
 from urllib.parse import urlparse
 
@@ -536,6 +537,8 @@ async def _run_serpapi_maps(
         enriched = _filter_by_location(enriched, ilce, label="ilçe")
     elif sehir:
         enriched = _filter_by_location(enriched, sehir, label="şehir")
+    if raw_results and not enriched:
+        raise RuntimeError("Sağlayıcı kayıt döndürdü ancak koordinatlar istenen ilçeden 50 km'den uzakta. Konum uyuşmazlığı nedeniyle sonuçlar gösterilmedi.")
     logger.info("%d lead SerpAPI'dan alındı: q='%s' ll=%s", len(enriched), q, ll)
     return enriched
 
@@ -552,6 +555,17 @@ def _filter_by_location(leads: list[dict], location: str, label: str = "konum") 
     result = []
     for lead in leads:
         adres = _normalize_tr(lead.get("adres") or "")
+        center = _TR_COORDS_NORM.get(target)
+        lat, lng = lead.get("enlem"), lead.get("boylam")
+        # A known district's coordinates can disprove a match even when a
+        # street/business name happens to contain the district word.
+        if label == "ilçe" and center and isinstance(lat, (int, float)) and isinstance(lng, (int, float)) and math.isfinite(lat) and math.isfinite(lng):
+            center_lat, center_lng = map(float, center.lstrip("@").split(",")[:2])
+            a = math.sin(math.radians(lat - center_lat) / 2) ** 2 + math.cos(math.radians(center_lat)) * math.cos(math.radians(lat)) * math.sin(math.radians(lng - center_lng) / 2) ** 2
+            distance_km = 6371 * 2 * math.asin(math.sqrt(min(1, max(0, a))))
+            if distance_km > 50:
+                logger.info("Location mismatch: result is over 50 km from requested district")
+                continue
         if target in adres:
             result.append(lead)
         else:
@@ -668,6 +682,10 @@ def _filter_relevant(leads: list[dict], sektor: str) -> list[dict]:
         return leads
     result = []
     for lead in leads:
+        category = _normalize_tr(str(lead.get("kategori") or ""))
+        if sektor in {"klinik", "kadin_dogum"} and re.search(r"\b(konut|residential|housing|apartment|apartman|condominium)\b", category):
+            logger.info("Non-medical residential category excluded from healthcare search")
+            continue
         text = f"{lead.get('isim') or ''} {lead.get('kategori') or ''}".lower()
         if pattern.search(text):
             logger.info("Alakasız lead filtrelendi: %s (kategori: %s)", lead.get("isim"), lead.get("kategori"))

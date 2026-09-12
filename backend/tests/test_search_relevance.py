@@ -5,10 +5,26 @@ import requests
 
 from config import settings
 from core.lead_collector import (
-    _filter_by_query_relevance, _filter_by_location, _run_serpapi_maps, enrich_lead,
+    _filter_by_query_relevance, _filter_by_location, _run_serpapi_maps, enrich_lead, _filter_relevant,
 )
 from core.icp_filter import filter_leads
 from core.playbook import load_playbook_for_sector
+
+
+def test_residential_place_is_not_a_doctor_but_hospital_remains():
+    residence = {"isim": "DOKTORLAR SİTESİ", "kategori": "Konut Geliştirme"}
+    english = {"isim": "Doctors Residence", "kategori": "Housing complex"}
+    hospital = {"isim": "Kolan Hastanesi", "kategori": "Hospital"}
+    doctor = {"isim": "Dr. Örnek", "kategori": "Urologist"}
+    assert _filter_relevant([residence, english, hospital, doctor], "klinik") == [hospital, doctor]
+
+
+def test_far_coordinates_disprove_district_but_missing_address_is_not_rejected():
+    far = {"isim": "Doktor", "adres": "Beylikdüzü Caddesi", "enlem": 40.78, "boylam": 30.40}
+    near = {"isim": "Dr. Örnek", "adres": "Barış Mahallesi", "enlem": 41.01, "boylam": 28.65}
+    unknown = {"isim": "Dr. İki", "adres": ""}
+    assert _filter_by_location([far, near, unknown], "Beylikdüzü", label="ilçe") == [near, unknown]
+    assert all(r["qualification_notes"] for r in [near, unknown])
 
 
 def test_doctor_names_and_specialties_survive_without_literal_doktor():

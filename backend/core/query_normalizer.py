@@ -37,4 +37,4 @@ def build_search_cache_key(query: str, limit: int = 20) -> str:
     Örnek: "search:besiktas dis:20"
     """
     normalized = normalize_query(query)
-    return f"search:relevance-v3:{normalized}:{limit}"
+    return f"search:location-v4:{normalized}:{limit}"
