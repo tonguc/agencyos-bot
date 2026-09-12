@@ -3,11 +3,13 @@ import re
 import asyncio
 import logging
 from urllib.parse import urljoin
+from datetime import datetime, timezone
 
 import requests
 
 from core.utils import safe_json_parse, API_SEMAPHORE, claude_api_call
 from core.prompts import build_audit_prompt
+from core.technical_evidence import html_evidence, lab_evidence
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +47,7 @@ _CONTACT_PAGE_RE = re.compile(
 )
 
 
-async def _detect_form(base_url: str, html: str) -> bool:
+async def _detect_form(base_url: str, html: str) -> bool | None:
     """Form var mı? Ana sayfada yoksa iletişim sayfasına da bakar."""
     if _FORM_PATTERNS.search(html):
         return True
@@ -60,11 +62,13 @@ async def _detect_form(base_url: str, html: str) -> bool:
                     requests.get, contact_url, timeout=10,
                     headers={"User-Agent": "Mozilla/5.0 (AgencyOS)"}, allow_redirects=True,
                 )
+                resp.raise_for_status()
                 if _FORM_PATTERNS.search(resp.text[:80_000]):
                     logger.info("Form iletisim sayfasinda bulundu: %s", contact_url)
                     return True
             except Exception as e:
                 logger.debug("Contact page fetch hatasi (%s): %s", contact_url, e)
+                return None
     return False
 
 
@@ -75,19 +79,27 @@ async def fetch_site_data(url: str) -> dict:
 
     data: dict = {
         "url": url,
-        "hiz_skoru": 0,
+        "hiz_skoru": None,
         "hiz_veri_var": False,  # True yalnızca PageSpeed gerçek skor döndürdüğünde
         "title": "",
         "meta": "",
         "h1": "",
-        "form_var": False,
-        "tel_var": False,
-        "ssl": url.startswith("https://"),
+        "form_var": None,
+        "tel_var": None,
+        "ssl": None,
         "hata": False,
+        "technical": {
+            "version": 1,
+            "checked_at": datetime.now(timezone.utc).isoformat(),
+            "html_status": "unavailable",
+            "speed_status": "not_configured",
+            "lab": {},
+        },
     }
 
     key = os.getenv("PAGESPEED_API_KEY")
     if key:
+        data["technical"]["speed_status"] = "unavailable"
         try:
             ps = await asyncio.to_thread(
                 requests.get,
@@ -97,17 +109,15 @@ async def fetch_site_data(url: str) -> dict:
             )
             ps.raise_for_status()
             payload = ps.json()
-            score = (
-                payload.get("lighthouseResult", {})
-                .get("categories", {})
-                .get("performance", {})
-                .get("score")
-            )
+            lab = lab_evidence(payload)
+            data["technical"]["lab"] = lab
+            score = lab.get("performance")
             if score is not None:
-                data["hiz_skoru"] = int(score * 100)
+                data["hiz_skoru"] = score
                 data["hiz_veri_var"] = True
+                data["technical"]["speed_status"] = "measured"
         except Exception as e:
-            logger.warning("PageSpeed hatasi (%s): %s", url, e)
+            logger.warning("PageSpeed ölçülemedi: %s", type(e).__name__)
     else:
         logger.warning("PAGESPEED_API_KEY yok — hiz skoru atlandi")
 
@@ -119,8 +129,16 @@ async def fetch_site_data(url: str) -> dict:
             headers={"User-Agent": "Mozilla/5.0 (AgencyOS)"},
             allow_redirects=True,
         )
+        data["technical"]["http_status"] = resp.status_code
         resp.raise_for_status()
+        if "html" not in resp.headers.get("Content-Type", "").lower():
+            raise ValueError("HTML olmayan yanıt")
         html = resp.text[:150_000]
+        data["technical"].update(html_evidence(html, resp.headers))
+        data["technical"].update(
+            html_status="measured", final_url=resp.url,
+            html_truncated=len(resp.text) > 150_000,
+        )
         # Use final URL after redirects for SSL check (http:// sites often redirect to https://)
         data["ssl"] = resp.url.startswith("https://")
         if m := re.search(r"<title[^>]*>(.*?)</title>", html, re.I | re.S):
@@ -129,14 +147,15 @@ async def fetch_site_data(url: str) -> dict:
             data["meta"] = m.group(1).strip()[:300]
         if m := re.search(r"<h1[^>]*>(.*?)</h1>", html, re.I | re.S):
             data["h1"] = re.sub(r"<[^>]+>", "", m.group(1)).strip()[:200]
-        data["form_var"] = await _detect_form(url, html)
+        data["meta"] = data["technical"]["meta_description"]
+        data["form_var"] = await _detect_form(resp.url, html)
         data["tel_var"] = bool(re.search(r'href=["\']tel:', html, re.I))
     except Exception as e:
         data["hata"] = True
         logger.warning("Site fetch hatasi (%s): %s", url, e)
 
     logger.info(
-        "Site verisi alindi: %s | hiz=%d form=%s tel=%s ssl=%s",
+        "Site verisi alindi: %s | hiz=%s form=%s tel=%s ssl=%s",
         url, data["hiz_skoru"], data["form_var"], data["tel_var"], data["ssl"],
     )
     return data

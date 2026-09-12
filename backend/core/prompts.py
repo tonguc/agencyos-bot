@@ -1,5 +1,16 @@
 """Merkezi Claude prompt şablonları. Tüm LLM çağrıları buradan import eder."""
 
+import json
+
+
+def _technical_prompt_data(site):
+    technical = site.get("technical") or {}
+    # Only bounded flags and numbers, never page-controlled strings/instructions.
+    allowed = ("html_status", "speed_status", "http_status", "html_truncated",
+               "meta_noindex", "http_robots_present", "canonical_present",
+               "viewport_present", "json_ld_present", "lab")
+    return json.dumps({key: technical[key] for key in allowed if key in technical}, ensure_ascii=False)
+
 
 AUDIT_PROMPT = """Sen gelir odaklı bir büyüme operatörü olarak çalışıyorsun. Görev: {display_name} sektöründeki bu işletmeyi analiz et ve doğrudan satış kapatabilen bir zeka raporu üret. Teknik rapor değil, işletme sahibinin canını yakan SOMUT bulgular.
 
@@ -74,6 +85,12 @@ Form var mı: {form_var}  |  Tel link: {tel_var}  |  SSL: {ssl}
 Title: {title}
 Meta: {meta}
 H1: {h1}
+Teknik ölçüm verileri: {technical}
+Teknik veriler ilk HTML yanıtındaki gözlemlerdir; JavaScript çalıştırılmadı ve tüm site taranmadı.
+Bulunamayan etiket tüm sitede yok anlamına gelmez. JSON-LD varlığı geçerlilik kanıtı değildir.
+LCP/CLS/TBT mobil Lighthouse laboratuvar ölçümleridir; gerçek kullanıcı Core Web Vitals veya INP değildir.
+Canonical ve viewport varlığı doğruluk veya mobil kullanılabilirlik kanıtı değildir.
+Google organik sıralama ve yapay zekâ yanıtlarında görünürlük ölçülmedi. Teknik etiketlerden bunları çıkarma.
 
 ===========================
 ÇIKTI FORMATI — KESİNLİKLE UYULACAK
@@ -247,6 +264,7 @@ def build_audit_prompt(lead: dict, playbook: dict, site: dict) -> str:
         title=_sanitize_user_input(site.get("title"), 120),
         meta=_sanitize_user_input(site.get("meta"), 200),
         h1=_sanitize_user_input(site.get("h1"), 120),
+        technical=_technical_prompt_data(site),
     )
 
 
