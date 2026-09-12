@@ -144,7 +144,7 @@ export function LeadActions({ leadId, hasAudit, hasOutreach, hasProposal, propos
           onClick={() => trigger("Outreach", () => outreachApi.trigger(leadId))}
           title={!hasAudit ? "Önce audit gerekli" : undefined}
         >
-          {hasOutreach ? "Mesajı Yenile" : "Mesaj Yaz"}
+          {hasOutreach ? "Alternatifleri Yenile" : "Alternatif Oluştur"}
         </Button>
         <Button
           size="sm"
@@ -173,7 +173,7 @@ export function LeadActions({ leadId, hasAudit, hasOutreach, hasProposal, propos
             onClick={handleRefreshSales}
             title="Satış mesajını yeni promptla yeniden yaz (audit tekrar çalışmaz)"
           >
-            {salesLoading ? "Yenileniyor…" : "Satış Mesajını Yenile"}
+            {salesLoading ? "Yenileniyor…" : "İlk Teması Yenile"}
           </Button>
         )}
       </div>
