@@ -16,7 +16,9 @@ def test_proposal_pdf_exposes_unapproved_terms():
     html = build_proposal_html({"isim": "Test"}, {}, dict(PROPOSAL_TERMS), {})
     assert PROPOSAL_TERMS["teklif_durumu"] in html
     assert PROPOSAL_TERMS["teslim_suresi"] in html
-    assert "Sıralama veya müşteri sayısı garantisi verilmez" in html
+    assert "Arama sıralaması veya müşteri artışı taahhüt edilmez" in html
+    assert "Ücret ve ödeme" in html
+    assert "Sıcak Fırsat" not in html
 
 
 @pytest.mark.asyncio

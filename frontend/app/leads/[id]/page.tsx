@@ -11,6 +11,15 @@ import { SimilarLeads } from "./similar-leads";
 import type { Audit, Lead, OutreachMessage, Proposal } from "@/types";
 import Link from "next/link";
 
+const proposalLabels: Record<string, string> = {
+  teklif_durumu: "Belgenin niteliği", baslik: "", giris: "",
+  durum_ozeti: "Başlangıç noktamız", cozum: "Size önerdiğimiz çalışma",
+  baslangic_odaklari: "Çalışma kapsamı", beklenen_sonuclar: "Hedeflediğimiz katkı",
+  neden_simdi: "Neden bu çalışma?", paket_adi: "Hizmet paketi", fiyat_araligi: "Ücret ve ödeme",
+  teslim_suresi: "Çalışma takvimi", bakim_destek: "Yayın sonrası destek",
+  kapsam_siniri: "Çalışma koşulları", bir_sonraki_adim: "Nasıl başlayalım?", cta: "",
+};
+
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const KEY = process.env.NEXT_PUBLIC_API_KEY ?? "changeme";
 const hdrs = { "X-API-Key": KEY };
@@ -300,9 +309,9 @@ export default async function LeadDetailPage({ params }: Props) {
                     return v ? (
                       <div key={k}>
                         <dt className="font-mono text-[11px] text-dim uppercase tracking-[0.2em]">
-                          {k.replace(/_/g, " ")}
+                          {proposalLabels[k] ?? k}
                         </dt>
-                        <dd className="text-sm text-muted mt-1">{Array.isArray(v) ? <ul className="list-disc pl-4 space-y-1">{v.map((item, i) => <li key={i}>{String(item)}</li>)}</ul> : String(v)}</dd>
+                        <dd className={k === "baslik" ? "text-lg font-semibold text-bright mt-1" : "text-sm text-muted mt-1 leading-relaxed"}>{Array.isArray(v) ? <ul className="list-disc pl-4 space-y-1">{v.map((item, i) => <li key={i}>{String(item)}</li>)}</ul> : String(v)}</dd>
                       </div>
                     ) : null;
                   })}

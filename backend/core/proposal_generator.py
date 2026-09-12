@@ -159,230 +159,44 @@ def _kalite_label(k: str) -> str:
 
 
 def build_proposal_html(lead: dict, audit: dict, content: dict, playbook: dict) -> str:
-    isim = lead.get("isim") or "İşletme"
-    tarih = datetime.now().strftime("%d %B %Y")
-    skorlar = audit.get("skorlar") or {}
-    killer = audit.get("killer_insight") or {}
-    ux_list = audit.get("ux_hatalar") or []
-    seo_list = audit.get("seo_aciklar") or []
-    kazanimlar = audit.get("hizli_kazanimlar") or []
-    ilk = audit.get("ilk_izlenim") or {}
-    genel = audit.get("genel_skor", 0)
-    kalite_label, kalite_color = _kalite_label(audit.get("lead_kalitesi", "ilik"))
-
-    # --- UX issues ---
-    ux_html = ""
-    for ux in ux_list[:4]:
-        siddet = ux.get("siddet", "orta")
-        ux_html += f"""
-        <div class="issue-card">
-          <div class="issue-header">
-            {_severity_badge(siddet)}
-            <span class="issue-title">{ux.get('sorun', '')}</span>
-          </div>
-          {'<p class="issue-impact">→ ' + ux.get("etki", "") + '</p>' if ux.get("etki") else ""}
-          {'<p class="issue-fix">✓ ' + ux.get("cozum", "") + '</p>' if ux.get("cozum") else ""}
-        </div>"""
-
-    # --- SEO issues ---
-    seo_html = ""
-    for seo in seo_list[:3]:
-        seo_html += f"""
-        <div class="issue-card">
-          <div class="issue-header">
-            <span class="issue-title">{seo.get('sorun', '')}</span>
-          </div>
-          {'<p class="issue-impact">→ ' + seo.get("etki", "") + '</p>' if seo.get("etki") else ""}
-          {'<p class="issue-fix">✓ ' + seo.get("cozum", "") + '</p>' if seo.get("cozum") else ""}
-        </div>"""
-
-    # --- Quick wins ---
-    kazanim_html = "".join(f'<li>{k}</li>' for k in kazanimlar[:3])
-
-    # --- Durum ozeti ---
-    durum_items = content.get("durum_ozeti", [])
-    if isinstance(durum_items, str):
-        durum_items = [durum_items]
-    durum_html = "".join(f'<li>{d}</li>' for d in durum_items[:3])
-
-    # --- Sonuclar ---
-    sonuc_items = content.get("beklenen_sonuclar", [])
-    if isinstance(sonuc_items, str):
-        sonuc_items = [sonuc_items]
-    sonuc_html = "".join(f'<li>{s}</li>' for s in sonuc_items[:3])
-
-    # --- Baslangic odaklari ---
-    odaklar = content.get("baslangic_odaklari") or []
-    if not odaklar:
-        # geriye dönük uyumluluk: eski haftalik_plan varsa dönüştür
-        plan = content.get("haftalik_plan") or {}
-        odaklar = [v for v in plan.values() if v]
-    odak_html = "".join(
-        f'<tr><td class="week-num">→</td><td>{o}</td></tr>'
-        for o in odaklar[:4]
+    """Customer document: scope and narrative, without internal lead scores."""
+    labels = [
+        ("durum_ozeti", "Başlangıç noktamız"), ("cozum", "Size önerdiğimiz çalışma"),
+        ("baslangic_odaklari", "Çalışma kapsamı"), ("beklenen_sonuclar", "Hedeflediğimiz katkı"),
+        ("fiyat_araligi", "Ücret ve ödeme"), ("teslim_suresi", "Çalışma takvimi"),
+        ("bakim_destek", "Yayın sonrası destek"), ("kapsam_siniri", "Çalışma koşulları"),
+        ("bir_sonraki_adim", "Nasıl başlayalım?"),
+    ]
+    def render_value(value):
+        if isinstance(value, list):
+            return "<ul>" + "".join("<li>" + escape(str(item)) + "</li>" for item in value) + "</ul>"
+        return "<p>" + escape(str(value)) + "</p>"
+    sections = "".join(
+        "<section><h2>" + title + "</h2>" + render_value(content.get(key, PROPOSAL_TERMS.get(key, ""))) + "</section>"
+        for key, title in labels if content.get(key) or PROPOSAL_TERMS.get(key)
     )
-
-    return f"""<!DOCTYPE html>
-<html lang="tr">
-<head>
-<meta charset="UTF-8">
+    title = escape(str(content.get("baslik") or lead.get("isim") or "Çalışma önerisi"))
+    intro = escape(str(content.get("giris") or ""))
+    status = escape(str(content.get("teklif_durumu") or PROPOSAL_TERMS["teklif_durumu"]))
+    cta = escape(str(content.get("cta") or ""))
+    return f"""<!doctype html><html lang="tr"><head><meta charset="utf-8">
 <style>
-  @page {{ margin: 18mm 16mm; size: A4; }}
-  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-  body {{ font-family: DejaVu Sans, Liberation Sans, Arial, sans-serif; font-size: 10pt; color: #1e293b; line-height: 1.55; }}
-
-  /* Header */
-  .cover {{ background: #0f172a; color: #fff; padding: 32px 36px 28px; border-radius: 0 0 12px 12px; margin-bottom: 28px; }}
-  .cover-label {{ font-size: 8pt; letter-spacing: 2px; text-transform: uppercase; color: #94a3b8; margin-bottom: 6px; }}
-  .cover-title {{ font-size: 20pt; font-weight: bold; color: #fff; line-height: 1.2; }}
-  .cover-sub {{ font-size: 10pt; color: #cbd5e1; margin-top: 8px; }}
-  .cover-meta {{ margin-top: 18px; display: flex; gap: 24px; }}
-  .meta-pill {{ background: #1e3a5f; color: #93c5fd; font-size: 8pt; padding: 4px 12px; border-radius: 20px; }}
-
-  /* Sections */
-  h2 {{ font-size: 12pt; font-weight: bold; color: #0f172a; border-left: 4px solid #f97316; padding-left: 10px; margin: 26px 0 12px; }}
-  h3 {{ font-size: 10pt; font-weight: bold; color: #334155; margin: 14px 0 6px; }}
-  p {{ margin-bottom: 8px; color: #334155; }}
-
-  /* Callout */
-  .callout {{ background: #fff7ed; border-left: 4px solid #f97316; padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 12px 0; }}
-  .callout-label {{ font-size: 7.5pt; font-weight: bold; text-transform: uppercase; color: #ea580c; letter-spacing: 1px; margin-bottom: 4px; }}
-  .callout-text {{ font-size: 10.5pt; font-weight: bold; color: #1e293b; }}
-  .callout-sub {{ font-size: 9pt; color: #7c3aed; margin-top: 4px; }}
-
-  /* Scores */
-  .scores-grid {{ display: flex; gap: 14px; margin: 12px 0; }}
-  .score-box {{ flex: 1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; }}
-  .score-label {{ font-size: 7.5pt; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 6px; }}
-  .bar-wrap {{ background: #e2e8f0; border-radius: 4px; height: 7px; width: 100%; margin-bottom: 4px; }}
-  .bar {{ height: 7px; border-radius: 4px; }}
-  .bar-val {{ font-size: 9pt; font-weight: bold; color: #1e293b; }}
-  .genel-box {{ background: #0f172a; color: #fff; border-radius: 8px; padding: 10px 14px; text-align: center; min-width: 80px; }}
-  .genel-num {{ font-size: 22pt; font-weight: bold; color: #f97316; line-height: 1; }}
-  .genel-lbl {{ font-size: 7.5pt; color: #94a3b8; margin-top: 2px; }}
-
-  /* Issue cards */
-  .issue-card {{ background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; }}
-  .issue-header {{ display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }}
-  .issue-title {{ font-size: 9.5pt; font-weight: bold; color: #1e293b; }}
-  .issue-impact {{ font-size: 9pt; color: #b45309; margin: 2px 0; }}
-  .issue-fix {{ font-size: 9pt; color: #15803d; margin: 2px 0; }}
-  .badge {{ font-size: 7pt; font-weight: bold; padding: 2px 7px; border-radius: 12px; letter-spacing: 0.5px; }}
-
-  /* Lists */
-  ul, ol {{ padding-left: 18px; margin: 6px 0; }}
-  li {{ margin-bottom: 5px; color: #334155; font-size: 9.5pt; }}
-
-  /* Timeline */
-  .timeline-table {{ width: 100%; border-collapse: collapse; margin: 10px 0; }}
-  .timeline-table tr {{ border-bottom: 1px solid #e2e8f0; }}
-  .timeline-table td {{ padding: 8px 10px; font-size: 9.5pt; vertical-align: top; }}
-  .week-num {{ font-weight: bold; color: #f97316; white-space: nowrap; width: 70px; }}
-
-  /* CTA */
-  .cta-box {{ background: #f0fdf4; border: 2px solid #22c55e; border-radius: 10px; padding: 14px 18px; margin-top: 18px; text-align: center; }}
-  .cta-text {{ font-size: 11pt; font-weight: bold; color: #15803d; }}
-  .cta-neden {{ font-size: 8.5pt; color: #166534; margin-top: 4px; }}
-
-  /* Kalite pill */
-  .kalite-pill {{ display: inline-block; font-size: 8pt; font-weight: bold; padding: 3px 12px; border-radius: 20px; color: {kalite_color}; background: {kalite_color}22; border: 1px solid {kalite_color}55; }}
-
-  /* Footer */
-  .footer {{ margin-top: 28px; padding-top: 12px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 8pt; color: #94a3b8; }}
-  .page-break {{ page-break-before: always; }}
-</style>
-</head>
-<body>
-
-<!-- COVER -->
-<div class="cover">
-  <div class="cover-label">Dijital Büyüme Analizi &amp; Teklif</div>
-  <div class="cover-title">{content.get("baslik", isim + " — Büyüme Teklifiniz")}</div>
-  <div class="cover-sub">{playbook.get("display_name", "")} · {lead.get("adres", "")}</div>
-  <div class="cover-meta">
-    <span class="meta-pill">{tarih}</span>
-    <span class="meta-pill kalite-pill">{kalite_label}</span>
-    <span class="meta-pill">Hazırlayan: AgencyOS</span>
-  </div>
-</div>
-
-<!-- KILLER CALLOUT -->
-<div class="callout">
-  <div class="callout-label">Öne Çıkan Fırsat</div>
-  <div class="callout-text">{killer.get("bulgu", "")} — {killer.get("rakam", "")}</div>
-  <div class="callout-sub">{audit.get("kisisel_insight", "")}</div>
-</div>
-
-<!-- GİRİŞ -->
-<h2>Bu Analizi Neden Hazırladım?</h2>
-<p>{content.get("giris", "")}</p>
-
-<!-- MEVCUT DURUM -->
-<h2>Dijital Fırsat Haritası</h2>
-
-<div class="scores-grid">
-  <div class="score-box">
-    <div class="score-label">Kullanıcı Deneyimi</div>
-    {_score_bar(skorlar.get("ux", 0) or 0)}
-  </div>
-  <div class="score-box">
-    <div class="score-label">Arama Görünürlüğü</div>
-    {_score_bar(skorlar.get("seo", 0) or 0)}
-  </div>
-  <div class="score-box">
-    <div class="score-label">Dönüşüm Potansiyeli</div>
-    {_score_bar(skorlar.get("donusum", 0) or 0)}
-  </div>
-</div>
-
-<p style="color:#7c3aed;font-weight:bold">{audit.get("en_acitan_nokta", "")}</p>
-
-<ul>{durum_html}</ul>
-
-<!-- UX BULGULARI -->
-<h2>Deneyim Fırsatları</h2>
-{ux_html}
-
-<!-- SEO BULGULARI -->
-<h2>Görünürlük Fırsatları</h2>
-{seo_html}
-
-<!-- HIZLI KAZANIMLAR -->
-{'<h2>Hızlı Başlangıç Noktaları</h2><ul>' + kazanim_html + '</ul>' if kazanimlar else ""}
-
-<!-- ÖNERILEN ÇÖZÜM -->
-<div class="page-break"></div>
-<h2>Nasıl Çalışırız?</h2>
-<p>{content.get("cozum", "")}</p>
-
-<!-- BAŞLANGIÇ ODAKLARI -->
-<h2>Başlangıç Odakları</h2>
-<table class="timeline-table">
-  {odak_html}
-</table>
-
-<!-- BEKLENEN SONUÇLAR -->
-<h2>Ne Değişir?</h2>
-<ul>{sonuc_html}</ul>
-
-<!-- BİR SONRAKI ADIM -->
-<p style="font-size:9.5pt;color:#475569;margin-top:14px">{content.get("bir_sonraki_adim", "")}</p>
-
-<!-- CTA -->
-<h2>Kapsam ve ticari şartlar</h2>
-{chr(10).join("<p><strong>" + escape(k.replace("_", " ")) + ":</strong> " + escape(str(content.get(k, v))) + "</p>" for k, v in PROPOSAL_TERMS.items())}
-<div class="cta-box">
-  <div class="cta-text">{content.get("cta", "Ne zaman bir bakalım?")}</div>
-</div>
-
-<!-- FOOTER -->
-<div class="footer">
-  <span>AgencyOS · behance.net/tonguc</span>
-  <span>{tarih} · {isim}</span>
-</div>
-
-</body>
-</html>"""
+@page {{ size:A4; margin:18mm; @bottom-right {{ content:counter(page); font-size:9pt; color:#64748b; }} }}
+body {{ font-family:'DejaVu Sans',Arial,sans-serif; font-size:9.5pt; line-height:1.4; color:#243247; }}
+header {{ border-bottom:2px solid #246b78; padding-bottom:12px; margin-bottom:18px; }}
+.brand {{ color:#246b78; font-size:9pt; letter-spacing:1px; }}
+h1 {{ font-size:18pt; line-height:1.25; margin:10px 0; color:#163843; }}
+h2 {{ font-size:11pt; color:#163843; margin:10px 0 4px; }}
+p {{ margin:4px 0 8px; }} ul {{ padding-left:18px; margin:4px 0 8px; }}
+li {{ margin:3px 0; }} section {{ break-inside:avoid; }}
+.status {{ color:#64748b; font-size:9pt; }}
+.cta {{ margin-top:18px; padding:12px; background:#edf5f6; border-left:3px solid #246b78; }}
+footer {{ border-top:1px solid #dce4e8; margin-top:20px; padding-top:8px; color:#64748b; font-size:8pt; }}
+</style></head><body>
+<header><div class="brand">TONGUÇ · DİJİTAL ÇÖZÜMLER</div><h1>{title}</h1><div class="status">{status}</div></header>
+<p>{intro}</p>{sections}<div class="cta">{cta}</div>
+<footer>Hazırlayan: Tonguç · {datetime.now().strftime('%d.%m.%Y')}</footer>
+</body></html>"""
 
 
 def render_pdf(html: str) -> bytes:
