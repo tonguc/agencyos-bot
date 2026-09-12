@@ -85,6 +85,33 @@ async def test_stable_queue_id(fakes):
 
 
 @pytest.mark.asyncio
+async def test_existing_audit_is_reused_even_if_worker_is_offline(fakes):
+    job, repo, db, queue = fakes
+    repo.find_active_for_lead.return_value = job
+    queue.exists.return_value = False
+    result = await route.trigger_audit(uuid.uuid4(), db, queue)
+    assert result.job_id == job.id
+    repo.create.assert_not_awaited()
+    queue.enqueue_job.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_audit_deadline_leaves_worker_failure_persistence_time(fakes, monkeypatch):
+    from jobs.worker import WorkerSettings
+    job, _, _, _ = fakes
+    durations = []
+    original_timeout = asyncio.timeout
+    def capture_timeout(seconds):
+        durations.append(seconds)
+        return original_timeout(seconds)
+    monkeypatch.setattr(task.asyncio, "timeout", capture_timeout)
+    monkeypatch.setattr(task, "run_audit", AsyncMock(return_value=SimpleNamespace(id=uuid.uuid4(), general_score=60)))
+    await task.run_audit_job({}, str(uuid.uuid4()), str(job.id))
+    assert durations == [210]
+    assert durations[0] < WorkerSettings.job_timeout
+
+
+@pytest.mark.asyncio
 async def test_lost_enqueue_ack_does_not_fail_started_job(fakes):
     job, repo, db, queue = fakes
     queue.enqueue_job.side_effect = TimeoutError()

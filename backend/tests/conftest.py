@@ -54,5 +54,5 @@ async def clean_db(db_engine):
         # CASCADE = cocuk tablolari da temizle
         await conn.execute(text(
             "TRUNCATE leads, audits, outreach_messages, proposals, "
-            "jobs, activity_log, api_usage_log RESTART IDENTITY CASCADE"
+            "jobs, activity_logs, api_usage_log RESTART IDENTITY CASCADE"
         ))

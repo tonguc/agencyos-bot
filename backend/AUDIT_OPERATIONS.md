@@ -70,3 +70,7 @@ This branch includes the exact Vercel production source commit `917e00d` and
 its 34 commits missing from main. Existing security, cost tracking, playbook
 fallback, migrations and service idempotency are retained. No production
 migration or deployment is performed by this source reconciliation.
+
+The same upstream branch's two subsequent test-only fixes (`9023729`, `58bc751`)
+are also retained: shared asyncio loop scope and the correct cleanup table name.
+They introduce no additional application behavior or database schema changes.
