@@ -93,11 +93,11 @@ async def collect_market(lead):
         return result
     result["status"] = "complete"
     try:
-        async with asyncio.timeout(55), httpx.AsyncClient(timeout=15) as client:
-            for item in plan:
+        async with asyncio.timeout(55), httpx.AsyncClient(timeout=40) as client:
+            async def measure(item):
                 record = {**item, "status": "unavailable"}
                 result["queries"].append(record)
-                params = {"engine": "google", "q": item["query"], "hl": "tr", "gl": "tr", "device": "mobile", "api_key": settings.SERPAPI_API_KEY}
+                params = {"engine": "google", "q": item["query"], "hl": "tr", "gl": "tr", "device": "mobile", "no_cache": "true", "api_key": settings.SERPAPI_API_KEY}
                 city = lead.get("city")
                 if city:
                     params["location"] = f"{city}, Turkey"
@@ -108,7 +108,7 @@ async def collect_market(lead):
                     if payload.get("error") or (payload.get("search_metadata") or {}).get("status") != "Success":
                         error = str(payload.get("error") or "").lower()
                         record["error_code"] = ("quota" if any(word in error for word in ("credit", "limit", "run out", "searches")) else "location" if "location" in error else "authentication" if "key" in error else "provider_error")
-                        continue
+                        return
                     overview = payload.get("ai_overview") or {}
                     token = overview.get("page_token")
                     if token and not overview.get("references"):
@@ -127,6 +127,7 @@ async def collect_market(lead):
                 except (httpx.HTTPError, ValueError, TypeError, AttributeError):
                     # Never persist/log provider errors containing credential-bearing URLs.
                     record["error_code"] = "connection_or_response"
+            await asyncio.gather(*(measure(item) for item in plan))
     except TimeoutError:
         result["status"] = "partial"
     if not plan:
