@@ -2,9 +2,16 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, field_validator
+
+
+# Pipeline statuses — repositories/lead.py:PIPELINE_STATUSES ile sync
+LeadStatus = Literal[
+    "Yeni", "Audit", "Mesaj", "Cevap", "Demo", "Teklif", "Kapandi", "Arsiv"
+]
+LeadPriority = Literal["yuksek", "orta", "dusuk"]
 
 
 class LeadCreate(BaseModel):
@@ -20,7 +27,11 @@ class LeadCreate(BaseModel):
 
 
 class LeadUpdate(BaseModel):
-    status: str | None = None
+    # Sadece geçerli pipeline statüleri kabul edilir; "Mesaj Gönderiliyor"
+    # gibi typo'lar 422 döner. (DB'deki mevcut serbest-form kayıtlar etkilenmez —
+    # sadece API yazma yolunu kısıtlıyoruz; backend service'leri bypass eder.)
+    status: LeadStatus | None = None
+    priority: LeadPriority | None = None
     name: str | None = None
     phone: str | None = None
     website: str | None = None

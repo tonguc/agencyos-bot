@@ -23,11 +23,27 @@ from services.lead_service import lead_to_core_dict
 logger = logging.getLogger(__name__)
 
 
-async def generate_outreach(lead_id: uuid.UUID, db: AsyncSession) -> OutreachMessage:
-    """Generate 4-version outreach messages for a lead. Saves and returns ORM instance."""
+async def generate_outreach(
+    lead_id: uuid.UUID,
+    db: AsyncSession,
+    since_dt: datetime | None = None,
+) -> OutreachMessage:
+    """Generate 4-version outreach messages for a lead.
+
+    since_dt: ARQ retry idempotency — bu zamandan sonra oluşmuş outreach varsa
+    onu döner (Claude çağrısı yapılmaz)."""
     lead = await LeadRepository(db).get(lead_id)
     if not lead:
         raise ValueError(f"Lead bulunamadi: {lead_id}")
+
+    if since_dt is not None:
+        existing = await OutreachRepository(db).get_latest_for_lead(lead_id, since_dt=since_dt)
+        if existing:
+            logger.info(
+                "generate_outreach idempotent skip: lead=%s existing=%s",
+                str(lead_id)[:8], str(existing.id)[:8],
+            )
+            return existing
 
     playbook = load_playbook_for_sector(lead.sector or "klinik")
     lead_dict = lead_to_core_dict(lead)

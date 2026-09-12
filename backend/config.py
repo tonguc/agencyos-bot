@@ -22,6 +22,13 @@ class Settings(BaseSettings):
     # Redis
     REDIS_URL: str = "redis://localhost:6379"
 
+    @property
+    def redis_dsn(self) -> str:
+        url = self.REDIS_URL.strip()
+        if not url:
+            raise ValueError("REDIS_URL boş olamaz")
+        return url if url.startswith(("redis://", "rediss://", "unix://")) else "redis://" + url
+
     # External APIs
     CLAUDE_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
@@ -41,6 +48,15 @@ class Settings(BaseSettings):
 
     # Playbooks directory (relative to backend/)
     PLAYBOOKS_DIR: str = "playbooks"
+
+    # Admin notification channel (opsiyonel — bos ise notify_admin sessiz log atar).
+    # ADMIN_TELEGRAM_CHAT_IDS virgulle ayrilmis chat_id listesi.
+    TELEGRAM_BOT_TOKEN: str = ""
+    ADMIN_TELEGRAM_CHAT_IDS: str = ""
+
+    # Cost tracker — DAILY_BUDGET_USD>0 ise %80 asilinca admin'e Telegram alarm
+    # gider. 0 (default) = sınır yok (sadece spend log tutulur).
+    DAILY_BUDGET_USD: float = 0.0
 
     @property
     def is_dev(self) -> bool:

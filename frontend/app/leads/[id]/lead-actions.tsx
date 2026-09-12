@@ -37,10 +37,19 @@ export function LeadActions({ leadId, hasAudit, hasOutreach, hasProposal, propos
 
   function startPolling(jobId: string) {
     if (pollRef.current) clearInterval(pollRef.current);
+    let failures = 0;
+    let fetching = false;
     pollRef.current = setInterval(async () => {
+      if (fetching) return;
+      fetching = true;
       try {
         const job = await jobsApi.get(jobId);
+        failures = 0;
+        setError(null);
         setJobData(job);
+        if (Date.now() - Date.parse(job.created_at) > 600_000 && !["completed", "failed"].includes(job.status)) {
+          setError("İş beklenenden uzun sürüyor. İşler sayfasından ve worker servisinden durumunu kontrol edin.");
+        }
         if (job.status === "completed" || job.status === "failed") {
           clearInterval(pollRef.current!);
           pollRef.current = null;
@@ -52,7 +61,12 @@ export function LeadActions({ leadId, hasAudit, hasOutreach, hasProposal, propos
           }
         }
       } catch {
-        // transient error
+        failures += 1;
+        if (failures >= 3) {
+          setError("İş durumu alınamıyor. Bağlantı yeniden deneniyor; iş arka planda devam ediyor olabilir.");
+        }
+      } finally {
+        fetching = false;
       }
     }, 1500);
   }
@@ -63,11 +77,13 @@ export function LeadActions({ leadId, hasAudit, hasOutreach, hasProposal, propos
   ) {
     setError(null);
     setJobData(null);
+    setRunningJob({ id: "", label });
     try {
       const res = await fn();
       setRunningJob({ id: res.job_id, label });
       startPolling(res.job_id);
     } catch (e) {
+      setRunningJob(null);
       setError(e instanceof Error ? e.message : "Hata oluştu");
     }
   }

@@ -25,12 +25,37 @@ async def trigger_audit(
     db: AsyncSession = Depends(get_db),
     arq: ArqRedis = Depends(get_arq_pool),
 ):
+    if not await LeadRepository(db).get(lead_id):
+        raise HTTPException(404, "Lead bulunamadi")
+    repo = JobRepository(db)
+    existing = await repo.find_active_for_lead(lead_id, "generate_audit")
+    if existing:
+        return JobResponse(job_id=existing.id, status=existing.status, result=None)
+    try:
+        worker_alive = await arq.exists("arq:queue:health-check")
+    except Exception:
+        raise HTTPException(503, "Audit kuyruğuna ulaşılamıyor") from None
+    if not worker_alive:
+        raise HTTPException(503, "Audit worker çalışmıyor. Servis durumunu kontrol edin.")
     job = await JobRepository(db).create(
         type="generate_audit",
-        payload={"lead_id": str(lead_id)},
+        payload={"lead_id": str(lead_id), "queue_tracking": True},
     )
     await db.commit()
-    await arq.enqueue_job("run_audit_job", str(lead_id), str(job.id))
+    try:
+        queued = await arq.enqueue_job(
+            "run_audit_job", str(lead_id), str(job.id), _job_id=str(job.id),
+        )
+        if queued is None:
+            raise RuntimeError("Job kuyruğa eklenemedi")
+    except Exception:
+        # A lost Redis acknowledgement can occur after the worker has started.
+        await db.refresh(job, with_for_update=True)
+        if job.status in ("running", "completed"):
+            return JobResponse(job_id=job.id, status=job.status, result=job.result)
+        await JobRepository(db).mark_failed(job, "Audit kuyruğa eklenemedi. Tekrar deneyin.")
+        await db.commit()
+        raise HTTPException(503, "Audit kuyruğa eklenemedi") from None
     return JobResponse(job_id=job.id, status="pending", result=None)
 
 

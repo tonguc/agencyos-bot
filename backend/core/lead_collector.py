@@ -146,7 +146,7 @@ async def collect_by_query(
     ilce: str | None = None,
     limit: int = 20,
     sektor_filter: str | None = None,
-    apify_timeout: int = 300,
+    apify_timeout: int = 200,  # < ARQ job_timeout (240s) — Apify run'ı biz abort et, yoksa para yanar
     max_reviews: int = 10,
     search_only: bool = False,  # True → always SerpAPI (Firma Ara)
 ) -> list[dict]:
@@ -437,12 +437,22 @@ _TR_COORDS_NORM: dict[str, str] = {
 }
 
 
+# Türkiye centroid — bilinmeyen şehir/ilçede SerpAPI'ı tüm ülkede arattırır.
+# Sonradan _filter_by_location zaten ilçe/şehir adıyla agresif filtreleme yapıyor.
+# İstanbul varsayılanı yanlıştı: "Trabzon" araması İstanbul koordinatına gidiyordu.
+_TR_CENTROID_LL = "@39.0,35.0,6z"
+
+
 def _get_ll(ilce: str, sehir: str) -> str:
     """İlçe veya şehir adından SerpAPI Maps ll parametresi döner."""
     for name in (_normalize_tr(ilce), _normalize_tr(sehir)):
         if name and name in _TR_COORDS_NORM:
             return _TR_COORDS_NORM[name]
-    return _TR_COORDS_NORM["istanbul"]  # varsayılan
+    logger.warning(
+        "_get_ll: koordinat bulunamadi (ilce=%r sehir=%r) — Turkiye centroid kullanilacak",
+        ilce, sehir,
+    )
+    return _TR_CENTROID_LL
 
 
 async def _run_serpapi_maps(
@@ -541,8 +551,13 @@ async def _run_apify(
     ilce: str,
     limit: int,
     sektor_for_filter: str | None,
-    apify_timeout: int = 300,
-    max_reviews: int = 20,
+    apify_timeout: int = 200,  # < ARQ job_timeout (240s). Caller override edebilir.
+    # Apify review basina ucretlendirir. Downstream sinyaller:
+    #   son_yorum_gun  -> 1 yorum yeter
+    #   review_last_30d -> threshold 2,5 (10 yorum guvenli)
+    #   review_last_90d -> threshold 10 (marjinal ama calisir)
+    # 20->10 = sector-bazli full scrape'de %50 cost-cut.
+    max_reviews: int = 10,
 ) -> list[dict]:
     token = os.getenv("APIFY_API_TOKEN")
     if not token:
@@ -583,6 +598,13 @@ async def _run_apify(
             status = e.response.status_code if e.response is not None else "?"
             logger.error(f"Apify HTTP {status} — {search_term} @ {location}: {e}")
             if status == 402:
+                # Admin alarm — Telegram bildirimi (debounce'lu, fire-and-forget).
+                from services.notify import notify_admin
+                await notify_admin(
+                    f"⚠️ APIFY KREDISI TUKENDI\n\n"
+                    f"Arama: {search_term}\nKonum: {location}\n\n"
+                    f"konsol.apify.com'dan bakiye yukleyin."
+                )
                 raise RuntimeError("Apify kredisi tükendi — konsol.apify.com'dan bakiye yükle")
             return []
         except requests.RequestException as e:
@@ -595,6 +617,19 @@ async def _run_apify(
     if not isinstance(raw_leads, list):
         logger.error(f"Apify beklenmedik yanıt döndü ({search_term} @ {location}): tip={type(raw_leads).__name__}")
         return []
+
+    # Cost log — fire-and-forget, semaphore'u tutmayalim
+    try:
+        from services.cost_tracker import record_apify
+        places = len(raw_leads)
+        # Worst-case tahmin: her yer max_reviews kadar yorum scrape edildi
+        reviews = places * max_reviews
+        asyncio.create_task(record_apify(
+            places=places, reviews=reviews,
+            meta={"search": search_term[:60], "location": location[:60]},
+        ))
+    except Exception:
+        logger.exception("apify cost log task spawn failed")
 
     logger.info(f"{len(raw_leads)} ham lead alındı: '{search_term} @ {location}'")
     enriched = [enrich_lead(lead) for lead in raw_leads]

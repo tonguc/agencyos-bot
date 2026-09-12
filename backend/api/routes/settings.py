@@ -8,7 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from config import settings
 from core.playbook import list_playbooks, list_top_level_sectors
 from database import get_db
-from schemas.settings import SettingsOut, TestResult, ServiceUsage, UsageOut
+from repositories.api_usage import ApiUsageRepository
+from schemas.settings import SettingsOut, TestResult, ServiceUsage, UsageOut, SpendOut
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -140,6 +141,21 @@ async def _check_apify() -> ServiceUsage:
                             dashboard_url="https://console.apify.com/billing")
     except Exception as e:
         return ServiceUsage(ok=False, label="Apify", detail=str(e)[:80])
+
+
+@router.get("/spend", response_model=SpendOut)
+async def get_spend(db: AsyncSession = Depends(get_db)):
+    """Son 24 saat external API spend'i (cost_tracker hook'larindan birikmis)."""
+    today = await ApiUsageRepository(db).daily_spend()
+    total = round(sum(today.values()), 4)
+    budget = settings.DAILY_BUDGET_USD
+    used_pct = round(total / budget * 100.0, 1) if budget > 0 else None
+    return SpendOut(
+        today={p: round(v, 4) for p, v in today.items()},
+        total=total,
+        budget_usd=budget,
+        used_pct=used_pct,
+    )
 
 
 @router.get("/playbooks")

@@ -5,6 +5,7 @@ from models.outreach import OutreachMessage
 from models.proposal import Proposal
 from models.job import Job
 from models.activity_log import ActivityLog, ActivityEvent
+from models.api_usage_log import ApiUsageLog
 
 __all__ = [
     "Lead",
@@ -14,4 +15,5 @@ __all__ = [
     "Job",
     "ActivityLog",
     "ActivityEvent",
+    "ApiUsageLog",
 ]

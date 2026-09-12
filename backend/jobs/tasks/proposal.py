@@ -12,15 +12,17 @@ async def run_proposal_job(ctx, lead_id: str, job_id: str) -> dict:
     lead_uuid = uuid.UUID(lead_id)
     job_uuid = uuid.UUID(job_id)
 
+    job_created_at = None
     async with AsyncSessionFactory() as db:
         job = await JobRepository(db).get(job_uuid)
         if job:
+            job_created_at = job.created_at  # idempotency anchor
             await JobRepository(db).mark_running(job, "Teklif hazırlanıyor...")
             await db.commit()
 
     try:
         async with AsyncSessionFactory() as db:
-            proposal = await generate_proposal_for_lead(lead_uuid, db)
+            proposal = await generate_proposal_for_lead(lead_uuid, db, since_dt=job_created_at)
             await db.commit()
 
         result = {"proposal_id": str(proposal.id), "pdf_path": proposal.pdf_path}

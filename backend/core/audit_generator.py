@@ -76,6 +76,7 @@ async def fetch_site_data(url: str) -> dict:
     data: dict = {
         "url": url,
         "hiz_skoru": 0,
+        "hiz_veri_var": False,  # True yalnızca PageSpeed gerçek skor döndürdüğünde
         "title": "",
         "meta": "",
         "h1": "",
@@ -104,6 +105,7 @@ async def fetch_site_data(url: str) -> dict:
             )
             if score is not None:
                 data["hiz_skoru"] = int(score * 100)
+                data["hiz_veri_var"] = True
         except Exception as e:
             logger.warning("PageSpeed hatasi (%s): %s", url, e)
     else:
@@ -190,7 +192,15 @@ async def generate_audit(lead: dict, playbook: dict) -> dict:
         prompt = build_audit_prompt(lead, playbook, site)
 
         response = await claude_api_call(prompt, max_tokens=2800, temperature=0)
-        result = safe_json_parse(response, fallback=dict(FALLBACK_AUDIT))
+        result = safe_json_parse(response)
+        scores = result.get("skorlar") if isinstance(result, dict) else None
+        if not isinstance(scores, dict) or not all(
+            isinstance(scores.get(k), (int, float)) and not isinstance(scores.get(k), bool)
+            and 0 <= scores[k] <= 100 for k in ("ux", "seo", "donusum")
+        ) or not isinstance(result.get("genel_skor"), (int, float)) or isinstance(
+            result.get("genel_skor"), bool
+        ) or not 0 <= result["genel_skor"] <= 100:
+            raise RuntimeError("Audit üretilemedi: AI yanıtı boş veya geçersiz. API yapılandırmasını kontrol edin.")
 
         for k, v in FALLBACK_AUDIT.items():
             result.setdefault(k, v)

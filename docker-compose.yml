@@ -35,6 +35,7 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
+      RUN_EMBEDDED_WORKER: "0"
       DATABASE_URL: postgresql+asyncpg://agencyos:${POSTGRES_PASSWORD:-agencyos}@postgres:5432/agencyos
       REDIS_URL: redis://redis:6379
       APP_ENV: production

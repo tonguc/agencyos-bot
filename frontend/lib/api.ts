@@ -141,7 +141,7 @@ export const jobsApi = {
     return request<Job[]>(`/api/jobs${q}`);
   },
 
-  get: (id: string) => request<Job>(`/api/jobs/${id}`),
+  get: (id: string) => request<Job>(`/api/jobs/${id}`, { signal: AbortSignal.timeout(10_000) }),
 
   delete: (id: string) =>
     fetch(`${BASE}/api/jobs/${id}`, {

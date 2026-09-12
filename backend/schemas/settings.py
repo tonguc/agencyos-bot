@@ -27,3 +27,11 @@ class UsageOut(BaseModel):
     claude: ServiceUsage
     openai: ServiceUsage
     apify: ServiceUsage
+
+
+class SpendOut(BaseModel):
+    """Son 24 saatlik spend, provider bazinda + budget durumu."""
+    today: dict[str, float]   # {"claude": 1.20, "apify": 0.50, ...}
+    total: float
+    budget_usd: float          # 0 ise sınır yok (alarm devre dışı)
+    used_pct: float | None     # budget>0 ise total/budget*100; yoksa None

@@ -65,7 +65,7 @@ LEAD VERİSİ
 Adres: {adres}
 Yorum sayısı: {yorum_sayisi}  |  Puan: {puan}
 Site URL: {url}
-PageSpeed mobil skoru: {hiz_skoru}/100
+PageSpeed mobil skoru: {hiz_skoru}
 Form var mı: {form_var}  |  Tel link: {tel_var}  |  SSL: {ssl}
 Title: {title}
 Meta: {meta}
@@ -191,6 +191,19 @@ FOLLOWUP_PROMPT_LAST = (
 )
 
 
+_WS_RE = __import__("re").compile(r"\s+")
+
+
+def _sanitize_user_input(s: str | None, max_len: int = 200) -> str:
+    """Claude prompt'una user-controlled string enjekte etmeden once:
+    newline/tab -> tek bosluk, bas/son strip, uzunluk cap.
+
+    Prompt injection tam cozum degil (Claude instruction-following'ine
+    karsi) ama multi-line talimat enjeksiyonunu azaltir.
+    """
+    return _WS_RE.sub(" ", s or "").strip()[:max_len]
+
+
 def build_audit_prompt(lead: dict, playbook: dict, site: dict) -> str:
     dil = playbook.get("audit_dil_kurallari", {})
 
@@ -210,18 +223,26 @@ def build_audit_prompt(lead: dict, playbook: dict, site: dict) -> str:
         zorunlu_format=dil.get("zorunlu_format", "Sorun → Kayip etkisi → Kisa cozum"),
         kayip_dili=dil.get("kayip_dili", "musteri kaybi"),
         killer_ornekleri="\n".join(f"- {x}" for x in playbook.get("killer_insight_ornekleri", [])),
-        isim=lead.get("isim") or "",
-        adres=lead.get("adres") or "",
+        # User-controlled fields — newline strip + length cap (injection guard)
+        isim=_sanitize_user_input(lead.get("isim"), 150),
+        adres=_sanitize_user_input(lead.get("adres"), 300),
         yorum_sayisi=lead.get("yorum_sayisi", 0),
         puan=lead.get("puan", 0),
-        url=site.get("url") or "(yok)",
-        hiz_skoru=site.get("hiz_skoru", 0),
+        url=_sanitize_user_input(site.get("url") or "(yok)", 300),
+        # PageSpeed: sadece gerçek veri varsa sayı göster, aksi halde Claude'u
+        # "site çok yavaş (0/100)" olarak yanıltmaktansa açıkça belirt.
+        hiz_skoru=(
+            f"{site.get('hiz_skoru')}/100"
+            if site.get("hiz_veri_var")
+            else "(veri alinamadi)"
+        ),
         form_var=site.get("form_var", False),
         tel_var=site.get("tel_var", False),
         ssl=site.get("ssl", False),
-        title=(site.get("title") or "")[:120],
-        meta=(site.get("meta") or "")[:200],
-        h1=(site.get("h1") or "")[:120],
+        # Site'ten gelen HTML metinleri — ayni sanitization sart
+        title=_sanitize_user_input(site.get("title"), 120),
+        meta=_sanitize_user_input(site.get("meta"), 200),
+        h1=_sanitize_user_input(site.get("h1"), 120),
     )
 
 
