@@ -251,3 +251,11 @@ async def test_reconcile_preserves_concurrent_completion(fakes, monkeypatch):
     monkeypatch.setattr(reconcile, "QueueJob", lambda *a, **kw: SimpleNamespace(status=AsyncMock(return_value=JobStatus.complete)))
     await reconcile.reconcile_audits({"redis": object()})
     repo.mark_failed.assert_not_awaited()
+
+
+def test_worker_heartbeat_recovers_within_deployment_health_window():
+    from arq.worker import Worker
+    from jobs.worker import WorkerSettings
+    worker = Worker(functions=WorkerSettings.functions, health_check_interval=WorkerSettings.health_check_interval)
+    assert worker.health_check_key == "arq:queue:health-check"
+    assert worker.health_check_interval <= 5

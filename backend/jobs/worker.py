@@ -34,6 +34,8 @@ class WorkerSettings:
     redis_settings = RedisSettings.from_dsn(settings.redis_dsn)
     on_startup = startup
     on_shutdown = shutdown
+    # Refresh quickly after the previous deployment removes the shared key.
+    health_check_interval = 5
     max_jobs = 10
     # Apify default timeout = 200s; ARQ job_timeout > Apify + buffer (40s) ki Apify
     # kendi abort mesajını verip cost'u görelim. ARQ 300 → 240 değişti.
