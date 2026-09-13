@@ -21,6 +21,7 @@ from core.lead_collector import collect_by_query
 from core.lead_scorer import calculate_final_score
 from core.playbook import load_playbook_for_sector
 from core.query_parser import parse_search_query
+from core.sales_eligibility import public_health_sales_note
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +82,10 @@ def _normalize_lead(lead: dict, score_info: dict | None) -> dict:
     else:
         breakdown = []
 
+    public_note = public_health_sales_note(lead)
+    if public_note:
+        score, segment, reason, breakdown = 0, "low", public_note, [public_note]
+
     return {
         "name":           lead.get("isim") or "",
         "address":        lead.get("adres") or "",
@@ -95,10 +100,11 @@ def _normalize_lead(lead: dict, score_info: dict | None) -> dict:
         "site_status":    lead.get("site_durumu"),
         "score":          score,
         "segment":        segment,
-        "priority":       score_info.get("priority") if score_info else None,
+        "priority":       "dusuk" if public_note else (score_info.get("priority") if score_info else None),
         "reason":         reason,
         "score_breakdown": breakdown,
         "qualification_notes": lead.get("qualification_notes") or [],
+        "outside_active_sales": bool(public_note),
         "permanently_closed": lead.get("permanently_closed") is True,
     }
 

@@ -54,6 +54,9 @@ async def _enrich_lead_ids(results: list[dict], db: AsyncSession) -> None:
             r["lead_id"] = None
             continue
         r["lead_id"] = db_entry["id"]
+        # An old stored score must not reactivate a public-institution record.
+        if r.get("outside_active_sales"):
+            continue
         if db_entry["opportunity_score"] is not None:
             r["score"]    = db_entry["opportunity_score"]
             r["priority"] = db_entry["priority"]

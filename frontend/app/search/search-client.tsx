@@ -11,7 +11,7 @@ import { ResultCard } from "./result-card";
 import { MapView } from "./map-view";
 
 const RECENT_KEY  = "agencyos.search.recent";
-const CACHE_KEY   = "agencyos.search.location-v4.cache";
+const CACHE_KEY   = "agencyos.search.eligibility-v5.cache";
 const RECENT_LIMIT = 6;
 const LIMIT_OPTIONS = [10, 25, 50] as const;
 
