@@ -533,6 +533,8 @@ def calculate_final_score(
 
     skip_hard_filter=True → kullanıcı lead'i seçmiş (audit / manual add).
     """
+    from core.sales_eligibility import public_health_sales_note
+    public_note = public_health_sales_note(lead)
     if not skip_hard_filter:
         is_blocked, reason = hard_filter(lead, playbook)
         if is_blocked:
@@ -577,6 +579,10 @@ def calculate_final_score(
     score_breakdown = list(opp_signals) + list(int_signals) + list(fit_signals) + list(pat_signals)
     if lead.get("permanently_closed") is True:
         score_breakdown = [reason_sum]
+    if public_note:
+        final, segment, action = 0.0, "LOW", "outside_active_sales"
+        reason_sum = public_note
+        score_breakdown = [public_note]
 
     return {
         "status":              "ok",

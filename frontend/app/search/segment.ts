@@ -4,7 +4,7 @@ export const SEGMENT_LABELS: Record<SearchSegment, string> = {
   hot:    "Öncelikli",
   warm:   "Sonraki",
   ok:     "Orta öncelik",
-  low:    "Doğrulama gerekli",
+  low:    "Aktif satış dışı",
   review: "Değerlendirilecek",
 };
 
