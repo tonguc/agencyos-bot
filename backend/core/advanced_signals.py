@@ -218,6 +218,10 @@ def calc_social_mismatch(lead: dict) -> dict:
     ig_posts = lead.get("instagram_post_90d")
     ig_last = lead.get("instagram_last_post_days")
     fb_active = lead.get("facebook_active")
+    # Fallback: post verisi yoksa site üzerindeki IG/FB profil linki
+    # "sosyal varlık" sinyali olarak kullanılır (audit HTML tespiti).
+    has_ig_link = lead.get("has_instagram") is True
+    has_fb_link = lead.get("has_facebook") is True
 
     if ig_posts is not None:
         if ig_posts >= 10:
@@ -229,6 +233,9 @@ def calc_social_mismatch(lead: dict) -> dict:
         elif ig_posts >= 2:
             social_score += 10
             signals.append(f"IG orta aktif ({ig_posts} post/90g)")
+    elif has_ig_link:
+        social_score += 12
+        signals.append("IG profili siteye bağlı")
 
     if ig_last is not None and ig_last < 14:
         social_score += 10
@@ -237,8 +244,11 @@ def calc_social_mismatch(lead: dict) -> dict:
     if fb_active is True:
         social_score += 10
         signals.append("Facebook aktif")
+    elif has_fb_link and social_score < 12:
+        social_score += 8
+        signals.append("FB profili siteye bağlı")
 
-    if social_score < 15:
+    if social_score < 8:
         return {"social_mismatch_score": 0, "signals": ["Sosyal medya aktivitesi düşük"]}
 
     # Dijital yatırım var ama site dönüşümsüz → uyuşmazlık bonusu
@@ -360,6 +370,44 @@ def calc_ecommerce_urgency(lead: dict) -> dict:
 # --------------------------------------------------
 # AGGREGATE
 # --------------------------------------------------
+
+def serp_like_from_market(market: dict) -> dict:
+    """market_evidence çıktısını serp_enricher formatına çevir.
+
+    Scorer/advanced_signals şu alanları bekler:
+      competitor_ads_count, strong_competitor_count, self_ads_visible,
+      market_ads_pressure
+    """
+    from urllib.parse import urlparse
+
+    queries = market.get("queries") or []
+    measured = [q for q in queries if q.get("status") == "measured"]
+    ad_counts = [q.get("ad_count") or 0 for q in measured]
+    self_ad = any(q.get("self_ad_observed") is True for q in measured)
+
+    lead_domain = market.get("domain")
+    strong_domains: set[str] = set()
+    for q in measured:
+        for row in q.get("organic_results") or []:
+            pos = row.get("position")
+            url = row.get("url")
+            if not url or not isinstance(pos, int) or pos > 5:
+                continue
+            try:
+                host = (urlparse(url).hostname or "").lower().removeprefix("www.")
+            except ValueError:
+                continue
+            if host and host != lead_domain:
+                strong_domains.add(host)
+
+    return {
+        "competitor_ads_count": max(ad_counts, default=0),
+        "market_ads_pressure": any(c > 0 for c in ad_counts),
+        "self_ads_visible": self_ad,
+        "strong_competitor_domains": strong_domains,
+        "strong_competitor_count": len(strong_domains),
+    }
+
 
 def compute_advanced_signals(
     lead: dict,

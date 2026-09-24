@@ -70,6 +70,10 @@ _PHONE_RE = re.compile(r"(?:\+90|0)[235]\d{9}")
 # WhatsApp links
 _WHATSAPP_RE = re.compile(r"wa\.me|whatsapp", re.IGNORECASE)
 
+# Social profile links (advanced_signals: sosyal uyuşmazlık)
+_INSTAGRAM_RE = re.compile(r"instagram\.com/[A-Za-z0-9_.]+", re.IGNORECASE)
+_FACEBOOK_RE = re.compile(r"facebook\.com/(?!share|dialog|tr)[A-Za-z0-9_.]+", re.IGNORECASE)
+
 # CTA keywords inside button/a tag text or href
 _CTA_KEYWORDS_RE = re.compile(
     r"randevu|rezervasyon|appointment|book|hemen\s*ara|iletişim|contact|teklif\s*al",
@@ -123,6 +127,10 @@ def _analyze_html(html: str) -> dict:
     # Form
     has_form = bool(_FORM_RE.search(html))
 
+    # Social profile links
+    has_instagram = bool(_INSTAGRAM_RE.search(html))
+    has_facebook = bool(_FACEBOOK_RE.search(html))
+
     # site_durumu upgrade
     if has_cta or has_online_booking:
         site_durumu = "iyi"
@@ -135,6 +143,8 @@ def _analyze_html(html: str) -> dict:
         "has_online_booking": has_online_booking,
         "has_phone_visible": has_phone_visible,
         "has_form": has_form,
+        "has_instagram": has_instagram,
+        "has_facebook": has_facebook,
         "site_durumu": site_durumu,
     }
 
@@ -147,6 +157,8 @@ def _blank_signals(site_durumu_original: Optional[str] = None) -> dict:
         "has_online_booking": False,
         "has_phone_visible": False,
         "has_form": False,
+        "has_instagram": None,
+        "has_facebook": None,
         "site_durumu": site_durumu_original or "zayif",
         "indexed_pages": None,
     }
@@ -157,6 +169,7 @@ async def _fetch_and_analyze(
     client: httpx.AsyncClient,
     semaphore: asyncio.Semaphore,
     timeout: int,
+    check_index: bool = True,
 ) -> None:
     """
     Fetch the lead's website and update it in-place with conversion signals.
@@ -176,7 +189,7 @@ async def _fetch_and_analyze(
     async with semaphore:
         try:
             html_task = client.get(url, timeout=timeout, follow_redirects=True)
-            index_task = check_indexed_pages(domain)
+            index_task = check_indexed_pages(domain) if check_index else asyncio.sleep(0, result=None)
             response, indexed_pages = await asyncio.gather(html_task, index_task, return_exceptions=True)
             if isinstance(response, Exception):
                 logger.debug("Site fetch başarısız (%s): %s", url, response)
@@ -215,10 +228,13 @@ async def analyze_sites(
     leads: list[dict],
     max_concurrent: int = 5,
     timeout: int = 5,
+    check_index: bool = True,
 ) -> list[dict]:
     """
     For each lead with a website, fetch and analyze it.
     Updates leads in-place with conversion signal fields.
+
+    check_index=False → SerpAPI site: sorgusu atlanır (arama modunda kredi tasarrufu).
 
     Returns the same list (mutated in-place) for easy chaining.
     """
@@ -228,11 +244,12 @@ async def analyze_sites(
         return leads
 
     logger.info(
-        "Site analizi başlıyor: %d/%d lead (max_concurrent=%d, timeout=%ds)",
+        "Site analizi başlıyor: %d/%d lead (max_concurrent=%d, timeout=%ds, index=%s)",
         len(leads_with_sites),
         len(leads),
         max_concurrent,
         timeout,
+        check_index,
     )
 
     semaphore = asyncio.Semaphore(max_concurrent)
@@ -240,7 +257,7 @@ async def analyze_sites(
 
     async with httpx.AsyncClient(headers=headers, follow_redirects=True) as client:
         tasks = [
-            _fetch_and_analyze(lead, client, semaphore, timeout)
+            _fetch_and_analyze(lead, client, semaphore, timeout, check_index=check_index)
             for lead in leads_with_sites
         ]
         await asyncio.gather(*tasks, return_exceptions=True)

@@ -87,6 +87,8 @@ async def fetch_site_data(url: str) -> dict:
         "form_var": None,
         "tel_var": None,
         "ssl": None,
+        "instagram_link": None,
+        "facebook_link": None,
         "hata": False,
         "technical": {
             "version": 1,
@@ -150,6 +152,9 @@ async def fetch_site_data(url: str) -> dict:
         data["meta"] = data["technical"]["meta_description"]
         data["form_var"] = await _detect_form(resp.url, html)
         data["tel_var"] = bool(re.search(r'href=["\']tel:', html, re.I))
+        # Sosyal profil linkleri (advanced_signals: sosyal uyuşmazlık)
+        data["instagram_link"] = bool(re.search(r"instagram\.com/[A-Za-z0-9_.]+", html, re.I))
+        data["facebook_link"] = bool(re.search(r"facebook\.com/(?!share|dialog|tr)[A-Za-z0-9_.]+", html, re.I))
     except Exception as e:
         data["hata"] = True
         logger.warning("Site fetch hatasi (%s): %s", url, e)

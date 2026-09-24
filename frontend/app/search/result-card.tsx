@@ -64,6 +64,8 @@ export function ResultCard({ lead, priorityRank, selected, onSelect, sector, cit
         website: lead.website || undefined,
         google_rating: lead.google_rating ?? undefined,
         review_count: lead.review_count ?? undefined,
+        // Arama zenginleştirilmiş sinyalleri — audit sırasında kullanılır
+        source_data: lead.source_data as Record<string, unknown> | undefined,
       });
       router.push(`/leads/${created.id}`);
     } catch {

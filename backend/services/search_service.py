@@ -22,6 +22,8 @@ from core.lead_scorer import calculate_final_score
 from core.playbook import load_playbook_for_sector
 from core.query_parser import parse_search_query
 from core.sales_eligibility import public_health_sales_note
+from core.serp_enricher import apply_serp_data, fetch_serp_data
+from core.site_analyzer import analyze_sites
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +113,8 @@ def _normalize_lead(lead: dict, score_info: dict | None) -> dict:
         "ppc_waste_score":           score_info.get("ppc_waste_score") if score_info else None,
         "social_mismatch_score":     score_info.get("social_mismatch_score") if score_info else None,
         "ecommerce_urgency_score":   score_info.get("ecommerce_urgency_score") if score_info else None,
+        # Lead kaydederken source_data olarak geri gönderilir (audit sinyalleri)
+        "source_data": lead,
     }
 
 
@@ -180,8 +184,23 @@ async def run_search(query: str, limit: int = 25) -> dict:
         try:
             playbook = load_playbook_for_sector(parsed["sector"])
 
-            # Site analysis and SERP are skipped for quick search —
-            # they add 30-90s per run. Full analysis happens during collect_leads job.
+            # Tek SERP sorgusu: rakip reklam + organik sıralama + AI sinyalleri.
+            # Tüm batch'e uygulanır (lead başına değil) — maliyeti sabit.
+            location = " ".join(p for p in [parsed["district"], parsed["city"]] if p)
+            serp_query = f"{parsed['search_string']} {location}".strip()
+            try:
+                serp = await fetch_serp_data(serp_query)
+                apply_serp_data(raw, serp)
+            except Exception:
+                logger.warning("SERP enrichment atlandı (arama devam ediyor)", exc_info=True)
+
+            # Site analizi: CTA/booking/WhatsApp/sosyal link sinyalleri.
+            # check_index=False → lead başına SerpAPI sorgusu yok (kredi tasarrufu).
+            try:
+                await analyze_sites(raw, max_concurrent=5, timeout=5, check_index=False)
+            except Exception:
+                logger.warning("Site analizi atlandı (arama devam ediyor)", exc_info=True)
+
             filtered = filter_leads(raw, playbook)
             filter_stats = filtered["istatistik"]
             for lead in filtered["nitelikli"]:

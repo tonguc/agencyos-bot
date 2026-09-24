@@ -25,6 +25,7 @@ from core.lead_scorer import calculate_final_score
 from core.playbook import load_playbook
 from core.sales_output_generator import generate_sales_output
 from core.website_update_detector import detect_website_update
+from core.advanced_signals import serp_like_from_market
 from models.activity_log import ActivityEvent
 from models.audit import Audit
 from repositories.audit import AuditRepository
@@ -167,24 +168,39 @@ async def run_audit(
         update_info["confidence"], update_info["source"],
     )
 
-    # Site analysis sinyallerini lead_dict'e aktar (advanced_signals için)
-    lead_dict["has_cta"] = site_data.get("form_var") or lead_dict.get("has_cta")
+    # ── Advanced signals için site + sosyal sinyallerini lead_dict'e aktar ──
+    tech = site_data.get("technical") or {}
+    lead_dict["has_viewport"] = tech.get("viewport_present")
     lead_dict["has_form"] = site_data.get("form_var")
-    lead_dict["has_viewport"] = site_data.get("viewport_present")
-    if site_data.get("hiz_skoru") is not None:
-        lead_dict["_pagespeed"] = site_data.get("hiz_skoru")
+    lead_dict["has_instagram"] = site_data.get("instagram_link")
+    lead_dict["has_facebook"] = site_data.get("facebook_link")
+    # Audit site'i gördü: form yoksa dönüşüm mekanizması zayıf
+    if lead.website and site_data.get("form_var") is False:
+        lead_dict["site_durumu"] = "zayif"
 
+    serp_like = serp_like_from_market(market)
     audit_for_scorer = {
         **audit_result,
         "pagespeed": site_data.get("hiz_skoru"),
         "ssl": site_data.get("ssl"),
-        "_serp_data": market if market.get("status") == "complete" else {},
+        "_serp_data": serp_like,
     }
     # Audit aşamasında hard_filter'ı atla — kullanıcı bu lead'i seçti.
     # "telefon yok" gibi sebeplerle skoru null bırakmak yerine her zaman hesapla.
     refined = calculate_final_score(
         lead_dict, audit_for_scorer, playbook, skip_hard_filter=True,
     )
+
+    # Advanced signals'ı audit.result'a yaz — frontend paneli buradan okur
+    if refined.get("status") == "ok":
+        audit_result["advanced_signals"] = refined.get("advanced_signals")
+        for key in (
+            "competition_density_score", "ppc_waste_score",
+            "social_mismatch_score", "ecommerce_urgency_score",
+        ):
+            audit_result[key] = refined.get(key)
+        await AuditRepository(db).update(audit, result=audit_result)
+
     update_fields: dict = {"status": "Audit"}
     if refined["status"] == "ok":
         update_fields["opportunity_score"] = int(refined["final_score"])
@@ -193,6 +209,7 @@ async def run_audit(
     await log_event(db, event=ActivityEvent.AUDIT_COMPLETED,
                     lead_id=lead_id, data={"audit_id": str(audit.id),
                                            "score": audit_result.get("genel_skor")})
-    logger.info("Audit tamamlandi: lead=%s score=%s", str(lead_id)[:8],
-                audit_result.get("genel_skor"))
+    logger.info("Audit tamamlandi: lead=%s score=%s advanced=%s", str(lead_id)[:8],
+                audit_result.get("genel_skor"),
+                {k: audit_result.get(k) for k in ("competition_density_score", "ppc_waste_score", "social_mismatch_score", "ecommerce_urgency_score")})
     return audit

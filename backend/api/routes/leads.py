@@ -50,15 +50,20 @@ async def create_lead(body: LeadCreate, db: AsyncSession = Depends(get_db)):
         try:
             from core.lead_scorer import calculate_final_score
             from core.playbook import load_playbook_for_sector
-            lead_dict = {
+            # Arama'dan gelen zengin sinyaller varsa onları kullan
+            lead_dict: dict = dict(body.source_data) if body.source_data else {}
+            lead_dict.update({
                 "isim":         body.name,
+                "sektor":       body.sector,
                 "adres":        body.address or "",
                 "yorum_sayisi": body.review_count or 0,
                 "puan":         body.google_rating or 0,
                 "website":      body.website,
                 "telefon":      body.phone,
-                "site_durumu":  None if not body.website else "zayif",
-            }
+            })
+            lead_dict.setdefault(
+                "site_durumu", None if not body.website else "zayif"
+            )
             playbook = load_playbook_for_sector(body.sector)
             # Manuel eklenen lead'lerde hard_filter'ı atla — kullanıcı zaten seçti.
             score = calculate_final_score(lead_dict, {}, playbook, skip_hard_filter=True)

@@ -6,6 +6,7 @@ from core.advanced_signals import (
     calc_social_mismatch,
     calc_ecommerce_urgency,
     compute_advanced_signals,
+    serp_like_from_market,
     HIGH_ECOMMERCE_SECTORS,
 )
 
@@ -183,3 +184,85 @@ class TestComputeAdvancedSignals:
         # Social and ecom should still work
         assert result["social_mismatch"]["social_mismatch_score"] > 0
         assert result["ecommerce_urgency"]["ecommerce_urgency_score"] > 0
+
+
+# ── Social link fallback (audit HTML tespiti) ────────────────────────
+
+class TestSocialLinkFallback:
+    def test_instagram_link_only_triggers_mismatch(self):
+        lead = {
+            "has_instagram": True,
+            "website": None,
+            "site_durumu": "yok",
+        }
+        result = calc_social_mismatch(lead)
+        assert result["social_mismatch_score"] >= 30
+        assert any("IG profili" in s for s in result["signals"])
+        assert any("Website yok" in s for s in result["signals"])
+
+    def test_facebook_link_only(self):
+        lead = {
+            "has_facebook": True,
+            "website": "https://example.com",
+            "site_durumu": "zayif",
+        }
+        result = calc_social_mismatch(lead)
+        assert result["social_mismatch_score"] > 0
+
+    def test_no_social_signals(self):
+        lead = {"website": None, "site_durumu": "yok"}
+        result = calc_social_mismatch(lead)
+        assert result["social_mismatch_score"] == 0
+
+
+# ── market → serp format dönüşümü ────────────────────────────────────
+
+class TestSerpLikeFromMarket:
+    def test_empty_market(self):
+        result = serp_like_from_market({"queries": []})
+        assert result["competitor_ads_count"] == 0
+        assert result["strong_competitor_count"] == 0
+        assert result["self_ads_visible"] is False
+
+    def test_measured_queries(self):
+        market = {
+            "domain": "hane.com.tr",
+            "queries": [
+                {
+                    "status": "measured",
+                    "ad_count": 3,
+                    "self_ad_observed": False,
+                    "organic_results": [
+                        {"position": 1, "url": "https://rakip1.com/x"},
+                        {"position": 3, "url": "https://rakip2.com/x"},
+                        {"position": 5, "url": "https://hane.com.tr/x"},  # lead'in kendi domainsi
+                        {"position": 8, "url": "https://zayif-rakip.com/x"},  # 5 dışı
+                    ],
+                },
+                {
+                    "status": "measured",
+                    "ad_count": 1,
+                    "self_ad_observed": True,
+                    "organic_results": [
+                        {"position": 2, "url": "https://rakip1.com/y"},  # tekrar
+                    ],
+                },
+            ],
+        }
+        result = serp_like_from_market(market)
+        assert result["competitor_ads_count"] == 3  # max
+        assert result["market_ads_pressure"] is True
+        assert result["self_ads_visible"] is True
+        # rakip1 + rakip2 (kendi domain ve 5. sıradaki dışı tutulmaz)
+        assert result["strong_competitor_count"] == 2
+        assert result["strong_competitor_domains"] == {"rakip1.com", "rakip2.com"}
+
+    def test_unmeasured_queries_ignored(self):
+        market = {
+            "queries": [
+                {"status": "unavailable", "ad_count": 5, "organic_results": [{"position": 1, "url": "https://a.com"}]},
+            ],
+        }
+        result = serp_like_from_market(market)
+        assert result["competitor_ads_count"] == 0
+        assert result["strong_competitor_count"] == 0

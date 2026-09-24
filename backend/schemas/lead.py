@@ -24,6 +24,9 @@ class LeadCreate(BaseModel):
     website: str | None = None
     google_rating: float | None = None
     review_count: int | None = None
+    # Arama/collect'ten gelen zengin sinyaller (site_durumu, review velocity,
+    # SERP alanları ...). Audit sırasında lead_to_core_dict bunu merge eder.
+    source_data: dict[str, Any] | None = None
 
 
 class LeadUpdate(BaseModel):

@@ -142,6 +142,8 @@ export interface SearchResultItem {
   ppc_waste_score: number | null;
   social_mismatch_score: number | null;
   ecommerce_urgency_score: number | null;
+  // Kaydetme sırasında backend'e geri gönderilir (audit sinyalleri)
+  source_data?: Record<string, unknown>;
 }
 
 export interface SearchSummary {

@@ -43,11 +43,17 @@ def is_allowed_transition(current: str, new: str) -> bool:
 
 
 def lead_to_core_dict(lead) -> dict:
-    """Convert Lead ORM instance to the dict format core functions expect."""
+    """Convert Lead ORM instance to the dict format core functions expect.
+
+    source_data'daki toplama sinyalleri (son_yorum_gun, site_durumu,
+    review_last_30d, gmb_photo_count ...) scorer için gereklid; explicit
+    alanlar source_data'yı override eder.
+    """
+    core: dict = dict(lead.source_data) if isinstance(lead.source_data, dict) else {}
     district = lead.district or ""
     city = lead.city or ""
     address = lead.address or f"{district}, {city}".strip(", ")
-    return {
+    core.update({
         "page_id": str(lead.id),
         "isim": lead.name or "",
         "sektor": lead.sector or "",
@@ -56,7 +62,8 @@ def lead_to_core_dict(lead) -> dict:
         "website": lead.website,
         "yorum_sayisi": lead.review_count or 0,
         "puan": lead.google_rating or 0.0,
-    }
+    })
+    return core
 
 
 async def collect_and_save(
@@ -80,6 +87,22 @@ async def collect_and_save(
         raw = await collect_google_maps(sector, city, district, limit=limit)
     if not raw:
         return {"saved": 0, "stats": {}, "error": "Apify sonuc dondurmedi"}
+
+    # ── Zenginleştirme: SERP (rakip/organik) + site analizi (CTA/sosyal) ──
+    # Collect job'ı zaten ARQ'da — ek süre sorun değil. Hata aramayı durdurmaz.
+    try:
+        from core.serp_enricher import apply_serp_data, fetch_serp_data
+        location = " ".join(p for p in [district, city] if p)
+        term = query or sector
+        serp = await fetch_serp_data(f"{term} {location}".strip())
+        apply_serp_data(raw, serp)
+    except Exception:
+        logger.warning("Collect SERP enrichment atlandi", exc_info=True)
+    try:
+        from core.site_analyzer import analyze_sites
+        await analyze_sites(raw, max_concurrent=5, timeout=5, check_index=False)
+    except Exception:
+        logger.warning("Collect site analizi atlandi", exc_info=True)
 
     filtered = filter_leads(raw, playbook)
     repo = LeadRepository(db)

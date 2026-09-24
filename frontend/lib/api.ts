@@ -60,7 +60,7 @@ export const leadsApi = {
 
   get: (id: string) => request<Lead>(`/api/leads/${id}`),
 
-  create: (body: Partial<Lead>) =>
+  create: (body: Partial<Lead> & { source_data?: Record<string, unknown> }) =>
     request<Lead>("/api/leads", { method: "POST", body: JSON.stringify(body) }),
 
   update: (id: string, body: Partial<Lead>) =>
