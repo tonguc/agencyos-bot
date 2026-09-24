@@ -142,6 +142,7 @@ def _fetch_serp_sync(query: str) -> dict:
         "has_ai_overview": has_ai_overview,
         "ai_overview_domains": ai_overview_domains,
         "organic_domains": organic_domains,
+        "strong_competitor_domains": ad_domains | {d for d, _ in organic_domains[:5]},
     }
 
     logger.info(
@@ -251,6 +252,7 @@ def apply_serp_data(leads: list[dict], serp: dict) -> list[dict]:
     has_ai_overview: bool = serp.get("has_ai_overview", False)
     ad_domains: set[str] = serp.get("ad_domains") or set()
     ai_overview_domains: set[str] = serp.get("ai_overview_domains") or set()
+    strong_competitor_domains: set[str] = serp.get("strong_competitor_domains") or set()
 
     # Build organic_position lookup: domain → position
     organic_lookup: dict[str, int] = {
@@ -263,6 +265,7 @@ def apply_serp_data(leads: list[dict], serp: dict) -> list[dict]:
         lead["market_ads_pressure"] = market_ads_pressure
         lead["competitor_ads_count"] = competitor_ads_count
         lead["has_ai_overview"] = has_ai_overview
+        lead["strong_competitor_count"] = len(strong_competitor_domains)
 
         if lead_domain:
             lead["self_ads_visible"] = lead_domain in ad_domains

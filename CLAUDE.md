@@ -269,8 +269,30 @@ curl http://localhost:8000/health
 | `core/prompts.py` | Tüm Claude prompt'ları |
 | `core/audit_generator.py` | Site fetch + audit generation |
 | `core/proposal_generator.py` | PDF teklif üretimi |
+| `core/advanced_signals.py` | 4'lü mikro-skoring (rekabet, PPC, sosyal, e-ticaret) |
+| `core/lead_scorer.py` | Ana skorlama motoru (V3 + advanced signals entegrasyonu) |
+| `core/serp_enricher.py` | SERP verisi + rakip domain çıkarma |
 | `playbooks/klinik.json` | Klinik sektör konfigürasyonu |
 | `backend/api/routes/voice.py` | Sesli asistan backend (STT/TTS/chat) |
 | `frontend/components/voice/voice-assistant.tsx` | Sesli asistan React component |
 | `railway.toml` | Railway deploy config (backend/Dockerfile) |
 | `backend/entrypoint.sh` | Startup: migration + ARQ worker + uvicorn |
+
+---
+
+## Advanced Micro-Scoring (4 Kriter)
+
+Lead skorlama motoruna entegre edilen 4 yeni filtreleme kriteri:
+
+| Kriter | Katman | Skor Aralığı | Açıklama |
+|--------|--------|-------------|----------|
+| Rekabet Yoğunluğu | Opportunity (+12 max) | 0–100 | Güçlü rakiplerin olduğu bölgede geride kalan firmalar |
+| PPC İsrafı | Pattern (+5% max) | 0–100 | Google Ads veren ama kötü siteye sahip firmalar |
+| Sosyal Medya Uyuşmazlığı | Intent (+10 max) | 0–100 | IG/FB aktif ama site dönüşümsüz firmalar |
+| E-Ticaret Aciliyeti | Opportunity (+15 max) | 0–100 | Yüksek e-ticaret potansiyeli ama fiziksel-only firmalar |
+
+**Veri akışı:** SerpAPI → `serp_enricher` (strong_competitor_domains) → `advanced_signals.py` (4 skor) → `lead_scorer.py` (Opportunity/Intent/Pattern katmanlarına enjekte)
+
+**Serp verisi yoksa:** Rekabet ve PPC sinyalleri doğal olarak 0 kalır. Sosyal ve e-ticaret sinyalleri Maps verisiyle çalışır.
+
+**E-ticaret sektörleri:** guzellik, klinik, kadin_dogum, oto_servis, klima_beyaz_esya, ev_hizmetleri, restoran, egitim

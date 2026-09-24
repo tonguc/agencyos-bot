@@ -137,6 +137,11 @@ export interface SearchResultItem {
   reason: string | null;
   score_breakdown: string[];
   lead_id: string | null;
+  // Advanced micro-scoring (4 kriter)
+  competition_density_score: number | null;
+  ppc_waste_score: number | null;
+  social_mismatch_score: number | null;
+  ecommerce_urgency_score: number | null;
 }
 
 export interface SearchSummary {

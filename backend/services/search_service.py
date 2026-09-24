@@ -106,6 +106,11 @@ def _normalize_lead(lead: dict, score_info: dict | None) -> dict:
         "qualification_notes": lead.get("qualification_notes") or [],
         "outside_active_sales": bool(public_note),
         "permanently_closed": lead.get("permanently_closed") is True,
+        # Advanced micro-scoring (4 kriter)
+        "competition_density_score": score_info.get("competition_density_score") if score_info else None,
+        "ppc_waste_score":           score_info.get("ppc_waste_score") if score_info else None,
+        "social_mismatch_score":     score_info.get("social_mismatch_score") if score_info else None,
+        "ecommerce_urgency_score":   score_info.get("ecommerce_urgency_score") if score_info else None,
     }
 
 

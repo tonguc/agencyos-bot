@@ -192,6 +192,26 @@ def calc_opportunity(lead: dict, audit: dict) -> tuple[int, list[str]]:
         elif update_days > 90:
             add(1 if site_iyi else 2, f"Site yaşlanmış ({update_days}g)")
 
+    # F. Rekabet yoğunluğu (advanced signal — max +12)
+    comp_score = lead.get("_competition_density_score")
+    if comp_score is not None:
+        if comp_score >= 70:
+            add(12, f"Yoğun rekabet baskısı ({comp_score})")
+        elif comp_score >= 40:
+            add(7, f"Orta rekabet baskısı ({comp_score})")
+        elif comp_score >= 20:
+            add(3, f"Hafif rekabet baskısı ({comp_score})")
+
+    # G. E-ticaret aciliyeti (advanced signal — max +15)
+    ecom_score = lead.get("_ecommerce_urgency_score")
+    if ecom_score is not None:
+        if ecom_score >= 70:
+            add(15, f"E-ticaret aciliyeti yüksek ({ecom_score})")
+        elif ecom_score >= 45:
+            add(9, f"E-ticaret aciliyeti orta ({ecom_score})")
+        elif ecom_score >= 25:
+            add(4, f"E-ticaret aciliyeti düşük ({ecom_score})")
+
     return max(0, min(score, 100)), signals
 
 
@@ -286,6 +306,17 @@ def calc_intent(lead: dict, audit: dict) -> tuple[int, list[str]]:
     competitor_ads = lead.get("competitor_ads_count")
     if competitor_ads is not None and competitor_ads >= 2:
         add(6, f"Rakip aktif reklam ({competitor_ads})")
+
+    # D. Sosyal medya uyuşmazlığı (advanced signal — max +10)
+    # Aktif sosyal ama site dönüşümsüz → dijital farkındalık var, yardım yok
+    social_mismatch = lead.get("_social_mismatch_score")
+    if social_mismatch is not None:
+        if social_mismatch >= 60:
+            add(10, f"Sosyal aktif + site zayıf ({social_mismatch})")
+        elif social_mismatch >= 35:
+            add(6, f"Sosyal orta + site eksik ({social_mismatch})")
+        elif social_mismatch >= 15:
+            add(3, f"Sosyal sinyal + hafif eksik ({social_mismatch})")
 
     return max(0, min(score, 100)), signals
 
@@ -395,6 +426,12 @@ def calc_pattern_multiplier(lead: dict, audit: dict, playbook: dict) -> tuple[fl
         fire(0.03, f"{sub_sector} + arama butonu yok")
     if sub_sector == "tadilat" and lead.get("has_before_after") is False:
         fire(0.04, "Tadilat + öncesi-sonrası yok")
+
+    # ── PPC İsrafı (advanced signal) ──────────────
+    # Reklam veriyor ama site kötü → bütçesi var, yanlış harcıyor
+    ppc_waste = lead.get("_ppc_waste_score")
+    if ppc_waste is not None and ppc_waste >= 50:
+        fire(0.05, "PPC bütçesi var ama site kötü")
 
     # Cap at 15%
     boost = min(0.15, boost)
@@ -534,11 +571,23 @@ def calculate_final_score(
     skip_hard_filter=True → kullanıcı lead'i seçmiş (audit / manual add).
     """
     from core.sales_eligibility import public_health_sales_note
+    from core.advanced_signals import compute_advanced_signals
     public_note = public_health_sales_note(lead)
     if not skip_hard_filter:
         is_blocked, reason = hard_filter(lead, playbook)
         if is_blocked:
             return {"status": "rejected", "reason": reason}
+
+    # ── Advanced micro-scoring (4 kriter) ──────────────────────────────
+    # Serp verisi audit'ten veya lead'ten gelir; yoksa sinyaller 0 kalır.
+    serp = lead.get("_serp_data") or audit.get("_serp_data") or {}
+    advanced = compute_advanced_signals(lead, audit, serp)
+
+    # Ham skorları lead'e inject et — scorer fonksiyonları okuyacak
+    lead["_competition_density_score"] = advanced["competition_density"]["competition_density_score"]
+    lead["_ppc_waste_score"] = advanced["ppc_waste"]["ppc_waste_score"]
+    lead["_social_mismatch_score"] = advanced["social_mismatch"]["social_mismatch_score"]
+    lead["_ecommerce_urgency_score"] = advanced["ecommerce_urgency"]["ecommerce_urgency_score"]
 
     opp,      opp_signals  = calc_opportunity(lead, audit)
     intent,   int_signals  = calc_intent(lead, audit)
@@ -577,6 +626,7 @@ def calculate_final_score(
         reason_sum = "Kaynakta kalıcı kapalı işaretli; iletişimden önce faaliyet durumunu doğrula."
 
     score_breakdown = list(opp_signals) + list(int_signals) + list(fit_signals) + list(pat_signals)
+    score_breakdown.extend(advanced.get("advanced_score_breakdown", []))
     if lead.get("permanently_closed") is True:
         score_breakdown = [reason_sum]
     if public_note:
@@ -602,6 +652,12 @@ def calculate_final_score(
         "priority":            SEGMENT_TO_PRIORITY[segment],
         "reason_summary":      reason_sum,
         "decision_reason":     reason_sum,
+        # ── Advanced micro-scoring (4 kriter) ──────────────────────────────
+        "competition_density_score": advanced["competition_density"]["competition_density_score"],
+        "ppc_waste_score":           advanced["ppc_waste"]["ppc_waste_score"],
+        "social_mismatch_score":     advanced["social_mismatch"]["social_mismatch_score"],
+        "ecommerce_urgency_score":   advanced["ecommerce_urgency"]["ecommerce_urgency_score"],
+        "advanced_signals":          advanced,
         "signals": {
             "opportunity": opp_signals,
             "intent":      int_signals,

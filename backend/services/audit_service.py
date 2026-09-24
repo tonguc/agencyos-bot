@@ -167,10 +167,18 @@ async def run_audit(
         update_info["confidence"], update_info["source"],
     )
 
+    # Site analysis sinyallerini lead_dict'e aktar (advanced_signals için)
+    lead_dict["has_cta"] = site_data.get("form_var") or lead_dict.get("has_cta")
+    lead_dict["has_form"] = site_data.get("form_var")
+    lead_dict["has_viewport"] = site_data.get("viewport_present")
+    if site_data.get("hiz_skoru") is not None:
+        lead_dict["_pagespeed"] = site_data.get("hiz_skoru")
+
     audit_for_scorer = {
         **audit_result,
         "pagespeed": site_data.get("hiz_skoru"),
         "ssl": site_data.get("ssl"),
+        "_serp_data": market if market.get("status") == "complete" else {},
     }
     # Audit aşamasında hard_filter'ı atla — kullanıcı bu lead'i seçti.
     # "telefon yok" gibi sebeplerle skoru null bırakmak yerine her zaman hesapla.

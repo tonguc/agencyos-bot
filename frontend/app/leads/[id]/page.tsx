@@ -9,6 +9,7 @@ import { LocationMap } from "./location-map";
 import { SimilarLeads } from "./similar-leads";
 import { TechnicalMeasurements } from "./technical-measurements";
 import { MarketMeasurements } from "./market-measurements";
+import { AdvancedScores } from "@/components/ui/advanced-scores";
 import type { Audit, Lead, OutreachMessage, Proposal } from "@/types";
 import Link from "next/link";
 
@@ -69,6 +70,9 @@ export default async function LeadDetailPage({ params }: Props) {
     short_message?: string;
     full_message?: string;
   } | null | undefined;
+
+  // Advanced scores from audit result
+  const advScores = result?.advanced_signals as Record<string, Record<string, number>> | undefined;
 
   return (
     <div className="flex flex-col flex-1">
@@ -202,6 +206,18 @@ export default async function LeadDetailPage({ params }: Props) {
                 <ScoreBar label="Dönüşüm" value={audit.conversion_score} />
                 <ScoreBar label="Genel" value={audit.general_score} />
               </div>
+
+              {/* Advanced micro-scoring (4 kriter) */}
+              {advScores && (
+                <div className="border border-stroke-2 bg-panel-high p-4">
+                  <AdvancedScores
+                    competitionDensity={result?.competition_density_score as number ?? null}
+                    ppcWaste={result?.ppc_waste_score as number ?? null}
+                    socialMismatch={result?.social_mismatch_score as number ?? null}
+                    ecommerceUrgency={result?.ecommerce_urgency_score as number ?? null}
+                  />
+                </div>
+              )}
 
               {/* Killer insight */}
               {audit.killer_insight && (
