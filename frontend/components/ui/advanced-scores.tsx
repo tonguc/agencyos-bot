@@ -81,6 +81,7 @@ export function AdvancedScores({
 }: Props) {
   const values = [competitionDensity, ppcWaste, socialMismatch, ecommerceUrgency];
   const allNull = values.every((v) => v == null);
+  // Show component even when all scores are 0 — user should see the criteria exist
   if (allNull) return null;
 
   const entries = SCORES.map((s, i) => ({
@@ -91,16 +92,16 @@ export function AdvancedScores({
   if (compact) {
     return (
       <div className="flex flex-wrap gap-1.5">
-        {entries
-          .filter((e) => e.value > 0)
-          .map((e) => {
+        {entries.map((e) => {
             const Icon = e.icon;
+            const isZero = e.value === 0;
             return (
               <span
                 key={e.label}
                 className={cn(
-                  "inline-flex items-center gap-1 font-mono text-[10px] px-1.5 py-0.5 border border-stroke-2",
-                  labelColor(e.value, e.thresholds)
+                  "inline-flex items-center gap-1 font-mono text-[10px] px-1.5 py-0.5 border",
+                  isZero ? "border-stroke text-dim/60" : "border-stroke-2",
+                  !isZero && labelColor(e.value, e.thresholds)
                 )}
                 title={`${e.description}: ${e.value}/100`}
               >
