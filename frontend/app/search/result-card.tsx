@@ -25,9 +25,9 @@ function whatsappLink(phone: string | null): string | null {
 }
 
 function signalIcon(s: string): string {
-  if (s.startsWith("+") || s.match(/^Elendi/)) return "\u25B2";
-  if (s.startsWith("-")) return "\u25BC";
-  return "\u2022";
+  if (s.startsWith("+") || s.match(/^Elendi/)) return "▲";
+  if (s.startsWith("-")) return "▼";
+  return "•";
 }
 
 function signalColor(s: string): string {
@@ -38,6 +38,7 @@ function signalColor(s: string): string {
 }
 
 export function ResultCard({ lead, priorityRank, selected, onSelect, sector, city, district }: Props) {
+  // Category color is independent of whether the candidate has been saved.
   const isUnsaved = !lead.lead_id;
   const c = SEGMENT_COLORS[lead.segment];
   const label = SEGMENT_LABELS[lead.segment];
@@ -50,6 +51,7 @@ export function ResultCard({ lead, priorityRank, selected, onSelect, sector, cit
       router.push(`/leads/${lead.lead_id}`);
       return;
     }
+    // Save to DB first, then navigate to detail page
     setSaving(true);
     try {
       const created = await leadsApi.create({
@@ -88,14 +90,14 @@ export function ResultCard({ lead, priorityRank, selected, onSelect, sector, cit
       }
     >
       <div className="p-4">
-        {priorityRank != null && <p className="text-sm text-bright mb-2">#{priorityRank} \u00B7 Ba\u015Fvuru s\u0131ras\u0131{lead.score == null ? " \u00B7 \u00D6l\u00E7\u00FCm gerekli" : ""}</p>}
-        {lead.permanently_closed && <p className="text-xs text-warm mb-2">Kaynakta kal\u0131c\u0131 kapal\u0131 i\u015Faretli. \u0130leti\u015Fimden \u00F6nce faaliyet durumunu do\u011Frulay\u0131n.</p>}
-        {lead.source_queries && <p className="text-xs text-dim mb-2">Bulundu\u011Fu arama: {lead.source_queries.join(" \u00B7 ")}</p>}
+        {priorityRank != null && <p className="text-sm text-bright mb-2">#{priorityRank} · Başvuru sırası{lead.score == null ? " · Ölçüm gerekli" : ""}</p>}
+        {lead.permanently_closed && <p className="text-xs text-warm mb-2">Kaynakta kalıcı kapalı işaretli. İletişimden önce faaliyet durumunu doğrulayın.</p>}
+        {lead.source_queries && <p className="text-xs text-dim mb-2">Bulunduğu arama: {lead.source_queries.join(" · ")}</p>}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <h3 className="font-semibold text-bright text-sm truncate">{lead.name || "(isimsiz)"}</h3>
             <p className="mt-0.5 text-[12px] font-mono text-muted truncate tracking-wider">
-              {lead.category || "\u2014"}
+              {lead.category || "—"}
             </p>
           </div>
           <div className="flex flex-col items-end shrink-0">
@@ -108,34 +110,34 @@ export function ResultCard({ lead, priorityRank, selected, onSelect, sector, cit
             <span
               className="text-[10px] font-mono text-muted mt-1"
               title={isUnsaved
-                ? "Arama verilerine dayal\u0131 \u00F6n de\u011Ferlendirme; hen\u00FCz kay\u0131tl\u0131 de\u011Fil."
-                : "Kay\u0131tl\u0131 olmak audit'in tamamland\u0131\u011F\u0131 anlam\u0131na gelmez. Audit durumunu detaydan g\u00F6rebilirsiniz."}
+                ? "Arama verilerine dayalı ön değerlendirme; henüz kayıtlı değil."
+                : "Kayıtlı olmak audit'in tamamlandığı anlamına gelmez. Audit durumunu detaydan görebilirsiniz."}
             >
-              {isUnsaved ? "\u00D6n de\u011Ferlendirme" : "Kay\u0131tl\u0131 aday"}
+              {isUnsaved ? "Ön değerlendirme" : "Kayıtlı aday"}
             </span>
             {isUnsaved && lead.score != null && (
               <span
                 className="text-[10px] font-mono text-dim mt-0.5"
-                title="Tahmini skor \u2014 audit sonras\u0131 yeniden hesaplan\u0131r"
+                title="Tahmini skor — audit sonrası yeniden hesaplanır"
               >
                 ~{lead.score}
               </span>
             )}
             {saving && (
-              <span className="text-[8px] font-mono text-accent mt-1 animate-pulse">kaydediliyor\u2026</span>
+              <span className="text-[8px] font-mono text-accent mt-1 animate-pulse">kaydediliyor…</span>
             )}
             {!saving && (
               <span className="text-[8px] font-mono text-dim mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                {lead.lead_id ? "DETAY \u2192" : "KAYDET & A\u00C7 \u2192"}
+                {lead.lead_id ? "DETAY →" : "KAYDET & AÇ →"}
               </span>
             )}
           </div>
         </div>
 
         <div className="mt-3 space-y-2 text-xs text-muted">
-          <p className="text-bright">Neden bu s\u0131ra?</p>
-          <p>{lead.reason || "Veri yetersiz; ayr\u0131nt\u0131l\u0131 de\u011Ferlendirme gerekiyor."}</p>
-          <ul className="space-y-1">{(lead.score_breakdown || []).slice(0, 3).map((signal, i) => <li key={i}>{signal.replace("Website yok", "Kay\u0131tta site ba\u011Flant\u0131s\u0131 yok")}</li>)}</ul>
+          <p className="text-bright">Neden bu sıra?</p>
+          <p>{lead.reason || "Veri yetersiz; ayrıntılı değerlendirme gerekiyor."}</p>
+          <ul className="space-y-1">{(lead.score_breakdown || []).slice(0, 3).map((signal, i) => <li key={i}>{signal.replace("Website yok", "Kayıtta site bağlantısı yok")}</li>)}</ul>
           {(lead.qualification_notes || []).map((note, i) => <p key={i}>{note}</p>)}
           {/* Compact advanced scores badges */}
           <AdvancedScores
@@ -145,7 +147,7 @@ export function ResultCard({ lead, priorityRank, selected, onSelect, sector, cit
             ecommerceUrgency={lead.ecommerce_urgency_score}
             compact
           />
-          <button type="button" className="text-cyan underline" onClick={(event) => { event.stopPropagation(); onSelect(); }} onKeyDown={(event) => event.stopPropagation()}>{selected ? "Ayr\u0131nt\u0131lar\u0131 kapat" : "T\u00FCm puan gerek\u00E7elerini g\u00F6ster"}</button>
+          <button type="button" className="text-cyan underline" onClick={(event) => { event.stopPropagation(); onSelect(); }} onKeyDown={(event) => event.stopPropagation()}>{selected ? "Ayrıntıları kapat" : "Tüm puan gerekçelerini göster"}</button>
         </div>
         <div className="mt-3 space-y-1 text-[13px] font-mono text-muted">
           {lead.address && (
@@ -157,7 +159,7 @@ export function ResultCard({ lead, priorityRank, selected, onSelect, sector, cit
           <div className="flex items-center gap-3 flex-wrap">
             {lead.google_rating != null && (
               <span className="text-bright">
-                \u2B50 {lead.google_rating}{" "}
+                ⭐ {lead.google_rating}{" "}
                 <span className="text-dim">({lead.review_count})</span>
               </span>
             )}
@@ -176,8 +178,8 @@ export function ResultCard({ lead, priorityRank, selected, onSelect, sector, cit
           <div className="mt-3 pt-3 border-t border-stroke space-y-3">
             {isUnsaved && (
               <div className="border border-review/40 bg-review/5 px-2.5 py-1.5 text-[11px] font-mono text-review">
-                Tahmini skor \u2014 h\u0131zl\u0131 aramada yaln\u0131z Maps sinyalleri kullan\u0131ld\u0131.
-                Ayr\u0131nt\u0131l\u0131 de\u011Ferlendirme i\u00E7in kaydet ve <span className="font-bold">audit</span> \u00E7al\u0131\u015Ft\u0131r.
+                Tahmini skor — hızlı aramada yalnız Maps sinyalleri kullanıldı.
+                Ayrıntılı değerlendirme için kaydet ve <span className="font-bold">audit</span> çalıştır.
               </div>
             )}
             {/* Action buttons */}
@@ -233,7 +235,7 @@ export function ResultCard({ lead, priorityRank, selected, onSelect, sector, cit
               </div>
             ) : (
               <p className="font-mono text-[11px] text-dim">
-                {lead.reason || "Detayl\u0131 analiz i\u00E7in kaydet ve audit ba\u015Flat."}
+                {lead.reason || "Detaylı analiz için kaydet ve audit başlat."}
               </p>
             )}
 

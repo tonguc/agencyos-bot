@@ -72,7 +72,7 @@ export default async function LeadDetailPage({ params }: Props) {
   } | null | undefined;
 
   // Advanced scores from audit result
-  const advScores = result?.advanced_signals as Record<string, Record<string, number>> | undefined;
+  const advSignals = result?.advanced_signals as Record<string, Record<string, number>> | undefined;
 
   return (
     <div className="flex flex-col flex-1">
@@ -208,13 +208,13 @@ export default async function LeadDetailPage({ params }: Props) {
               </div>
 
               {/* Advanced micro-scoring (4 kriter) */}
-              {advScores && (
+              {advSignals && (
                 <div className="border border-stroke-2 bg-panel-high p-4">
                   <AdvancedScores
-                    competitionDensity={result?.competition_density_score as number ?? null}
-                    ppcWaste={result?.ppc_waste_score as number ?? null}
-                    socialMismatch={result?.social_mismatch_score as number ?? null}
-                    ecommerceUrgency={result?.ecommerce_urgency_score as number ?? null}
+                    competitionDensity={advSignals?.competition_density?.competition_density_score ?? null}
+                    ppcWaste={advSignals?.ppc_waste?.ppc_waste_score ?? null}
+                    socialMismatch={advSignals?.social_mismatch?.social_mismatch_score ?? null}
+                    ecommerceUrgency={advSignals?.ecommerce_urgency?.ecommerce_urgency_score ?? null}
                   />
                 </div>
               )}
