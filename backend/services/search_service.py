@@ -185,6 +185,7 @@ async def run_search(query: str, limit: int = 25) -> dict:
             filtered = filter_leads(raw, playbook)
             filter_stats = filtered["istatistik"]
             for lead in filtered["nitelikli"]:
+                lead["sektor"] = parsed["sector"]  # advanced_signals için gerekli
                 score_info = calculate_final_score(lead, {}, playbook)
                 results.append(_normalize_lead(lead, score_info))
         except Exception as e:  # pragma: no cover — playbook missing etc.

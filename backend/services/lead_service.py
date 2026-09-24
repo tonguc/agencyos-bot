@@ -104,6 +104,7 @@ async def collect_and_save(
 
     scores = []
     for lead_data in filtered["nitelikli"]:
+        lead_data["sektor"] = sector  # advanced_signals için gerekli
         phone = lead_data.get("telefon") or ""
         if phone:
             if phone in existing_phones or phone in seen_phones_batch:
