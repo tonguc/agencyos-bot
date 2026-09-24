@@ -1,0 +1,5 @@
+Businesses such as Central Klinik were rejected because their name contained hastane, their review count exceeded ICP bounds, or their site looked good. Treat those profile rules as context instead of exclusion. Score all discovered prospects with the existing numeric formula; retain explicitly permanently closed businesses at the bottom with a verification warning. Generic isClosed is no longer treated as permanent closure.
+
+Show stable application order numbers, visible score reasons, and a non-saving details toggle on every search card. Replace rejected tab wording with priority groups. Keep global ranks when filtering and sort closure warnings last in merged searches. Version server/browser search caches so old rejection results are not replayed. No stored candidates deleted, no migration, no customer contact.
+
+Validation: 113 backend tests passed; Central Klinik / 800 reviews / good-site regression preserved and scored; closure and search inclusion tests passed. TypeScript, targeted ESLint, merged-order/dedup assertions passed. The existing score weights remain unchanged; rank is a preliminary recommendation, not response probability.

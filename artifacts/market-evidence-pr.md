@@ -1,0 +1,5 @@
+Add query-scoped organic ranking and Google AI Overview citation measurements to each renewed audit, stored in existing audit JSON. Brand and conservative service queries are separate; exact recorded-domain matches avoid substring and shared-platform false positives. Distinguish absent AI Overview, missing references, provider errors and unmatched domains. Keep source URLs, time, device and location, and bound provider calls to two Google queries plus at most two token follow-ups within 55 seconds, alongside technical analysis.
+
+Expose commercial signals and qualification questions separately from Opportunity Score. Never present reviews or ads as proof of solvency, or invent a payment probability. Existing score weights, migrations and customer sending are unchanged. ChatGPT/Perplexity/standalone Gemini visibility is explicitly unmeasured.
+
+Validation: 108 backend tests, TypeScript and targeted ESLint passed. Tests cover exact domain matching, missing/shared domains, query selection, token follow-up, partial failures, credential redaction, absent-vs-unknown and payment-evidence limits. Runtime dependency: existing SERPAPI_API_KEY.

@@ -1,0 +1,3 @@
+Live verification of PR #13 confirmed measured performance 64, LCP 7510 ms, CLS .048 and TBT 0, but the LLM still invented customer losses and robots.txt problems. Replace technical-audit findings and first-contact observations with bounded factual summaries of measured data, preserving existing AI score outputs and score weights. Label AI scores separately from technical measurements. Noindex and slow LCP lead to verification actions, not ranking or loss claims.
+
+Validation: 98 backend tests and TypeScript passed. New regression tests reject the exact unsupported claims seen live and verify factual contact generation without LLM calls.

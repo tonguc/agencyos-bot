@@ -1,0 +1,805 @@
+{
+  "mode": "offline synthetic; ICP_STRICT_MODE=false",
+  "results": [
+    {
+      "case": "unknown_activity_small_no_site",
+      "lead": {
+        "isim": "Ornek Bagimsiz Klinik",
+        "telefon": "+905550000000",
+        "website": null,
+        "yorum_sayisi": 2,
+        "puan": 3.2,
+        "site_durumu": "yok",
+        "sektor": "klinik"
+      },
+      "audit": {},
+      "icp_accepted": true,
+      "icp_reasons": [],
+      "score": {
+        "status": "ok",
+        "opportunity_score": 100,
+        "opportunity": 100,
+        "intent_score": 50,
+        "buyer_intent": 50,
+        "fit_multiplier": 0.95,
+        "pattern_multiplier": 1.0,
+        "pattern_boost": 0.0,
+        "confidence": 0.3,
+        "data_confidence": 0.3,
+        "contradictions": [],
+        "final_score": 83.1,
+        "segment": "HOT",
+        "action": "generate_full_audit",
+        "priority": "yuksek",
+        "reason_summary": "Güçlü fırsat — tam audit",
+        "decision_reason": "Güçlü fırsat — tam audit",
+        "signals": {
+          "opportunity": [
+            "Yorum az (2) → +15",
+            "Puan düşük (3.2) → +14",
+            "Website yok → +40",
+            "Telefon var + site yok (direkt fırsat) → +10"
+          ],
+          "intent": [],
+          "fit": [
+            "Çok küçük (2 yorum, churn riski)"
+          ],
+          "pattern": []
+        },
+        "score_breakdown": [
+          "Yorum az (2) → +15",
+          "Puan düşük (3.2) → +14",
+          "Website yok → +40",
+          "Telefon var + site yok (direkt fırsat) → +10",
+          "Çok küçük (2 yorum, churn riski)"
+        ],
+        "score_layers": {
+          "opportunity": 100,
+          "intent": 50,
+          "combined": 87.5,
+          "fit_multiplier": 0.95,
+          "pattern_multiplier": 1.0,
+          "final": 83.1
+        }
+      }
+    },
+    {
+      "case": "known_inactive_small_no_site",
+      "lead": {
+        "isim": "Ornek Bagimsiz Klinik",
+        "telefon": "+905550000000",
+        "website": null,
+        "yorum_sayisi": 2,
+        "puan": 3.2,
+        "site_durumu": "yok",
+        "sektor": "klinik",
+        "son_yorum_gun": 400,
+        "instagram_post_90d": 0
+      },
+      "audit": {},
+      "icp_accepted": true,
+      "icp_reasons": [],
+      "score": {
+        "status": "ok",
+        "opportunity_score": 100,
+        "opportunity": 100,
+        "intent_score": 29,
+        "buyer_intent": 29,
+        "fit_multiplier": 0.95,
+        "pattern_multiplier": 1.0,
+        "pattern_boost": 0.0,
+        "confidence": 0.47,
+        "data_confidence": 0.47,
+        "contradictions": [
+          "Büyük gap var ama alıcı sinyali yok — zombie risk"
+        ],
+        "final_score": 78.1,
+        "segment": "REVIEW",
+        "action": "manual_review",
+        "priority": "orta",
+        "reason_summary": "Alıcı sinyali yok — zombie risk",
+        "decision_reason": "Alıcı sinyali yok — zombie risk",
+        "signals": {
+          "opportunity": [
+            "Yorum az (2) → +15",
+            "Puan düşük (3.2) → +14",
+            "Website yok → +40",
+            "Telefon var + site yok (direkt fırsat) → +10"
+          ],
+          "intent": [
+            "Son yorum eski (400g) → -15",
+            "IG 90g post: 0 → -6"
+          ],
+          "fit": [
+            "Çok küçük (2 yorum, churn riski)"
+          ],
+          "pattern": []
+        },
+        "score_breakdown": [
+          "Yorum az (2) → +15",
+          "Puan düşük (3.2) → +14",
+          "Website yok → +40",
+          "Telefon var + site yok (direkt fırsat) → +10",
+          "Son yorum eski (400g) → -15",
+          "IG 90g post: 0 → -6",
+          "Çok küçük (2 yorum, churn riski)"
+        ],
+        "score_layers": {
+          "opportunity": 100,
+          "intent": 29,
+          "combined": 82.2,
+          "fit_multiplier": 0.95,
+          "pattern_multiplier": 1.0,
+          "final": 78.1
+        }
+      }
+    },
+    {
+      "case": "established_basic_data",
+      "lead": {
+        "isim": "Ornek Bagimsiz Klinik",
+        "telefon": "+905550000000",
+        "website": "https://example.invalid",
+        "yorum_sayisi": 318,
+        "puan": 4.8,
+        "site_durumu": "zayif",
+        "sektor": "klinik"
+      },
+      "audit": {},
+      "icp_accepted": true,
+      "icp_reasons": [],
+      "score": {
+        "status": "ok",
+        "opportunity_score": 34,
+        "opportunity": 34,
+        "intent_score": 50,
+        "buyer_intent": 50,
+        "fit_multiplier": 1.0,
+        "pattern_multiplier": 1.05,
+        "pattern_boost": 5.0,
+        "confidence": 0.3,
+        "data_confidence": 0.3,
+        "contradictions": [],
+        "final_score": 39.9,
+        "segment": "REVIEW",
+        "action": "manual_review",
+        "priority": "orta",
+        "reason_summary": "Sinyal zayıf — audit ile doğrula (final=40)",
+        "decision_reason": "Sinyal zayıf — audit ile doğrula (final=40)",
+        "signals": {
+          "opportunity": [
+            "Yorum çok (318) → -8",
+            "Puan yüksek (4.8) → -10",
+            "Site zayıf → +12"
+          ],
+          "intent": [],
+          "fit": [],
+          "pattern": [
+            "+5% Maps güçlü + site zayıf"
+          ]
+        },
+        "score_breakdown": [
+          "Yorum çok (318) → -8",
+          "Puan yüksek (4.8) → -10",
+          "Site zayıf → +12",
+          "+5% Maps güçlü + site zayıf"
+        ],
+        "score_layers": {
+          "opportunity": 34,
+          "intent": 50,
+          "combined": 38.0,
+          "fit_multiplier": 1.0,
+          "pattern_multiplier": 1.05,
+          "final": 39.9
+        }
+      }
+    },
+    {
+      "case": "same_established_verified_gaps",
+      "lead": {
+        "isim": "Ornek Bagimsiz Klinik",
+        "telefon": "+905550000000",
+        "website": "https://example.invalid",
+        "yorum_sayisi": 318,
+        "puan": 4.8,
+        "site_durumu": "zayif",
+        "sektor": "klinik",
+        "in_organic_top10": false,
+        "indexed_pages": 5,
+        "son_yorum_gun": 5,
+        "review_last_30d": 8,
+        "review_last_90d": 24
+      },
+      "audit": {
+        "genel_skor": 30,
+        "pagespeed": 30,
+        "ssl": true
+      },
+      "icp_accepted": true,
+      "icp_reasons": [],
+      "score": {
+        "status": "ok",
+        "opportunity_score": 79,
+        "opportunity": 79,
+        "intent_score": 85,
+        "buyer_intent": 85,
+        "fit_multiplier": 1.0,
+        "pattern_multiplier": 1.05,
+        "pattern_boost": 5.0,
+        "confidence": 0.7,
+        "data_confidence": 0.7,
+        "contradictions": [
+          "Puan çok yüksek + yüksek gap — sinyal çakışması"
+        ],
+        "final_score": 84.5,
+        "segment": "HOT",
+        "action": "generate_full_audit",
+        "priority": "yuksek",
+        "reason_summary": "Güçlü fırsat — tam audit",
+        "decision_reason": "Güçlü fırsat — tam audit",
+        "signals": {
+          "opportunity": [
+            "Yorum çok (318) → -8",
+            "Puan yüksek (4.8) → -10",
+            "Site zayıf → +12",
+            "Organik aramada görünmüyor → +15",
+            "Çok az sayfa indexlenmiş (5) → +10",
+            "Audit çok zayıf (30) → +12",
+            "PageSpeed çok yavaş (30) → +8"
+          ],
+          "intent": [
+            "Son yorum yakın (5g) → +15",
+            "Son 30g yorum: 8 → +12",
+            "Son 90g yorum: 24 → +8"
+          ],
+          "fit": [],
+          "pattern": [
+            "+5% Maps güçlü + site zayıf"
+          ]
+        },
+        "score_breakdown": [
+          "Yorum çok (318) → -8",
+          "Puan yüksek (4.8) → -10",
+          "Site zayıf → +12",
+          "Organik aramada görünmüyor → +15",
+          "Çok az sayfa indexlenmiş (5) → +10",
+          "Audit çok zayıf (30) → +12",
+          "PageSpeed çok yavaş (30) → +8",
+          "Son yorum yakın (5g) → +15",
+          "Son 30g yorum: 8 → +12",
+          "Son 90g yorum: 24 → +8",
+          "+5% Maps güçlü + site zayıf"
+        ],
+        "score_layers": {
+          "opportunity": 79,
+          "intent": 85,
+          "combined": 80.5,
+          "fit_multiplier": 1.0,
+          "pattern_multiplier": 1.05,
+          "final": 84.5
+        }
+      }
+    },
+    {
+      "case": "active_600_reviews_verified_gaps",
+      "lead": {
+        "isim": "Ornek Bagimsiz Klinik",
+        "telefon": "+905550000000",
+        "website": "https://example.invalid",
+        "yorum_sayisi": 600,
+        "puan": 4.8,
+        "site_durumu": "zayif",
+        "sektor": "klinik",
+        "in_organic_top10": false,
+        "indexed_pages": 5,
+        "son_yorum_gun": 5,
+        "review_last_30d": 8,
+        "review_last_90d": 24
+      },
+      "audit": {
+        "genel_skor": 30,
+        "pagespeed": 30,
+        "ssl": true
+      },
+      "icp_accepted": false,
+      "icp_reasons": [
+        "yorum cok (600 > 530)"
+      ],
+      "score": {
+        "status": "ok",
+        "opportunity_score": 79,
+        "opportunity": 79,
+        "intent_score": 85,
+        "buyer_intent": 85,
+        "fit_multiplier": 1.0,
+        "pattern_multiplier": 1.05,
+        "pattern_boost": 5.0,
+        "confidence": 0.7,
+        "data_confidence": 0.7,
+        "contradictions": [
+          "Puan çok yüksek + yüksek gap — sinyal çakışması"
+        ],
+        "final_score": 84.5,
+        "segment": "HOT",
+        "action": "generate_full_audit",
+        "priority": "yuksek",
+        "reason_summary": "Güçlü fırsat — tam audit",
+        "decision_reason": "Güçlü fırsat — tam audit",
+        "signals": {
+          "opportunity": [
+            "Yorum çok (600) → -8",
+            "Puan yüksek (4.8) → -10",
+            "Site zayıf → +12",
+            "Organik aramada görünmüyor → +15",
+            "Çok az sayfa indexlenmiş (5) → +10",
+            "Audit çok zayıf (30) → +12",
+            "PageSpeed çok yavaş (30) → +8"
+          ],
+          "intent": [
+            "Son yorum yakın (5g) → +15",
+            "Son 30g yorum: 8 → +12",
+            "Son 90g yorum: 24 → +8"
+          ],
+          "fit": [],
+          "pattern": [
+            "+5% Maps güçlü + site zayıf"
+          ]
+        },
+        "score_breakdown": [
+          "Yorum çok (600) → -8",
+          "Puan yüksek (4.8) → -10",
+          "Site zayıf → +12",
+          "Organik aramada görünmüyor → +15",
+          "Çok az sayfa indexlenmiş (5) → +10",
+          "Audit çok zayıf (30) → +12",
+          "PageSpeed çok yavaş (30) → +8",
+          "Son yorum yakın (5g) → +15",
+          "Son 30g yorum: 8 → +12",
+          "Son 90g yorum: 24 → +8",
+          "+5% Maps güçlü + site zayıf"
+        ],
+        "score_layers": {
+          "opportunity": 79,
+          "intent": 85,
+          "combined": 80.5,
+          "fit_multiplier": 1.0,
+          "pattern_multiplier": 1.05,
+          "final": 84.5
+        }
+      }
+    },
+    {
+      "case": "good_site_with_seo_gap",
+      "lead": {
+        "isim": "Ornek Bagimsiz Klinik",
+        "telefon": "+905550000000",
+        "website": "https://example.invalid",
+        "yorum_sayisi": 318,
+        "puan": 4.8,
+        "site_durumu": "iyi",
+        "sektor": "klinik",
+        "in_organic_top10": false,
+        "indexed_pages": 5,
+        "son_yorum_gun": 5,
+        "review_last_30d": 8,
+        "review_last_90d": 24
+      },
+      "audit": {
+        "genel_skor": 50,
+        "pagespeed": 80,
+        "ssl": true
+      },
+      "icp_accepted": false,
+      "icp_reasons": [
+        "site durumu 'iyi' kabul listesinde degil"
+      ],
+      "score": {
+        "status": "ok",
+        "opportunity_score": 47,
+        "opportunity": 47,
+        "intent_score": 85,
+        "buyer_intent": 85,
+        "fit_multiplier": 1.0,
+        "pattern_multiplier": 1.0,
+        "pattern_boost": 0.0,
+        "confidence": 0.7,
+        "data_confidence": 0.7,
+        "contradictions": [],
+        "final_score": 56.5,
+        "segment": "WARM",
+        "action": "generate_light_audit",
+        "priority": "orta",
+        "reason_summary": "Orta fırsat — hafif audit",
+        "decision_reason": "Orta fırsat — hafif audit",
+        "signals": {
+          "opportunity": [
+            "Yorum çok (318) → -8",
+            "Puan yüksek (4.8) → -10",
+            "Site iyi → -6",
+            "Organik aramada görünmüyor → +15",
+            "Çok az sayfa indexlenmiş (5) → +10",
+            "Audit zayıf (50) → +6"
+          ],
+          "intent": [
+            "Son yorum yakın (5g) → +15",
+            "Son 30g yorum: 8 → +12",
+            "Son 90g yorum: 24 → +8"
+          ],
+          "fit": [],
+          "pattern": []
+        },
+        "score_breakdown": [
+          "Yorum çok (318) → -8",
+          "Puan yüksek (4.8) → -10",
+          "Site iyi → -6",
+          "Organik aramada görünmüyor → +15",
+          "Çok az sayfa indexlenmiş (5) → +10",
+          "Audit zayıf (50) → +6",
+          "Son yorum yakın (5g) → +15",
+          "Son 30g yorum: 8 → +12",
+          "Son 90g yorum: 24 → +8"
+        ],
+        "score_layers": {
+          "opportunity": 47,
+          "intent": 85,
+          "combined": 56.5,
+          "fit_multiplier": 1.0,
+          "pattern_multiplier": 1.0,
+          "final": 56.5
+        }
+      }
+    },
+    {
+      "case": "same_business_website_missing",
+      "lead": {
+        "isim": "Ornek Bagimsiz Klinik",
+        "telefon": "+905550000000",
+        "website": null,
+        "yorum_sayisi": 318,
+        "puan": 4.8,
+        "site_durumu": "yok",
+        "sektor": "klinik"
+      },
+      "audit": {},
+      "icp_accepted": true,
+      "icp_reasons": [],
+      "score": {
+        "status": "ok",
+        "opportunity_score": 72,
+        "opportunity": 72,
+        "intent_score": 50,
+        "buyer_intent": 50,
+        "fit_multiplier": 1.0,
+        "pattern_multiplier": 1.05,
+        "pattern_boost": 5.0,
+        "confidence": 0.3,
+        "data_confidence": 0.3,
+        "contradictions": [
+          "Güçlü Maps ama website yok — scraper doğrulansın",
+          "Puan çok yüksek + yüksek gap — sinyal çakışması"
+        ],
+        "final_score": 69.8,
+        "segment": "WARM",
+        "action": "generate_light_audit",
+        "priority": "orta",
+        "reason_summary": "Orta fırsat — hafif audit",
+        "decision_reason": "Orta fırsat — hafif audit",
+        "signals": {
+          "opportunity": [
+            "Yorum çok (318) → -8",
+            "Puan yüksek (4.8) → -10",
+            "Website yok → +40",
+            "Telefon var + site yok (direkt fırsat) → +10"
+          ],
+          "intent": [],
+          "fit": [],
+          "pattern": [
+            "+5% Maps güçlü + site zayıf"
+          ]
+        },
+        "score_breakdown": [
+          "Yorum çok (318) → -8",
+          "Puan yüksek (4.8) → -10",
+          "Website yok → +40",
+          "Telefon var + site yok (direkt fırsat) → +10",
+          "+5% Maps güçlü + site zayıf"
+        ],
+        "score_layers": {
+          "opportunity": 72,
+          "intent": 50,
+          "combined": 66.5,
+          "fit_multiplier": 1.0,
+          "pattern_multiplier": 1.05,
+          "final": 69.8
+        }
+      }
+    },
+    {
+      "case": "audit_pagespeed_unknown",
+      "lead": {
+        "isim": "Ornek Bagimsiz Klinik",
+        "telefon": "+905550000000",
+        "website": "https://example.invalid",
+        "yorum_sayisi": 318,
+        "puan": 4.8,
+        "site_durumu": "zayif",
+        "sektor": "klinik"
+      },
+      "audit": {
+        "genel_skor": 55,
+        "ssl": true
+      },
+      "icp_accepted": true,
+      "icp_reasons": [],
+      "score": {
+        "status": "ok",
+        "opportunity_score": 40,
+        "opportunity": 40,
+        "intent_score": 50,
+        "buyer_intent": 50,
+        "fit_multiplier": 1.0,
+        "pattern_multiplier": 1.05,
+        "pattern_boost": 5.0,
+        "confidence": 0.43,
+        "data_confidence": 0.43,
+        "contradictions": [],
+        "final_score": 44.6,
+        "segment": "REVIEW",
+        "action": "manual_review",
+        "priority": "orta",
+        "reason_summary": "Sinyal zayıf — audit ile doğrula (final=45)",
+        "decision_reason": "Sinyal zayıf — audit ile doğrula (final=45)",
+        "signals": {
+          "opportunity": [
+            "Yorum çok (318) → -8",
+            "Puan yüksek (4.8) → -10",
+            "Site zayıf → +12",
+            "Audit zayıf (55) → +6"
+          ],
+          "intent": [],
+          "fit": [],
+          "pattern": [
+            "+5% Maps güçlü + site zayıf"
+          ]
+        },
+        "score_breakdown": [
+          "Yorum çok (318) → -8",
+          "Puan yüksek (4.8) → -10",
+          "Site zayıf → +12",
+          "Audit zayıf (55) → +6",
+          "+5% Maps güçlü + site zayıf"
+        ],
+        "score_layers": {
+          "opportunity": 40,
+          "intent": 50,
+          "combined": 42.5,
+          "fit_multiplier": 1.0,
+          "pattern_multiplier": 1.05,
+          "final": 44.6
+        }
+      }
+    },
+    {
+      "case": "audit_pagespeed_missing_as_zero",
+      "lead": {
+        "isim": "Ornek Bagimsiz Klinik",
+        "telefon": "+905550000000",
+        "website": "https://example.invalid",
+        "yorum_sayisi": 318,
+        "puan": 4.8,
+        "site_durumu": "zayif",
+        "sektor": "klinik"
+      },
+      "audit": {
+        "genel_skor": 55,
+        "ssl": true,
+        "pagespeed": 0
+      },
+      "icp_accepted": true,
+      "icp_reasons": [],
+      "score": {
+        "status": "ok",
+        "opportunity_score": 48,
+        "opportunity": 48,
+        "intent_score": 50,
+        "buyer_intent": 50,
+        "fit_multiplier": 1.0,
+        "pattern_multiplier": 1.05,
+        "pattern_boost": 5.0,
+        "confidence": 0.5,
+        "data_confidence": 0.5,
+        "contradictions": [],
+        "final_score": 50.9,
+        "segment": "REVIEW",
+        "action": "manual_review",
+        "priority": "orta",
+        "reason_summary": "Sinyal zayıf — audit ile doğrula (final=51)",
+        "decision_reason": "Sinyal zayıf — audit ile doğrula (final=51)",
+        "signals": {
+          "opportunity": [
+            "Yorum çok (318) → -8",
+            "Puan yüksek (4.8) → -10",
+            "Site zayıf → +12",
+            "Audit zayıf (55) → +6",
+            "PageSpeed çok yavaş (0) → +8"
+          ],
+          "intent": [],
+          "fit": [],
+          "pattern": [
+            "+5% Maps güçlü + site zayıf"
+          ]
+        },
+        "score_breakdown": [
+          "Yorum çok (318) → -8",
+          "Puan yüksek (4.8) → -10",
+          "Site zayıf → +12",
+          "Audit zayıf (55) → +6",
+          "PageSpeed çok yavaş (0) → +8",
+          "+5% Maps güçlü + site zayıf"
+        ],
+        "score_layers": {
+          "opportunity": 48,
+          "intent": 50,
+          "combined": 48.5,
+          "fit_multiplier": 1.0,
+          "pattern_multiplier": 1.05,
+          "final": 50.9
+        }
+      }
+    },
+    {
+      "case": "poor_conversion_only",
+      "lead": {
+        "isim": "Ornek Bagimsiz Klinik",
+        "telefon": "+905550000000",
+        "website": "https://example.invalid",
+        "yorum_sayisi": 318,
+        "puan": 4.8,
+        "site_durumu": "zayif",
+        "sektor": "klinik"
+      },
+      "audit": {
+        "genel_skor": 55,
+        "skorlar": {
+          "donusum": 10
+        }
+      },
+      "icp_accepted": true,
+      "icp_reasons": [],
+      "score": {
+        "status": "ok",
+        "opportunity_score": 40,
+        "opportunity": 40,
+        "intent_score": 50,
+        "buyer_intent": 50,
+        "fit_multiplier": 1.0,
+        "pattern_multiplier": 1.05,
+        "pattern_boost": 5.0,
+        "confidence": 0.37,
+        "data_confidence": 0.37,
+        "contradictions": [],
+        "final_score": 44.6,
+        "segment": "REVIEW",
+        "action": "manual_review",
+        "priority": "orta",
+        "reason_summary": "Sinyal zayıf — audit ile doğrula (final=45)",
+        "decision_reason": "Sinyal zayıf — audit ile doğrula (final=45)",
+        "signals": {
+          "opportunity": [
+            "Yorum çok (318) → -8",
+            "Puan yüksek (4.8) → -10",
+            "Site zayıf → +12",
+            "Audit zayıf (55) → +6"
+          ],
+          "intent": [],
+          "fit": [],
+          "pattern": [
+            "+5% Maps güçlü + site zayıf"
+          ]
+        },
+        "score_breakdown": [
+          "Yorum çok (318) → -8",
+          "Puan yüksek (4.8) → -10",
+          "Site zayıf → +12",
+          "Audit zayıf (55) → +6",
+          "+5% Maps güçlü + site zayıf"
+        ],
+        "score_layers": {
+          "opportunity": 40,
+          "intent": 50,
+          "combined": 42.5,
+          "fit_multiplier": 1.0,
+          "pattern_multiplier": 1.05,
+          "final": 44.6
+        }
+      }
+    },
+    {
+      "case": "good_conversion_only",
+      "lead": {
+        "isim": "Ornek Bagimsiz Klinik",
+        "telefon": "+905550000000",
+        "website": "https://example.invalid",
+        "yorum_sayisi": 318,
+        "puan": 4.8,
+        "site_durumu": "zayif",
+        "sektor": "klinik"
+      },
+      "audit": {
+        "genel_skor": 55,
+        "skorlar": {
+          "donusum": 90
+        }
+      },
+      "icp_accepted": true,
+      "icp_reasons": [],
+      "score": {
+        "status": "ok",
+        "opportunity_score": 40,
+        "opportunity": 40,
+        "intent_score": 50,
+        "buyer_intent": 50,
+        "fit_multiplier": 1.0,
+        "pattern_multiplier": 1.05,
+        "pattern_boost": 5.0,
+        "confidence": 0.37,
+        "data_confidence": 0.37,
+        "contradictions": [],
+        "final_score": 44.6,
+        "segment": "REVIEW",
+        "action": "manual_review",
+        "priority": "orta",
+        "reason_summary": "Sinyal zayıf — audit ile doğrula (final=45)",
+        "decision_reason": "Sinyal zayıf — audit ile doğrula (final=45)",
+        "signals": {
+          "opportunity": [
+            "Yorum çok (318) → -8",
+            "Puan yüksek (4.8) → -10",
+            "Site zayıf → +12",
+            "Audit zayıf (55) → +6"
+          ],
+          "intent": [],
+          "fit": [],
+          "pattern": [
+            "+5% Maps güçlü + site zayıf"
+          ]
+        },
+        "score_breakdown": [
+          "Yorum çok (318) → -8",
+          "Puan yüksek (4.8) → -10",
+          "Site zayıf → +12",
+          "Audit zayıf (55) → +6",
+          "+5% Maps güçlü + site zayıf"
+        ],
+        "score_layers": {
+          "opportunity": 40,
+          "intent": 50,
+          "combined": 42.5,
+          "fit_multiplier": 1.0,
+          "pattern_multiplier": 1.05,
+          "final": 44.6
+        }
+      }
+    },
+    {
+      "case": "permanently_closed",
+      "lead": {
+        "isim": "Ornek Bagimsiz Klinik",
+        "telefon": "+905550000000",
+        "website": "https://example.invalid",
+        "yorum_sayisi": 318,
+        "puan": 4.8,
+        "site_durumu": "zayif",
+        "sektor": "klinik",
+        "permanently_closed": true
+      },
+      "audit": {},
+      "icp_accepted": true,
+      "icp_reasons": [],
+      "score": {
+        "status": "rejected",
+        "reason": "kalıcı olarak kapalı"
+      }
+    }
+  ]
+}

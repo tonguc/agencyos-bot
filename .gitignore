@@ -17,6 +17,11 @@ venv/
 .venv-audit/
 .test-tools/
 env/
+node_modules/
+.next/
+
+# Legacy duplicate working copy kept locally for recovery only
+agencyos-bot-main/
 
 # Logs
 agencyos.log
