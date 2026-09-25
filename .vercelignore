@@ -1,0 +1,14 @@
+.pytest_cache
+**/.pytest_cache
+.git
+.venv
+**/.venv
+**/node_modules
+.test-tools
+agencyos-bot-main
+artifacts
+output
+__pycache__
+**/__pycache__
+.env
+**/.env
