@@ -17,10 +17,11 @@ def main():
     r = requests.get(f"{BASE}/health", headers=HDRS, timeout=15)
     print(r.json())
 
-    section("2. Restoran arama (Kadikoy)")
+    section("2. Restoran arama (Kadikoy) — force_refresh (cache bypass)")
     r = requests.post(f"{BASE}/api/search", headers=HDRS,
-                      json={"query": "restoran Kadikoy Istanbul", "limit": 3},
-                      timeout=120)
+                      json={"query": "restoran Kadikoy Istanbul", "limit": 3,
+                            "force_refresh": True},
+                      timeout=200)
     if r.status_code != 200:
         print("FAIL search:", r.status_code, r.text[:500])
         sys.exit(1)
