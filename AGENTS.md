@@ -1,166 +1,98 @@
 # AgencyOS — Agent Guide
 
-## Architecture
+## Repository boundaries
 
-Two-process monorepo with an optional Telegram bot:
-
-- **`backend/`** — FastAPI (Python 3.11), SQLAlchemy async (asyncpg), ARQ job queue (Redis), PostgreSQL, Alembic migrations
-- **`frontend/`** — Next.js 16.2, React 19, Tailwind 4, shadcn/ui, standalone output mode
-- **`main.py` + `bot/`** — Telegram bot (optional). Calls backend API over HTTP; never touches DB or core directly.
-
-`backend/core/` is the business-logic layer. It must stay **framework-agnostic** — no imports from FastAPI, ARQ, Telegram, or Starlette. It only receives and returns plain dicts/strings. Route glue lives in `backend/api/routes/`, async task logic in `backend/jobs/`.
-
-`backend/playbooks/*.json` — per-sector configuration consumed by `core/playbook.py`.
-
-`backend/services/` — orchestration layer between routes/jobs and core (audit, outreach, proposal, lead, cost tracker, notifications).
-
-**Root-level traps**: `core/` and `crm/` at repo root are **empty leftovers** — real code is `backend/core/`. `agencyos-bot-main/` is a stale full copy of the repo; never edit files there. `artifacts/` and `output/` are scratch. `.test-tools/` holds local helper scripts/caches.
+- `backend/` is the FastAPI/PostgreSQL/Redis application. Business rules belong in `backend/core/`; keep that package free of FastAPI, Starlette, ARQ, and Telegram imports. HTTP glue lives in `backend/api/routes/`, queue tasks in `backend/jobs/`, and DB-backed orchestration in `backend/services/`.
+- `frontend/` is Next.js 16/React 19. Before changing it, read `frontend/AGENTS.md` and the relevant installed guide under `frontend/node_modules/next/dist/docs/`; this Next.js version differs from older conventions.
+- `main.py` plus `bot/` is the optional Telegram client. It calls the backend API and must not import backend DB/core internals. Its container dependencies come from `Dockerfile.bot`, not the root requirements file.
+- Do not edit the root `core/` or `crm/` leftovers, `agencyos-bot-main/`, or the nested checkout under `.test-tools/agencyos-github/`. Real application code is under `backend/` and `frontend/`.
+- Sector behavior is data-driven through `backend/playbooks/*.json` and `backend/core/playbook.py`.
 
 ## Commands
 
-### Backend
+Backend commands run from `backend/` (Python 3.11 in CI):
 
 ```sh
-cd backend
+python -m venv .venv
+source .venv/bin/activate           # Windows: .venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
 
-# Install (use a venv)
-pip install -r requirements.txt        # runtime
-pip install -r requirements-dev.txt    # pytest + pytest-asyncio
-
-# DB setup (Postgres must be running)
-alembic upgrade head
-
-# Dev server
+alembic upgrade head                 # PostgreSQL must be reachable
 uvicorn main:app --reload
+arq jobs.worker.WorkerSettings       # separate terminal; Redis required
 
-# ARQ worker (separate process, needs Redis)
-arq jobs.worker.WorkerSettings
-
-# Tests (unit tests run without DB; integration tests skip if no Postgres)
 pytest -v
-pytest tests/test_playbook.py -v       # single file
-pytest -k "test_name" -v              # single test
+pytest tests/test_playbook.py -v     # one file
+pytest -k "test_name" -v            # one test/filter
 ```
 
-`backend/pytest.ini` sets `asyncio_mode = auto` and session loop scope for both fixtures and tests (`asyncio_default_fixture_loop_scope`, `asyncio_default_test_loop_scope`). All async tests run in one shared event loop — don't override loop scope in fixtures.
+Use the same two requirements installs as CI; `requirements-test.txt` is an alternate aggregate with different pytest bounds, not the literal CI setup.
 
-### Frontend
+Frontend commands run from `frontend/`:
 
 ```sh
-cd frontend
 npm ci
-npm run dev        # dev server
-npm run build      # production build (standalone output)
-npm run lint       # eslint
+npm run dev
+npm run lint
+npm run build       # production compile plus TypeScript check
 ```
 
-### Docker Compose (full stack)
+Full stack:
 
 ```sh
-docker compose up                          # postgres + redis + api + worker + frontend
-docker compose --profile bot up            # add Telegram bot
-docker compose up -d --build               # rebuild after code changes
+docker compose up
+docker compose --profile bot up
+docker compose up -d --build
 ```
 
-The `api` service sets `RUN_EMBEDDED_WORKER=0` because the `worker` service runs ARQ separately. The single-container entrypoint (`backend/entrypoint.sh`) embeds a worker by default.
+## Configuration and runtime traps
 
-## Critical constraints
+- `backend/config.py` loads `.env` relative to the process working directory. A root `.env` is used by Compose but is not automatically loaded by `cd backend && uvicorn ...`; provide environment variables or a backend-local `.env`.
+- API-key middleware protects every non-exempt route, not only `/api/*`. Only `/health`, docs/OpenAPI routes, and all `OPTIONS` requests bypass it.
+- `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_API_KEY` are baked in at build time: Docker build args for the Compose image (`frontend/Dockerfile`) and project env vars for the Vercel build. Changing either requires rebuilding the image or redeploying the Vercel project; the browser-visible API key is not a secret boundary.
+- Lead collection prefers Apify Google Maps scraping when `APIFY_API_TOKEN` is set; without it (and always in `search_only` "Firma Ara" mode) collection falls back to SerpAPI Maps, which requires `SERPAPI_API_KEY`. SERP enrichment and market evidence are best-effort and skip cleanly without `SERPAPI_API_KEY`; HTML site analysis runs without per-lead SerpAPI calls. Enrichment failures must not fail the search.
+- Cost tracking covers Claude, Apify, and OpenAI STT/TTS, but not SerpAPI or PageSpeed; budget totals are not total external spend.
+- Proposal PDF generation needs Cairo/Pango/GDK-PixBuf locally; the backend image installs them.
 
-1. **API auth**: Every `/api/*` request requires `X-API-Key` header (except `/health`, `/docs`, `/openapi.json`, `/redoc`). Key is `AGENCYOS_API_KEY` env var. Frontend bakes it at build time via `NEXT_PUBLIC_API_KEY`.
-
-2. **Core is framework-free**: Never `from fastapi import …` or `from arq import …` in `backend/core/`. This is enforced by convention and AUDIT_OPERATIONS.md.
-
-3. **Job contract is stable**: Trigger endpoints return `{ "job_id": "uuid", "status": "completed|pending", "result": {} }`. Job status fields (`status/progress_pct/progress_message/error_message/started_at/finished_at`) are the same across backend, ARQ, and frontend. Don't change this shape.
-
-4. **Migration order matters**: `alembic upgrade head` runs automatically in `entrypoint.sh` before uvicorn starts. CI also runs it. New models must be registered in `backend/models/__init__.py` for Alembic autogenerate to see them.
-
-5. **Frontend API URL is baked at build time**: `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_API_KEY` are set as Docker build args, not runtime env vars. Changing them requires a rebuild.
-
-6. **WeasyPrint needs system libs**: PDF generation (`backend/core/proposal_generator.py`) requires Cairo, Pango, GDK-Pixbuf. The backend Dockerfile installs these. Local dev on macOS: `brew install pango gdk-pixbuf cairo`.
-
-7. **ARQ worker timeout**: `job_timeout=240s`, `max_tries=2`, `retry_delay=15s`. Tasks are idempotent — retry is safe because services check `since_dt` guards. A minute-level cron (`reconcile_audits`) closes orphaned audit jobs.
-
-8. **Search enrichment is best-effort**: each search runs exactly 1 batch SERP call (`fetch_serp_data` + `apply_serp_data`) plus free HTML site fetches (`analyze_sites(check_index=False)` — no per-lead SerpAPI credits). Both are wrapped in try/except; enrichment failure must never fail the search. These enrichers were dead code (zero callers) for a long time — grep for callers before assuming a pipeline stage actually runs.
-
-9. **`source_data` round-trip**: the search response returns each lead's full enriched dict as `source_data`; the frontend sends it back in `LeadCreate`, and `lead_to_core_dict` merges it so the audit inherits Maps velocity, `site_durumu`, and SERP fields instead of losing them at save.
-
-## Test setup
-
-- Unit tests: no infrastructure needed. conftest sets dummy env vars (`APP_ENV=test`, empty API keys).
-- Integration tests: need Postgres (conftest `db_engine` fixture skips if unreachable). CI spins up `postgres:16-alpine` and runs `alembic upgrade head` before pytest.
-- `requirements-test.txt` includes `requirements.txt` + pytest — use it for CI-like installs.
-- Integration tests use `clean_db` fixture (explicit opt-in, not autouse) to TRUNCATE tables between tests.
-
-## Production verification (live e2e)
-
-- Production API: `https://agencyos-bot-production.up.railway.app`, header `X-API-Key: test123` (exact literal). Note: `agencyos.up.railway.app` is a *different* Express service with a `{success,data,meta}` envelope — wrong target.
-- **Push to `main` = deploy**: Railway auto-deploys the backend, Vercel builds the frontend. No manual deploy step.
-- Unit tests cannot catch pipeline-wiring bugs — twice, scoring worked in search but never reached `audit.result`. Before claiming a scoring/pipeline change works, run the live probe:
-
-```sh
-python backend/tests/night_audit_test.py   # search → save lead → run audit → assert audit.result.advanced_signals
-```
-
-- `/api/search` caches in Redis; pass `"force_refresh": true` in the body to bypass the cache when verifying fresh code.
-
-## AI integration
-
-- **Claude** (Anthropic SDK): audit generation, outreach writing, proposal narrative, hook engine. Model set via `CLAUDE_MODEL` (default `claude-sonnet-4-6`). Prompts live in `backend/core/prompts.py`.
-- **OpenAI**: voice STT (Whisper) and TTS (`tts-1`, `nova` voice). Optional — only needed for voice assistant.
-- **Apify**: Google Maps scraping for lead collection. Token via `APIFY_API_TOKEN`.
-- **Cost tracking**: `backend/services/cost_tracker.py` logs every external API call. `DAILY_BUDGET_USD > 0` triggers Telegram admin alarm at 80% spend.
-
-## Key env vars (see `.env.example` for full list)
+### Key environment variables
 
 | Var | Required | Notes |
 |-----|----------|-------|
-| `DATABASE_URL` | Yes | `postgresql+asyncpg://…` — alembic also reads this |
+| `DATABASE_URL` | Yes | `postgresql+asyncpg://…` — Alembic reads it too |
 | `REDIS_URL` | Yes | ARQ worker + job queue |
-| `AGENCYOS_API_KEY` | Yes | Must not be `changeme` in production (startup abort) |
-| `CLAUDE_API_KEY` | Yes | Anthropic SDK |
-| `APIFY_API_TOKEN` | For scraping | Lead collection |
-| `OPENAI_API_KEY` | For voice | STT/TTS only |
-| `PAGESPEED_API_KEY` | Optional | PageSpeed Insights audit data |
-| `TELEGRAM_BOT_TOKEN` | For bot | Telegram notifications + bot |
-| `RUN_EMBEDDED_WORKER` | No | `0` in Docker Compose (separate worker); `1` (default) in single-container |
+| `AGENCYOS_API_KEY` | Yes | Production startup aborts while it is empty or `changeme` (`backend/main.py`) |
+| `CLAUDE_API_KEY` | Yes | Anthropic SDK (audit/outreach/proposal) |
+| `APIFY_API_TOKEN` | For Maps collection | Preferred Google Maps collector |
+| `SERPAPI_API_KEY` | For search | Maps fallback, SERP enrichment, market evidence |
+| `OPENAI_API_KEY` | Voice only | STT/TTS |
+| `PAGESPEED_API_KEY` | Optional | PageSpeed audit data |
+| `TELEGRAM_BOT_TOKEN` | Bot only | Notifications |
+| `RUN_EMBEDDED_WORKER` | No | `0` in Compose (separate worker); `1` (default) single-container |
 
-## Deployment
+See `.env.example` for the full list.
 
-- **Railway**: `railway.toml` points to `backend/Dockerfile`. Entry point is `entrypoint.sh` (migrations → optional embedded worker → uvicorn).
-- **Docker Compose**: full stack with separate worker service. See `docker-compose.yml`.
-- **CI**: `.github/workflows/ci.yml` — runs on `main` and `claude/**` branches. Backend tests only (no frontend CI).
+## Stable contracts and data flow
 
-## Next.js caveat
+- Trigger endpoints keep the job envelope `{ "job_id": "uuid", "status": "completed|pending", "result": {} }`. Keep `status/progress_pct/progress_message/error_message/started_at/finished_at` aligned across models, jobs, API, and frontend.
+- Register every new ORM model in `backend/models/__init__.py` so Alembic sees it. `backend/entrypoint.sh` migrates before starting the API; the Compose worker overrides that entrypoint and does not run migrations itself.
+- ARQ uses `job_timeout=240`, `max_tries=2`, and `retry_delay=15`. Retry safety depends on the existing `since_dt` idempotency guards. A minute-level reconciliation cron closes orphaned audit jobs.
+- Search returns the full enriched lead as `source_data`; the frontend must send it back in `LeadCreate`, and `lead_to_core_dict` must merge it. Dropping this round trip silently removes Maps, site, and SERP signals before audit.
+- Advanced scoring flows through search enrichment → `advanced_signals.py` → `lead_scorer.py` → `audit.result.advanced_signals`. Audit rows are created before scoring, so the service must merge the signals and call `AuditRepository.update(...)` afterward.
+- Advanced-scoring signal paths: viewport `site_data["technical"]["viewport_present"]`, social links `instagram_link`/`facebook_link` from fetched site data.
+- Before assuming a pipeline stage actually runs, grep for its callers — enrichment stages were dead code with zero callers for a long time (fixed in `aa73cbc`).
+- `market_evidence` is not in scorer SERP format; use `serp_like_from_market()`. Social scoring falls back to fetched Instagram/Facebook links because no producer currently fills `instagram_post_90d`.
 
-`frontend/AGENTS.md` warns that Next.js 16 may have breaking changes from training data. Read `node_modules/next/dist/docs/` before writing frontend code. `frontend/CLAUDE.md` is just `@AGENTS.md`.
+## Testing and deployment
 
-## Related instruction files
+- Unit tests need no infrastructure. Integration tests request `db_engine` and skip when PostgreSQL is unavailable; CI starts PostgreSQL and runs `alembic upgrade head` first.
+- `backend/pytest.ini` deliberately gives async fixtures and tests one session-scoped event loop. Do not override fixture loop scopes. `clean_db` is explicit, not autouse.
+- CI runs backend tests only. For frontend changes, run both lint and build locally; build is the available TypeScript verification. Frontend lint currently has a baseline of 7 errors / 6 warnings — compare against it before blaming your change.
+- Production API: `https://agencyos-bot-production.up.railway.app` with header `X-API-Key` set from `AGENCYOS_API_KEY`. `agencyos.up.railway.app` is a *different* Express service with a `{success,data,meta}` envelope — the wrong target for probes.
+- Pushes to `main` deploy the backend to Railway and build the frontend on Vercel. Railway uses `backend/Dockerfile`; single-container startup embeds the ARQ worker by default, while Compose sets `RUN_EMBEDDED_WORKER=0` and runs a separate worker.
+- Scoring/pipeline wiring needs more than unit tests. With explicit approval to mutate production and spend provider credits, run `python backend/tests/night_audit_test.py`; it forces a fresh search, creates/reuses a lead, runs an audit, and checks persisted advanced signals.
 
-- Root `CLAUDE.md` — Turkish project memory, expected to be updated after each completed step; keep it current when finishing work. This `AGENTS.md` complements it without duplication.
-- The owner communicates in Turkish; code, identifiers, and commit messages stay English (conventional commits, e.g. `fix(scoring): …`).
+## Working conventions
 
-## Lead Scoring Engine (Advanced Micro-Scoring)
-
-4 yeni kriter `backend/core/advanced_signals.py`'da hesaplanır ve `lead_scorer.py`'ye entegre edilir:
-
-| Kriter | Skorlama Katmanı | Frontend Component |
-|--------|-----------------|-------------------|
-| Rekabet Yoğunluğu | Opportunity (+12 max) | `AdvancedScores` — Swords icon |
-| PPC İsrafı | Pattern (+5% max) | `AdvancedScores` — Megaphone icon |
-| Sosyal Uyuşmazlık | Intent (+10 max) | `AdvancedScores` — Share2 icon |
-| E-Ticaret Aciliyeti | Opportunity (+15 max) | `AdvancedScores` — ShoppingCart icon |
-
-**Frontend entegrasyonu:**
-- `components/ui/advanced-scores.tsx` — yeniden kullanılabilir skor bileşeni (compact + expanded modu)
-- `app/search/result-card.tsx` — arama sonuçlarında compact badge + expanded bar
-- `app/leads/[id]/page.tsx` — audit bölümünde 4'lü skor paneli
-- `types/index.ts` — `SearchResultItem` interface'inde 4 yeni skor alanı
-
-**Veri akışı:** search enrichment (`serp_enricher` + `site_analyzer` HTML sinyalleri) → `advanced_signals.py` (SERP verisi yoksa `serp_like_from_market(market)` ile `market_evidence`'ten serp-formatına çevrilir) → `lead_scorer.py` → `audit.result` JSONB → frontend
-
-**Kaçırılması kolay doğrular:**
-
-- **Audit iki fazda yazılır**: audit satırı skorlamadan *önce* oluşur. `advanced_signals` hesaplandıktan sonra `audit_result`'a merge edilip `AuditRepository.update(...)` ile yazılmalı — aksi halde skorlar hesaplansa bile frontend paneli (`audit.result.advanced_signals`) boş kalır.
-- **`instagram_post_90d`'nın hiçbir üreticisi yok** kod tabanında → sosyal skor, fetch edilen HTML'de bulunan `has_instagram`/`has_facebook` profil linklerinden fallback alır (eşik 8).
-- Sinyal yolları: viewport `site_data["technical"]["viewport_present"]`; social linkler `fetch_site_data` çıktısı (`instagram_link`/`facebook_link`).
-- `market_evidence` çıktısı scorer'ın beklediği serp formatından farklıdır — arada `serp_like_from_market()` çevirisi vardır (ilk 5 organik domain = strong competitor).
+- The owner communicates in Turkish; keep code, identifiers, and conventional commit messages in English.
+- `CLAUDE.md` is historical project memory (milestone and status notes), not the current rulebook; this file and executable config/current code are authoritative whenever anything conflicts.

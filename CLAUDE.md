@@ -1,7 +1,7 @@
 # AgencyOS — Proje Hafızası
 
 Bu dosya her yeni Claude oturumunda projeyi sıfırdan açıklamak zorunda kalmamak için tutulur.
-**Her tamamlanan adımdan sonra güncellenir.**
+**Tarihsel proje hafızasıdır; güncel kural ve dosya ağacı `AGENTS.md`'dedir.** Çelişki halinde `AGENTS.md` ve çalışan kod esastır. Bu dosyaya milestone/durum notları eklenir, adım adım sürekli güncellenmez.
 
 ---
 
@@ -56,8 +56,9 @@ AgencyOS, yapay zeka destekli tam otonom bir freelance dijital ajans sistemidir.
 ## Klasör Yapısı
 
 ```
-agencyos-bot/
-├── CLAUDE.md                    ← bu dosya
+agency/
+├── CLAUDE.md                    ← bu dosya (tarihsel hafıza)
+├── AGENTS.md                    ← güncel kural ve dosya ağacı
 ├── .env.example
 │
 ├── backend/                     ← FastAPI uygulaması
@@ -66,44 +67,23 @@ agencyos-bot/
 │   ├── database.py              # SQLAlchemy async engine + get_db()
 │   ├── logging_config.py        # stdout + file logging
 │   ├── alembic.ini
-│   │
-│   ├── middleware/
-│   │   └── auth.py              # X-API-Key kontrolü
-│   │
-│   ├── api/routes/
-│   │   └── health.py            # GET /health
-│   │
-│   ├── models/                  # SQLAlchemy ORM (6 tablo)
-│   │   ├── mixins.py            # UUIDPrimaryKey, TimestampMixin
-│   │   ├── lead.py
-│   │   ├── audit.py
-│   │   ├── outreach.py
-│   │   ├── proposal.py
-│   │   ├── job.py               # status/progress/error tracking
-│   │   └── activity_log.py      # immutable event log
-│   │
-│   ├── repositories/            # data access layer
-│   │   ├── base.py              # generic CRUD
-│   │   ├── lead.py              # filter(), pipeline_counts(), get_hot()
-│   │   └── job.py               # mark_running/progress/completed/failed
-│   │
-│   ├── core/                    # Step 3'te buraya taşınacak
-│   │   └── (mevcut bot core/ buraya gelecek)
-│   │
-│   ├── jobs/                    # Step 5'te oluşacak (ARQ workers)
-│   └── migrations/
-│       └── versions/
-│           └── 0001_initial_schema.py
+│   ├── middleware/auth.py       # X-API-Key kontrolü
+│   ├── api/routes/              # HTTP endpoint'leri (health, search, voice, ...)
+│   ├── models/                  # SQLAlchemy ORM (lead, audit, outreach, proposal, job, activity_log)
+│   ├── repositories/            # data access layer (base, lead, job, ...)
+│   ├── core/                    # framework-agnostic iş kuralları (prompts, scorer, enrichers, ...)
+│   ├── services/                # orchestration (audit, outreach, proposal, cost tracker, ...)
+│   ├── jobs/                    # ARQ workers + task'lar
+│   ├── playbooks/*.json         # sektör konfigürasyonları
+│   ├── migrations/versions/     # Alembic migration'ları
+│   └── tests/                   # unit + integration + night_audit_test.py
 │
-├── frontend/                    ← Step 6'da oluşacak (Next.js)
-│
-└── (eski bot dosyaları — Step 3'te taşınacak)
-    ├── bot/
-    ├── core/
-    ├── crm/
-    ├── playbooks/
-    └── main.py
+├── frontend/                    ← Next.js 16 / React 19 (app/, components/, types/)
+├── bot/ + main.py               ← opsiyonel Telegram client (backend API'yi çağırır)
+└── Dockerfile.bot, docker-compose.yml, railway.toml, .github/workflows/ci.yml
 ```
+
+Root `core/`, `crm/`, `agencyos-bot-main/` ve `.test-tools/agencyos-github/` eski/kalan dizinlerdir — düzenlenmez; bkz. `AGENTS.md`.
 
 ---
 
@@ -186,7 +166,7 @@ curl http://localhost:8000/health
 ## Prompt Mühendisliği Notları
 
 ### Audit prompt (v2)
-- `core/prompts.py` → `AUDIT_PROMPT`
+- `backend/core/prompts.py` → `AUDIT_PROMPT`
 - Çıktı: `ilk_izlenim`, `killer_insight`, `ux_hatalar` (siddet), `seo_aciklar`,
   `donusum_engelleri`, `hizli_kazanimlar`, `skorlar`, `urgency`, `lead_kalitesi`,
   `en_acitan_nokta`, `kisisel_insight`
@@ -266,14 +246,14 @@ curl http://localhost:8000/health
 | `backend/database.py` | DB engine + `get_db()` |
 | `backend/models/job.py` | Job status modeli |
 | `backend/repositories/lead.py` | Pipeline queries |
-| `core/prompts.py` | Tüm Claude prompt'ları |
-| `core/audit_generator.py` | Site fetch + audit generation |
-| `core/proposal_generator.py` | PDF teklif üretimi |
-| `core/advanced_signals.py` | 4'lü mikro-skoring (rekabet, PPC, sosyal, e-ticaret) |
-| `core/lead_scorer.py` | Ana skorlama motoru (V3 + advanced signals entegrasyonu) |
-| `core/serp_enricher.py` | SERP verisi + rakip domain çıkarma |
+| `backend/core/prompts.py` | Tüm Claude prompt'ları |
+| `backend/core/audit_generator.py` | Site fetch + audit generation |
+| `backend/core/proposal_generator.py` | PDF teklif üretimi |
+| `backend/core/advanced_signals.py` | 4'lü mikro-skoring (rekabet, PPC, sosyal, e-ticaret) |
+| `backend/core/lead_scorer.py` | Ana skorlama motoru (V3 + advanced signals entegrasyonu) |
+| `backend/core/serp_enricher.py` | SERP verisi + rakip domain çıkarma |
 | `backend/tests/night_audit_test.py` | Canlı e2e probe: arama → lead → audit → advanced skorlar |
-| `playbooks/klinik.json` | Klinik sektör konfigürasyonu |
+| `backend/playbooks/klinik.json` | Klinik sektör konfigürasyonu |
 | `backend/api/routes/voice.py` | Sesli asistan backend (STT/TTS/chat) |
 | `frontend/components/voice/voice-assistant.tsx` | Sesli asistan React component |
 | `railway.toml` | Railway deploy config (backend/Dockerfile) |
@@ -295,6 +275,8 @@ Lead skorlama motoruna entegre edilen 4 yeni filtreleme kriteri:
 **Veri akışı:** search enrichment (`serp_enricher` + `site_analyzer` HTML sinyalleri) → `advanced_signals.py` (SERP verisi yoksa `serp_like_from_market(market)` ile `market_evidence`'ten çevrilir) → `lead_scorer.py` → `audit.result` JSONB → frontend
 
 **Durum (25.09.2026) — canlıda doğrulandı ✅:** commit `aa73cbc` enrichment pipeline'ı fiilen bağladı (daha önce `apply_serp_data`/`analyze_sites` hiçbir yerden çağrılmıyordu). Audit iki fazda yazılıyor: skorlama sonrası `advanced_signals` `audit_result`'a merge edilip `AuditRepository.update(...)` ile persist ediliyor — aksi halde frontend paneli boş kalıyor. Canlı doğrulama: `python backend/tests/night_audit_test.py` (Kadıköy restoran: comp=60, ecom=75 audit result'a düştü).
+
+**Son yerel doğrulama (25.09.2026, `697c108` + bu değişiklik):** izole ortamda backend `159 passed, 16 skipped` (PostgreSQL gerektiren entegrasyon testleri skip); frontend production build başarılı. Frontend lint'te mevcut 7 hata/6 uyarı bulunuyor, bu yüzden lint henüz temiz bir baseline değil.
 
 **Serp verisi yoksa:** Rekabet ve PPC sinyalleri doğal olarak 0 kalır (`market status: partial` görülebilir). Sosyal ve e-ticaret sinyalleri Maps/HTML verisiyle çalışır; `instagram_post_90d`'nın üreticisi olmadığı için sosyal skor site HTML'indeki IG/FB profil linklerinden fallback alır (eşik 8).
 
