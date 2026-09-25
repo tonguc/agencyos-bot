@@ -272,6 +272,7 @@ curl http://localhost:8000/health
 | `core/advanced_signals.py` | 4'lü mikro-skoring (rekabet, PPC, sosyal, e-ticaret) |
 | `core/lead_scorer.py` | Ana skorlama motoru (V3 + advanced signals entegrasyonu) |
 | `core/serp_enricher.py` | SERP verisi + rakip domain çıkarma |
+| `backend/tests/night_audit_test.py` | Canlı e2e probe: arama → lead → audit → advanced skorlar |
 | `playbooks/klinik.json` | Klinik sektör konfigürasyonu |
 | `backend/api/routes/voice.py` | Sesli asistan backend (STT/TTS/chat) |
 | `frontend/components/voice/voice-assistant.tsx` | Sesli asistan React component |
@@ -291,8 +292,10 @@ Lead skorlama motoruna entegre edilen 4 yeni filtreleme kriteri:
 | Sosyal Medya Uyuşmazlığı | Intent (+10 max) | 0–100 | IG/FB aktif ama site dönüşümsüz firmalar |
 | E-Ticaret Aciliyeti | Opportunity (+15 max) | 0–100 | Yüksek e-ticaret potansiyeli ama fiziksel-only firmalar |
 
-**Veri akışı:** SerpAPI → `serp_enricher` (strong_competitor_domains) → `advanced_signals.py` (4 skor) → `lead_scorer.py` (Opportunity/Intent/Pattern katmanlarına enjekte)
+**Veri akışı:** search enrichment (`serp_enricher` + `site_analyzer` HTML sinyalleri) → `advanced_signals.py` (SERP verisi yoksa `serp_like_from_market(market)` ile `market_evidence`'ten çevrilir) → `lead_scorer.py` → `audit.result` JSONB → frontend
 
-**Serp verisi yoksa:** Rekabet ve PPC sinyalleri doğal olarak 0 kalır. Sosyal ve e-ticaret sinyalleri Maps verisiyle çalışır.
+**Durum (25.09.2026) — canlıda doğrulandı ✅:** commit `aa73cbc` enrichment pipeline'ı fiilen bağladı (daha önce `apply_serp_data`/`analyze_sites` hiçbir yerden çağrılmıyordu). Audit iki fazda yazılıyor: skorlama sonrası `advanced_signals` `audit_result`'a merge edilip `AuditRepository.update(...)` ile persist ediliyor — aksi halde frontend paneli boş kalıyor. Canlı doğrulama: `python backend/tests/night_audit_test.py` (Kadıköy restoran: comp=60, ecom=75 audit result'a düştü).
+
+**Serp verisi yoksa:** Rekabet ve PPC sinyalleri doğal olarak 0 kalır (`market status: partial` görülebilir). Sosyal ve e-ticaret sinyalleri Maps/HTML verisiyle çalışır; `instagram_post_90d`'nın üreticisi olmadığı için sosyal skor site HTML'indeki IG/FB profil linklerinden fallback alır (eşik 8).
 
 **E-ticaret sektörleri:** guzellik, klinik, kadin_dogum, oto_servis, klima_beyaz_esya, ev_hizmetleri, restoran, egitim

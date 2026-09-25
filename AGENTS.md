@@ -14,6 +14,8 @@ Two-process monorepo with an optional Telegram bot:
 
 `backend/services/` — orchestration layer between routes/jobs and core (audit, outreach, proposal, lead, cost tracker, notifications).
 
+**Root-level traps**: `core/` and `crm/` at repo root are **empty leftovers** — real code is `backend/core/`. `agencyos-bot-main/` is a stale full copy of the repo; never edit files there. `artifacts/` and `output/` are scratch. `.test-tools/` holds local helper scripts/caches.
+
 ## Commands
 
 ### Backend
@@ -40,7 +42,7 @@ pytest tests/test_playbook.py -v       # single file
 pytest -k "test_name" -v              # single test
 ```
 
-`backend/pytest.ini` sets `asyncio_mode = auto` and `asyncio_default_fixture_loop_scope = session`. All async tests run in a shared event loop. Don't override loop scope in fixtures.
+`backend/pytest.ini` sets `asyncio_mode = auto` and session loop scope for both fixtures and tests (`asyncio_default_fixture_loop_scope`, `asyncio_default_test_loop_scope`). All async tests run in one shared event loop — don't override loop scope in fixtures.
 
 ### Frontend
 
@@ -78,12 +80,28 @@ The `api` service sets `RUN_EMBEDDED_WORKER=0` because the `worker` service runs
 
 7. **ARQ worker timeout**: `job_timeout=240s`, `max_tries=2`, `retry_delay=15s`. Tasks are idempotent — retry is safe because services check `since_dt` guards. A minute-level cron (`reconcile_audits`) closes orphaned audit jobs.
 
+8. **Search enrichment is best-effort**: each search runs exactly 1 batch SERP call (`fetch_serp_data` + `apply_serp_data`) plus free HTML site fetches (`analyze_sites(check_index=False)` — no per-lead SerpAPI credits). Both are wrapped in try/except; enrichment failure must never fail the search. These enrichers were dead code (zero callers) for a long time — grep for callers before assuming a pipeline stage actually runs.
+
+9. **`source_data` round-trip**: the search response returns each lead's full enriched dict as `source_data`; the frontend sends it back in `LeadCreate`, and `lead_to_core_dict` merges it so the audit inherits Maps velocity, `site_durumu`, and SERP fields instead of losing them at save.
+
 ## Test setup
 
 - Unit tests: no infrastructure needed. conftest sets dummy env vars (`APP_ENV=test`, empty API keys).
 - Integration tests: need Postgres (conftest `db_engine` fixture skips if unreachable). CI spins up `postgres:16-alpine` and runs `alembic upgrade head` before pytest.
 - `requirements-test.txt` includes `requirements.txt` + pytest — use it for CI-like installs.
 - Integration tests use `clean_db` fixture (explicit opt-in, not autouse) to TRUNCATE tables between tests.
+
+## Production verification (live e2e)
+
+- Production API: `https://agencyos-bot-production.up.railway.app`, header `X-API-Key: test123` (exact literal). Note: `agencyos.up.railway.app` is a *different* Express service with a `{success,data,meta}` envelope — wrong target.
+- **Push to `main` = deploy**: Railway auto-deploys the backend, Vercel builds the frontend. No manual deploy step.
+- Unit tests cannot catch pipeline-wiring bugs — twice, scoring worked in search but never reached `audit.result`. Before claiming a scoring/pipeline change works, run the live probe:
+
+```sh
+python backend/tests/night_audit_test.py   # search → save lead → run audit → assert audit.result.advanced_signals
+```
+
+- `/api/search` caches in Redis; pass `"force_refresh": true` in the body to bypass the cache when verifying fresh code.
 
 ## AI integration
 
@@ -114,7 +132,12 @@ The `api` service sets `RUN_EMBEDDED_WORKER=0` because the `worker` service runs
 
 ## Next.js caveat
 
-`frontend/AGENTS.md` warns that Next.js 16 may have breaking changes from training data. Read `node_modules/next/dist/docs/` before writing frontend code. The frontend CLAUDE.md just references this AGENTS.md.
+`frontend/AGENTS.md` warns that Next.js 16 may have breaking changes from training data. Read `node_modules/next/dist/docs/` before writing frontend code. `frontend/CLAUDE.md` is just `@AGENTS.md`.
+
+## Related instruction files
+
+- Root `CLAUDE.md` — Turkish project memory, expected to be updated after each completed step; keep it current when finishing work. This `AGENTS.md` complements it without duplication.
+- The owner communicates in Turkish; code, identifiers, and commit messages stay English (conventional commits, e.g. `fix(scoring): …`).
 
 ## Lead Scoring Engine (Advanced Micro-Scoring)
 
@@ -133,4 +156,11 @@ The `api` service sets `RUN_EMBEDDED_WORKER=0` because the `worker` service runs
 - `app/leads/[id]/page.tsx` — audit bölümünde 4'lü skor paneli
 - `types/index.ts` — `SearchResultItem` interface'inde 4 yeni skor alanı
 
-**Veri akışı:** `serp_enricher` → `advanced_signals.py` → `lead_scorer.py` → `audit.result` JSONB → frontend API
+**Veri akışı:** search enrichment (`serp_enricher` + `site_analyzer` HTML sinyalleri) → `advanced_signals.py` (SERP verisi yoksa `serp_like_from_market(market)` ile `market_evidence`'ten serp-formatına çevrilir) → `lead_scorer.py` → `audit.result` JSONB → frontend
+
+**Kaçırılması kolay doğrular:**
+
+- **Audit iki fazda yazılır**: audit satırı skorlamadan *önce* oluşur. `advanced_signals` hesaplandıktan sonra `audit_result`'a merge edilip `AuditRepository.update(...)` ile yazılmalı — aksi halde skorlar hesaplansa bile frontend paneli (`audit.result.advanced_signals`) boş kalır.
+- **`instagram_post_90d`'nın hiçbir üreticisi yok** kod tabanında → sosyal skor, fetch edilen HTML'de bulunan `has_instagram`/`has_facebook` profil linklerinden fallback alır (eşik 8).
+- Sinyal yolları: viewport `site_data["technical"]["viewport_present"]`; social linkler `fetch_site_data` çıktısı (`instagram_link`/`facebook_link`).
+- `market_evidence` çıktısı scorer'ın beklediği serp formatından farklıdır — arada `serp_like_from_market()` çevirisi vardır (ilk 5 organik domain = strong competitor).
