@@ -1,7 +1,7 @@
 # AgencyOS — Proje Hafızası
 
 Bu dosya her yeni Claude oturumunda projeyi sıfırdan açıklamak zorunda kalmamak için tutulur.
-**Tarihsel proje hafızasıdır; güncel kural ve dosya ağacı `AGENTS.md`'dedir.** Çelişki halinde `AGENTS.md` ve çalışan kod esastır. Bu dosyaya milestone/durum notları eklenir, adım adım sürekli güncellenmez.
+**Tarihsel proje hafızasıdır; güncel kural `AGENTS.md`'dedir, güncel dosya yapısının kısa ağacı ise aşağıda "Klasör Yapısı" bölümündedir.** Çelişki halinde `AGENTS.md` ve çalışan kod esastır. Bu dosyaya milestone/durum notları eklenir, adım adım sürekli güncellenmez.
 
 ---
 
@@ -18,7 +18,7 @@ AgencyOS, yapay zeka destekli tam otonom bir freelance dijital ajans sistemidir.
 
 ## Ne Yapıyor?
 
-1. **Lead Bulucu** — Google Maps / LinkedIn'den nitelikli müşteri adayı toplar
+1. **Lead Bulucu** — Google Maps'ten (Apify/SerpAPI, bkz. `AGENTS.md`) nitelikli müşteri adayı toplar; LinkedIn entegrasyonu hedef/plan, mevcut yetenek değil
 2. **Audit Engine** — Müşterinin web sitesini analiz eder, somut bulgular çıkarır
 3. **Hook Engine** — Bulgulara göre satış hook'u seçer ve yazar
 4. **Outreach Writer** — 4 farklı versiyonda kişiselleştirilmiş mesaj üretir
@@ -58,7 +58,7 @@ AgencyOS, yapay zeka destekli tam otonom bir freelance dijital ajans sistemidir.
 ```
 agency/
 ├── CLAUDE.md                    ← bu dosya (tarihsel hafıza)
-├── AGENTS.md                    ← güncel kural ve dosya ağacı
+├── AGENTS.md                    ← güncel kural özeti (yetkili kaynak)
 ├── .env.example
 │
 ├── backend/                     ← FastAPI uygulaması
@@ -120,11 +120,12 @@ Step 4 sync → Step 5 async geçişte dış API değişmez.
 ```python
 # YASAK:
 from fastapi import ...
+from starlette import ...
 from arq import ...
 from telegram import ...
 ```
 Core sadece `dict / str / int` alır, `dict / str` döner.
-Framework glue tamamen `routes/`, `jobs/`, `telegram/` katmanlarında.
+Framework glue tamamen `routes/` ve `jobs/` katmanlarında; Telegram tarafı `bot/` içinde ayrı bir servis olarak yaşar ve backend'e yalnızca HTTP üzerinden çağırır.
 
 ---
 
@@ -161,6 +162,8 @@ alembic upgrade head
 curl http://localhost:8000/health
 ```
 
+> **.env tuzağı:** `backend/config.py` `.env`'i çalışma dizinine göre yükler; `cd backend && uvicorn ...` repo kökündeki `.env`'i otomatik görmez. Ortam değişkenlerini verin veya `backend/` altına `.env` koyun (bkz. `AGENTS.md`).
+
 ---
 
 ## Prompt Mühendisliği Notları
@@ -186,6 +189,8 @@ curl http://localhost:8000/health
 ---
 
 ## Model Seçimi
+
+> **Tarihsel not:** Aşağıdaki tablo o dönemin rehberidir; Step 5 ve 8 tamamlanmıştır. Bu dosya güncel model talimatı vermez — model seçimi oturum/kendi ayarından yönetilir.
 
 | Görev | Model |
 |-------|-------|
@@ -232,7 +237,7 @@ curl http://localhost:8000/health
 - `frontend/app/jobs/page.tsx` — 3s auto-refresh, query label gösterimi
 
 ### Deploy Notu
-- `backend/entrypoint.sh` hem uvicorn hem ARQ worker'ı başlatıyor (tek container)
+- `backend/entrypoint.sh` migration + uvicorn başlatır; gömülü ARQ worker varsayılan açıktır ve `RUN_EMBEDDED_WORKER=0` ile kapanır. Compose bunu `0` yapar ve worker'ı ayrı servis olarak çalıştırır; o servis entrypoint'i override ettiği için migration'ı o yapmaz (ayrıntı: `AGENTS.md`).
 - `railway.toml` repo kökünde — `backend/Dockerfile` kullan der
 - `OPENAI_API_KEY` Railway Variables'a eklenmiş
 
@@ -257,7 +262,7 @@ curl http://localhost:8000/health
 | `backend/api/routes/voice.py` | Sesli asistan backend (STT/TTS/chat) |
 | `frontend/components/voice/voice-assistant.tsx` | Sesli asistan React component |
 | `railway.toml` | Railway deploy config (backend/Dockerfile) |
-| `backend/entrypoint.sh` | Startup: migration + ARQ worker + uvicorn |
+| `backend/entrypoint.sh` | Startup: migration + uvicorn (+ gömülü ARQ worker, `RUN_EMBEDDED_WORKER`) |
 
 ---
 
@@ -276,8 +281,8 @@ Lead skorlama motoruna entegre edilen 4 yeni filtreleme kriteri:
 
 **Durum (25.09.2026) — canlıda doğrulandı ✅:** commit `aa73cbc` enrichment pipeline'ı fiilen bağladı (daha önce `apply_serp_data`/`analyze_sites` hiçbir yerden çağrılmıyordu). Audit iki fazda yazılıyor: skorlama sonrası `advanced_signals` `audit_result`'a merge edilip `AuditRepository.update(...)` ile persist ediliyor — aksi halde frontend paneli boş kalıyor. Canlı doğrulama: `python backend/tests/night_audit_test.py` (Kadıköy restoran: comp=60, ecom=75 audit result'a düştü).
 
-**Son yerel doğrulama (25.09.2026, `697c108` + bu değişiklik):** izole ortamda backend `159 passed, 16 skipped` (PostgreSQL gerektiren entegrasyon testleri skip); frontend production build başarılı. Frontend lint'te mevcut 7 hata/6 uyarı bulunuyor, bu yüzden lint henüz temiz bir baseline değil.
+**Son yerel doğrulama (25.09.2026, `697c108` üzerinde, `95993f9` ile belgelendi):** izole ortamda backend `159 passed, 16 skipped` (PostgreSQL gerektiren entegrasyon testleri skip); frontend production build başarılı. Frontend lint baseline'ı (7 hata/6 uyarı) yalnızca `AGENTS.md`'de tutulur.
 
-**Serp verisi yoksa:** Rekabet ve PPC sinyalleri doğal olarak 0 kalır (`market status: partial` görülebilir). Sosyal ve e-ticaret sinyalleri Maps/HTML verisiyle çalışır; `instagram_post_90d`'nın üreticisi olmadığı için sosyal skor site HTML'indeki IG/FB profil linklerinden fallback alır (eşik 8).
+**Serp verisi yoksa:** `serp_like_from_market(market_evidence)` varsa Rekabet ve PPC bu veriden hesaplanır; SerpAPI *ve* market evidence de yoksa ikisi 0 kalır (`market status: partial` görülebilir). Sosyal ve e-ticaret sinyalleri Maps/HTML verisiyle çalışır; `instagram_post_90d`'nın üreticisi olmadığı için sosyal skor site HTML'indeki IG/FB profil linklerinden fallback alır (eşik 8).
 
 **E-ticaret sektörleri:** guzellik, klinik, kadin_dogum, oto_servis, klima_beyaz_esya, ev_hizmetleri, restoran, egitim
