@@ -198,12 +198,21 @@ export default function ScrapePage() {
   const [loading, setLoading] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<Job | null>(null);
+  const [submittedParams, setSubmittedParams] = useState<{ sector: string; city: string; district: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const stopPolling = useCallback(() => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
   }, []);
+
+  const leadsPath = useCallback(() => {
+    if (!submittedParams) return "/jobs";
+    const params = new URLSearchParams({ sector: submittedParams.sector });
+    if (submittedParams.city) params.set("city", submittedParams.city);
+    if (submittedParams.district) params.set("district", submittedParams.district);
+    return `/leads?${params.toString()}`;
+  }, [submittedParams]);
 
   useEffect(() => {
     if (!jobId) return;
@@ -214,13 +223,13 @@ export default function ScrapePage() {
         if (job.status === "completed" || job.status === "failed") {
           stopPolling();
           if (job.status === "completed") {
-            setTimeout(() => router.push("/jobs"), 2500);
+            setTimeout(() => router.push(leadsPath()), 2500);
           }
         }
       } catch { stopPolling(); }
     }, 3000);
     return stopPolling;
-  }, [jobId, stopPolling, router]);
+  }, [jobId, stopPolling, router, leadsPath]);
 
   const cities = Object.keys(CITIES).sort((a, b) => a.localeCompare(b, "tr"));
   const districts = city ? (CITIES[city] ?? []) : [];
@@ -248,9 +257,11 @@ export default function ScrapePage() {
     setError(null);
     setJobId(null);
     setJobStatus(null);
+    setSubmittedParams(null);
     stopPolling();
     try {
       const res = await scrapeApi.run(sector, city, district, limit);
+      setSubmittedParams({ sector, city, district });
       setJobId(res.job_id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Hata oluştu");
@@ -395,7 +406,7 @@ export default function ScrapePage() {
             </div>
             <button
               type="button"
-              onClick={() => router.push("/jobs")}
+              onClick={() => router.push(leadsPath())}
               className="font-mono text-[11px] uppercase tracking-wider px-4 py-1.5 border border-accent/40 text-accent hover:bg-accent/10 transition-all whitespace-nowrap shrink-0"
             >
               Fırsatlara Git →
